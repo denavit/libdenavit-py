@@ -1,1 +1,1 @@
-from .aisc import angle_database,double_angle_database
+from .aisc import angle_database,double_angle_database,wide_flange_database
