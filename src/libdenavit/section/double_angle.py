@@ -1,6 +1,6 @@
 import dataclasses
 from math import sqrt,atan,radians,tan
-
+from . import Angle
 from . import database
 
 
@@ -109,3 +109,33 @@ class DoubleAngle:
     @property
     def ry(self):
         return sqrt(self.Iy/self.A)
+    
+    @property
+    def rz_single(self):
+        a = Angle(self.b,self.d,self.t)
+        return a.rz
+    
+    @property
+    def J(self):
+        # CISC. (2002). Torsional Section Properties of Steel Shapes. Canadian Institute of Steel Construction, Ontario, Canada.
+        d_d = self.d-(self.t/2)
+        b_d = self.b-(self.t/2)
+        J = 2*((d_d+b_d)*(self.t**3)/3)
+        return J
+    
+    @property
+    def yo(self):
+        yo = self.y_bar- self.t/2
+        return yo
+    
+    @property
+    def ro(self):
+        # Note xo = 0
+        ro = sqrt(self.yo**2 + (self.Ix+self.Iy)/self.A)
+        return ro
+    
+    @property
+    def H(self):
+        # Note xo = 0
+        H = 1 - (self.yo**2/self.ro**2)
+        return H

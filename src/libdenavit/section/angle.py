@@ -129,7 +129,10 @@ class Angle:
 
     @property
     def J(self):
-        J = (((self.b)+(self.d))*self.t**3)/3
+        # CISC. (2002). Torsional Section Properties of Steel Shapes. Canadian Institute of Steel Construction, Ontario, Canada.
+        d_d = self.d-(self.t/2)
+        b_d = self.b-(self.t/2)
+        J = (d_d+b_d)*(self.t**3)/3
         return J
 
     @property

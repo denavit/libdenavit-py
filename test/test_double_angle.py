@@ -1,7 +1,7 @@
 from libdenavit.section import DoubleAngle
 from libdenavit.section.database import double_angle_database
 
-properties = ['A', 'y_bar', 'yp', 'Ix', 'Zx', 'Sx', 'rx', 'Iy', 'Zy', 'Sy', 'ry']
+properties = ['A', 'y_bar', 'yp', 'Ix', 'Zx', 'Sx', 'rx', 'Iy', 'Zy', 'Sy', 'ry', 'ro', 'H']
 
 for prop in properties:
     print('\n=== Checking %s ===' % prop)
