@@ -1,0 +1,1 @@
+from .tools import available_strength
