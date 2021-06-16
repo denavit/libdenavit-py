@@ -1,8 +1,8 @@
 import dataclasses
-from math import sqrt,atan,radians,tan
+from math import pi,sqrt,atan,radians,tan
 from . import Angle
 from . import database
-
+from ..design import available_strength
 
 # Dataclasses give some nice benefits for simple classes, like an automatic
 # __repr__. So when printing the object in the console you'll get 
@@ -139,3 +139,42 @@ class DoubleAngle:
         # Note xo = 0
         H = 1 - (self.yo**2/self.ro**2)
         return H
+        
+        
+class DoubleAngleMember_SJI2020:
+    def __init__(self,section,Fy,E,L,strength_type):
+        self.section = section
+        self.Fy = Fy
+        self.E = E
+        self.L = L
+        self.strength_type = strength_type
+
+    def Pnt(self):
+        Pn = self.Fy*self.section.A
+        return available_strength(Pn,self.strength_type,0.9,1.67)
+
+    def Pnc(self):
+        # Currently assumes that a sufficient number of fillers are provided
+        # such that buckling of individual angle (rz) does not control
+        # @todo - add buckling of individual angle     
+        
+        b_over_t = max(self.section.d,self.section.b)/self.section.t
+        if b_over_t <= 0.45*sqrt(self.E/self.Fy):
+            Q = 1.0
+        elif b_over_t <= 0.91*sqrt(self.E/self.Fy):
+            Q = 1.34-0.76*b_over_t*sqrt(self.Fy/self.E)
+        else:
+            Q = 0.53*self.E/(self.Fy*b_over_t**2)
+
+        if self.L == 0.0:
+            Fcr = Q*self.Fy
+        else:
+            KL_over_r = 1.0*self.L/self.section.rx
+            Fe = pi**2*self.E/KL_over_r**2 
+            if KL_over_r <= 4.71*sqrt(self.E/(Q*self.Fy)):
+                Fcr = Q*(0.658**(Q*self.Fy/Fe))*self.Fy
+            else:
+                Fcr = 0.877*Fe
+                
+        Pn = Fcr*self.section.A
+        return available_strength(Pn,self.strength_type,0.9,1.67)

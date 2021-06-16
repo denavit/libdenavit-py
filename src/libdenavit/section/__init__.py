@@ -1,2 +1,2 @@
 from .angle import Angle
-from .double_angle import DoubleAngle
+from .double_angle import DoubleAngle, DoubleAngleMember_SJI2020
