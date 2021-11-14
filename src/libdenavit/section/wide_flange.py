@@ -123,7 +123,7 @@ class WideFlangeMember_AISC2016:
            
     def Pnt(self):
         Pn = self.Fy*self.section.A
-        return  available_strength(Pn,self.strength_type,0.9,1.67)
+        return available_strength(Pn,self.strength_type,0.9,1.67)
 
     def Pnc(self,Lcx,Lcy):
         # Does not compute torsional buckling
@@ -181,3 +181,16 @@ class WideFlangeMember_AISC2016:
                 
         return available_strength(Mn,self.strength_type,0.9,1.67)
     
+    def Vn(self):
+        Aw = self.section.d*self.section.tw
+        kv = 5.34 # For webs without transverse stiffeners
+        if self.section.h_over_tw <= 2.24*sqrt(self.E/self.Fy):
+            # Cv1 = 1.0
+            Vn = 0.6*self.Fy*Aw
+            return available_strength(Vn,self.strength_type,1.00,1.50)
+        elif self.section.h_over_tw <= 1.10*sqrt(kv*self.E/self.Fy):
+            # Cv1 = 1.0
+            Vn = 0.6*self.Fy*Aw
+            return available_strength(Vn,self.strength_type,0.90,1.67)
+        else:
+            raise Exception('Vn for shear buckling not yet implemented')
