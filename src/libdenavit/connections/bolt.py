@@ -1,6 +1,6 @@
 import dataclasses
 from math import pi
-from ..design import available_strength
+from libdenavit.design import available_strength
 
 d = {
     '1/2':   0.5,
@@ -197,4 +197,14 @@ class Bolt:
         else:
             raise Exception('Unknown hole_type: %s' % self.hole_type)
     
+def run_example():    
+    b = Bolt('3/4','GroupA-N',hole_type='OVS',surface_type='ClassA')
+
+    print(f'd = {b.d} in.')
+    print(f'dh = {b.dh} in.')
+    print(f'Ab = {b.Ab:.3f} in.^2')
+    print(f'φrn = {b.rn_bolt_shear(2):.3f} kips (shear rupture, double shear)')
+    print(f'φrn = {b.rn_slip(2):.3f} kips (slip, 2 slip planes)')
     
+if __name__ == "__main__":
+    run_example()
