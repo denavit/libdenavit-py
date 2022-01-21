@@ -1,7 +1,7 @@
 import dataclasses
 from math import sqrt,atan,radians,tan
 
-from . import database
+from libdenavit.section import database
 
 
 @dataclasses.dataclass
@@ -147,3 +147,47 @@ class Angle:
         else:
             tan_alpha= tan((atan((-2*self.Ixy)/(self.Ix-self.Iy)))/2)
         return tan_alpha
+
+
+def compare_to_database():
+    properties = ['A', 'x_bar', 'y_bar', 'xp', 'yp', 'Ix', 'Zx', 'Sx', 'rx', 'Iy', 'Zy', 'Sy', 'ry', 'Iz', 'rz', 'J', 'Cw', 'tan_alpha']
+
+    for prop in properties:
+        print('\n=== Checking %s ===' % prop)
+
+        max_error_upper = 0.
+        max_error_lower = 0.
+
+        for key, iAngle in database.angle_database.items(): 
+            
+            # Get property from Python class
+            s = Angle.from_name(key)
+            X_calc = getattr(s, prop)
+            
+            # Get proproety from database
+            if prop == 'x_bar':
+                X_database = iAngle['x']
+            elif prop == 'y_bar':
+                X_database = iAngle['y']
+            else:
+                X_database = iAngle[prop]    
+            
+            # Compare
+            percent_diff = 100*(X_calc-X_database)/X_database
+            
+            if abs(percent_diff) > 4:
+                print(f'{key} --- {X_calc:.4f} / {X_database:.4f} --- {percent_diff:.4f}%')
+            
+            if percent_diff > max_error_upper:
+                max_error_upper = percent_diff
+            if percent_diff < max_error_lower:
+                max_error_lower = percent_diff
+
+        print('Error Summary:')
+        print(f'Upper limit: {max_error_upper:.4f}%')
+        print(f'Lower limit: {max_error_lower:.4f}%')
+
+if __name__ == "__main__":
+    compare_to_database()
+
+

@@ -1,8 +1,7 @@
 import dataclasses
 from math import pi,sqrt,atan,radians,tan
-from . import Angle
-from . import database
-from ..design import available_strength
+from libdenavit.section import Angle,database
+from libdenavit.design import available_strength
 
 # Dataclasses give some nice benefits for simple classes, like an automatic
 # __repr__. So when printing the object in the console you'll get 
@@ -178,3 +177,44 @@ class DoubleAngleMember_SJI2020:
                 
         Pn = Fcr*self.section.A
         return available_strength(Pn,self.strength_type,0.9,1.67)
+
+
+
+def compare_to_database():
+    properties = ['A', 'y_bar', 'yp', 'Ix', 'Zx', 'Sx', 'rx', 'Iy', 'Zy', 'Sy', 'ry', 'ro', 'H']
+
+    for prop in properties:
+        print('\n=== Checking %s ===' % prop)
+
+        max_error_upper = 0.
+        max_error_lower = 0.
+
+        for key, iDoubleAngle in database.double_angle_database.items(): 
+            
+            # Get property from Python class
+            s = DoubleAngle.from_name(key)
+            X_calc = getattr(s, prop)
+
+            # Get property from database
+            if prop == 'y_bar':
+                X_database = iDoubleAngle['y']
+            else:
+                X_database = iDoubleAngle[prop] 
+            
+            # Compare
+            percent_diff = 100*(X_calc-X_database)/X_database
+            
+            if abs(percent_diff) > 4:
+                print(f'{key} --- {X_calc:.4f} / {X_database:.4f} --- {percent_diff:.4f}%')
+            
+            if percent_diff > max_error_upper:
+                max_error_upper = percent_diff
+            if percent_diff < max_error_lower:
+                max_error_lower = percent_diff
+
+        print('Error Summary:')
+        print(f'Upper limit: {max_error_upper:.4f}%')
+        print(f'Lower limit: {max_error_lower:.4f}%')
+
+if __name__ == "__main__":
+    compare_to_database()
