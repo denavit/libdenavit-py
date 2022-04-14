@@ -3,7 +3,13 @@
 
 *A **Python Library** for **Structural Engineering Research**​*
 
-Maintained by Mark Denavit's research group.
+<br>
+
+<div align = center>
+
+*Maintained by **Mark Denavit's** research group.*
+
+</div>
 
 <br>
 
