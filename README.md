@@ -28,7 +28,7 @@ pip install "git+https://github.com/denavit/libdenavit-py.git"
 [Badge License]: https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge
 
 [University]: https://www.utk.edu/
-[License]: #
+[License]: LICENSE
 
 
 
