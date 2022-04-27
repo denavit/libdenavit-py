@@ -65,7 +65,7 @@ class FiberSection:
         color_map = {1: 'bo', 2: 'ro', 3: 'ko', 4: 'yo', 5: 'co', 6: 'go'}
         for i, j in enumerate(m):
             if A[i] > 0:
-                plt.plot(x[i], y[i], color_map.get(j, 'ko'), markersize=A[i] * 1 * scale)
+                plt.plot(x[i], y[i], color_map.get(j, 'ko'), markersize=A[i] * scale)
 
         plt.axis('equal')
         plt.show()
