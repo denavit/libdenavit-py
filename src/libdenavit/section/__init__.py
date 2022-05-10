@@ -5,5 +5,5 @@ from .fiber_patches import FiberSingle, FiberQuadPatch
 from .fiber_section import FiberSection
 from .ACI_strain_compatibility import AciStrainCompatibility
 from .geometric_shape import GeometricShape
-from .rectangle_shape import Rectangle
+from .rectangle_shape import Rectangle,PlateMember_AISC2016
 from .reinf import Reinf,ReinfRect

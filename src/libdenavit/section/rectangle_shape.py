@@ -1,9 +1,9 @@
 from libdenavit.section import GeometricShape, FiberQuadPatch
 from dataclasses import dataclass
-from math import pi, tanh, sin, cos
+from math import pi, tanh, sin, cos, sqrt
 import numpy as np
 import matplotlib.pyplot as plt
-
+from libdenavit.design import available_strength
 
 @dataclass
 class Rectangle(GeometricShape):
@@ -140,3 +140,32 @@ class Rectangle(GeometricShape):
             fiber_section.add_fibers(a)
         else:
             ValueError('Not yet implemented')
+
+
+class PlateMember_AISC2016:
+    def __init__(self,section,Fy,E,Lcx,Lcy,strength_type):
+        self.section = section
+        self.Fy = Fy
+        self.E = E
+        self.Lcx = Lcx
+        self.Lcy = Lcy
+        self.strength_type = strength_type
+
+    def Pnt(self):
+        Pn = self.Fy*self.section.A
+        return available_strength(Pn,self.strength_type,0.9,1.67)
+
+    def Pnc(self):
+        Lc_over_r = max(self.Lcx/self.section.rx,self.Lcy/self.section.ry)
+        
+        if Lc_over_r == 0.0:
+            Fcr = self.Fy
+        else:
+            Fe = pi**2*self.E/Lc_over_r**2 
+            if Lc_over_r <= 4.71*sqrt(self.E/self.Fy):
+                Fcr = (0.658**(self.Fy/Fe))*self.Fy
+            else:
+                Fcr = 0.877*Fe
+                
+        Pn = Fcr*self.section.A
+        return available_strength(Pn,self.strength_type,0.9,1.67)
