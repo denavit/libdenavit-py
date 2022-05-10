@@ -24,7 +24,7 @@ def get_element_nodes():
         element_nodes[i] = ops.eleNodes(i)
     return element_nodes
 
-def plot_undeformed_2d():
+def plot_undeformed_2d(axis_equal=False):
     node_coords = get_node_coords()
     element_nodes = get_element_nodes()
     fig = plt.figure()
@@ -34,6 +34,8 @@ def plot_undeformed_2d():
         xplt = [coordi[0],coordj[0]]
         yplt = [coordi[1],coordj[1]]
         plt.plot(xplt,yplt,'ko-')
+    if axis_equal:
+        plt.gca().axis('equal')
     plt.show()
     return
     
