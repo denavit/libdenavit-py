@@ -7,6 +7,19 @@ from libdenavit.design import available_strength
 
 @dataclass
 class Rectangle(GeometricShape):
+    """
+    Rectangle shape
+
+    Parameters
+    ----------
+    H : float
+        The width in the y direction
+    B : float
+        The width in the x direction
+    rc : float
+        Rectangle corner radius
+    """
+
     H: float
     B: float
     rc: float = 0
