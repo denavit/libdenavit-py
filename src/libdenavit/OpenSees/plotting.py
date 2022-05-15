@@ -39,7 +39,7 @@ def plot_undeformed_2d(axis_equal=False):
     plt.show()
     return
     
-def plot_deformed_2d(scale_factor=1.0,show_undeformed=True):
+def plot_deformed_2d(scale_factor=1.0,show_undeformed=True,axis_equal=False):
     (node_coords,node_disp) = get_node_coords_and_disp()
     element_nodes = get_element_nodes()
     fig = plt.figure()
@@ -57,5 +57,7 @@ def plot_deformed_2d(scale_factor=1.0,show_undeformed=True):
         xplt = [coordi[0]+scale_factor*dispi[0],coordj[0]+scale_factor*dispj[0]]
         yplt = [coordi[1]+scale_factor*dispi[1],coordj[1]+scale_factor*dispj[1]]
         plt.plot(xplt,yplt,'-',color='k')
+    if axis_equal:
+        plt.gca().axis('equal')
     plt.show()
     return
