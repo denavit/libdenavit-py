@@ -4,14 +4,30 @@ import math
 
 @dataclass
 class FiberSingle:
-    # region input arguments
+    """
+    FiberSingle is a class that represents a single fiber.
+
+    Parameters
+    ----------
+
+    A : float
+     the area of the fiber
+    x : float
+     the x-coordinate of the fiber
+    y : float
+     the y-coordinate of the fiber
+    m : float
+     the material of the fiber
+    m_neg : float
+     the material of the negative fiber (optional)
+
+    """
     A: float
     x: float
     y: float
     m: int
     m_neg: int = None  # default to none
 
-    # endregion
 
     def get_bounds(self, ):
         return self.x, self.x, self.y, self.y
@@ -33,7 +49,7 @@ class FiberSingle:
         return np.array(A), np.array(x), np.array(y), np.array(m)
 
 @dataclass
-class FiberQuadPatch: 
+class FiberQuadPatch:
     # region input arguments
     xI: float
     yI: float
@@ -75,3 +91,88 @@ class FiberQuadPatch:
                 m.append(self.mat_id)  # Material
 
         return np.array(A), np.array(x), np.array(y), np.array(m)
+
+
+@dataclass
+class FiberCirclePatch:
+    """
+    FiberCirclePatch is a class that represents a Circle Patch.
+
+    Parameters
+    ----------
+    xc : float
+     the x-coordinate of the center of the circle
+    yc : float
+     the y-coordinate of the center of the circle
+    ri : float
+     the radius of the inner circle
+    ro : float
+     the radius of the outer circle
+    mat_id : int
+     the material of the fiber
+    is_neg : float
+     the material of the negative fiber (optional)
+    a1 : float
+     the starting angle of the circle
+    a2 : float
+     the ending angle of the circle
+    """
+    xc: float
+    yc: float
+    ri: float
+    ro: float
+    mat_id: int
+    is_neg: bool = None  # default to none
+    a1: float = 0
+    a2: float = 2 * np.pi
+    
+    def get_bounds(self):
+        xmin = self.xc - self.ro
+        xmax = self.xc + self.ro
+        ymin = self.yc - self.ro
+        ymax = self.yc + self.ro
+        return xmin, xmax, ymin, ymax
+
+    def get_fiber_data(self, sf_r, sf_arc):
+        A = []
+        x = []
+        y = []
+
+        # Compute fiber data
+        nf_rad = math.ceil(self.ro / sf_r)
+        x_rad = np.linspace(self.ri, self.ro, nf_rad + 1)
+
+        for i in range(nf_rad):
+            ri_ith = x_rad[i]
+            ro_ith = x_rad[i + 1]
+            nf_arc = max(1, math.ceil(ro_ith * (self.a2 - self.a1) / sf_arc))
+            d_ang = (self.a2 - self.a1) / nf_arc
+            x_ang = np.linspace(self.a1, self.a2, nf_arc + 1)
+            Ai = []
+            xi = []
+            yi = []
+            for j in range(nf_arc):
+                Ai_1 = (d_ang / 2) * ro_ith ** 2
+                Ai_2 = -(d_ang / 2) * ri_ith ** 2
+                Ai_th = Ai_1 + Ai_2
+                yi_1 = 4 * ro_ith * np.sin(d_ang / 2) / 3 / d_ang
+                yi_2 = 4 * ri_ith * np.sin(d_ang / 2) / 3 / d_ang
+                yi_th = ((Ai_1 * yi_1 + Ai_2 * yi_2) / Ai_th)
+                ang_i = (x_ang[j + 1] + x_ang[j]) / 2
+
+                # Assign fiber data
+                Ai.append(Ai_th)
+                xi.append(self.xc + yi_th * np.cos(ang_i))
+                yi.append(self.yc + yi_th * np.sin(ang_i))
+
+            A.extend(Ai)
+            x.extend(xi)
+            y.extend(yi)
+
+        A = np.array(A)
+        x = np.array(x)
+        y = np.array(y)
+        m = np.array([self.mat_id] * len(A))
+        if self.is_neg:
+            A = -A
+        return A, x, y, m
