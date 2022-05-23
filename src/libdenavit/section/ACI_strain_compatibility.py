@@ -118,8 +118,8 @@ class AciStrainCompatibility:
         self._steel_boundary_r = np.vstack((self._steel_boundary_r, r))
 
     def add_material(self, name, material_type, *args):
-        if type(material_type) == "ACI_strain_compatibility.AciStrainCompatibilitySteelMaterial" or \
-                type(material_type) == "ACI_strain_compatibility.AciStrainCompatibilityConcreteMaterial":
+        if type(material_type).__name__ == "AciStrainCompatibilitySteelMaterial" or \
+           type(material_type).__name__ == "AciStrainCompatibilityConcreteMaterial":
             mat = material_type
             
         elif material_type.lower() == 'steel':
