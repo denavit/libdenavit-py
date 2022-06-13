@@ -24,6 +24,23 @@ class Reinf:
     def plot_section(self, line_width=2):
         xb, yb = self.coordinates
         plt.plot(xb, yb, 'o', color=self.color_steelFill, linewidth=line_width, )
+    
+    def add_to_fiber_section(self, fiber_section, id_reinf, id_conc):
+        [x, y] = self.coordinates
+        for j in range(len(x)):
+            a = FiberSingle(self.Ab, x[j], y[j], id_reinf, id_conc)
+            fiber_section.add_fibers(a)
+
+    @property
+    def db(self):
+        if self._db is not None:
+            return self._db
+        else:
+            return sqrt(4 * self.Ab / pi)
+
+    @db.setter
+    def db(self, x):
+        self._db = x
 
 
 @dataclass
@@ -88,19 +105,4 @@ class ReinfRect(Reinf):
         n = 2 * (self.nbx + self.nby) - 4
         return n
 
-    @property
-    def db(self):
-        if self._db is not None:
-            return self._db
-        else:
-            return sqrt(4 * self.Ab / pi)
 
-    @db.setter
-    def db(self, x):
-        self._db = x
-
-    def add_to_fiber_section(self, fiber_section, id_reinf, id_conc):
-        [x, y] = self.coordinates
-        for j in range(len(x)):
-            a = FiberSingle(self.Ab, x[j], y[j], id_reinf, id_conc)
-            fiber_section.add_fibers(a)
