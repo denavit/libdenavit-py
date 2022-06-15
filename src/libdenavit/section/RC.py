@@ -1,4 +1,4 @@
-from math import sqrt, pi, ceil
+from math import sqrt, pi, ceil, exp
 from libdenavit.section import AciStrainCompatibility, FiberSingle, FiberSection, ACI_phi
 import matplotlib.pyplot as plt
 import numpy as np
@@ -334,16 +334,21 @@ class RC:
                 flx = Asx / (self.s * dc) * self.fyt
                 fly = Asy / (self.s * bc) * self.fyt
                 
-                # Chang & Mander's 1994 concrete model- section 3.4.3-4
-                q = max(flx, fly) / min(flx, fly)
-                x_prime = (flx + fly) / (2 * self.fc)
-                A_parameter = 6.886 - (0.6069 + 17.275*q) * np.e ** (-4.989*q)
-                B_parameter = 4.5 / (5 / A_parameter * (0.9849 - 0.6306* np.e ** (-3.8939*q)) - 0.1) - 5
-                k1 = A_parameter * (0.1 + 0.9 / (1 + B_parameter * x_prime))
-                fcc = self.fc * (1 + k1 * x_prime)
-
+                # Confinement effect from Chang, G. A., and Mander, J. B. (1994). 
+                # Seismic Energy Based Fatigue Damage Analysis of Bridge Columns: Part I - 
+                # Evaluation of Seismic Capacity. National Center for Earthquake Engineering 
+                # Research, Department of Civil Engineering, State University of New York at 
+                # Buffalo, Buffalo, New York. 
+                # Confinement Effect on Strength (Section 3.4.3)
+                x_bar = (flx + fly) / (2 * self.fc)
+                r = max(flx, fly) / min(flx, fly)
+                A_parameter = 6.886 - (0.6069 + 17.275*r) * exp(-4.989*r)
+                B_parameter = 4.5 / (5 / A_parameter * (0.9849 - 0.6306 * exp(-3.8939*r)) - 0.1) - 5
+                k1 = A_parameter * (0.1 + 0.9 / (1 + B_parameter * x_bar))
+                fcc = self.fc * (1 + k1 * x_bar)
+                # Confinement Effect on Ductility (Section 3.4.4)
                 k2 = 5 * k1
-                eps_prime_cc = self.eps_c * (1 + k2 * x_prime)
+                eps_prime_cc = self.eps_c * (1 + k2 * x_bar)
 
                 ops.uniaxialMaterial("Concrete04", cover_concrete_material_id, -self.fc, -self.eps_c, -2 * self.eps_c, self.Ec)
                 ops.uniaxialMaterial("Concrete04", core_concrete_material_id, -fcc, -eps_prime_cc, - 2 * eps_prime_cc, self.Ec)
