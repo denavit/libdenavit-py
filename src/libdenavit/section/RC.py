@@ -14,7 +14,7 @@ class RC:
     _eps_c = None
     _Abt = None
 
-    def __init__(self, conc_cross_section, reinforcement, fc, fy, units, dbt=None, s=None, fyt=None, lat_config=None):
+    def __init__(self, conc_cross_section, reinforcement, fc, fy, units, dbt=None, s=None, fyt=None, lat_config="A"):
         self.conc_cross_section = conc_cross_section
         self.reinforcement = reinforcement
         self.fc = fc
@@ -296,7 +296,11 @@ class RC:
                 if type(self.reinforcement[0]).__name__ != 'ReinfRect':
                     raise ValueError(f"Reinforcement type {type(self.reinforcement).__name__} not supported for this section type")
                 if self.reinforcement[0].xc != 0 or self.reinforcement[0].yc != 0:
-                    raise ValueError(f"Reinforcing patter must be centered")
+                    raise ValueError(f"Reinforcing pattern must be centered")
+                if self.dbt is None:
+                   raise ValueError("dbt must be defined")
+                if self.s is None:
+                    raise ValueError("s must be defined")
                 
                 # dc and bc = core dimensions to centerlines of perimeter hoop in x and y directions
                 bc = self.reinforcement[0].Bx + self.reinforcement[0].db/2 + self.dbt/2
@@ -403,6 +407,113 @@ class RC:
                     -H/2 + cdb, -B/2 + cdb, H/2 - cdb, B/2 - cdb)
             else:
                 ops.patch('rect', concrete_material_id, nfy, nfx, -H/2, -B/2, H/2, B/2)
+            # endregion
+        
+        elif type(self.conc_cross_section).__name__ == 'Circle':
+        
+            # region Define Concrete Material
+            if conc_mat_type == "Concrete04":
+                # Defined based on Mander, J. B., Priestley, M. J. N., and Park, R. (1988).
+                # “Theoretical Stress-Strain Model for Confined Concrete.” Journal of Structural
+                # Engineering, ASCE, 114(8), 1804―1826.
+                
+                if type(self.reinforcement[0]).__name__ != 'ReinfCirc':
+                    raise ValueError(f"Reinforcement type {type(self.reinforcement[0]).__name__} not supported for this section type")
+                if self.reinforcement[0].xc != 0 or self.reinforcement[0].yc != 0:
+                    raise ValueError(f"Reinforcing pattern must be centered")
+                if self.dbt is None:
+                   raise ValueError("dbt must be defined")
+                if self.s is None:
+                    raise ValueError("s must be defined")
+
+                # ds = core diameter based on center line of perimeter hoop
+                ds = 2*self.reinforcement[0].rc + self.reinforcement[0].db + self.dbt
+                
+                # Ac = area of core of section enclosed by the center line of the permiter hoops
+                Ac = pi/4*ds*ds
+                
+                # ρcc = ratio of area of longitudinal reinforcement to area of core of section
+                ρcc = self.reinforcement[0].Ab * self.reinforcement[0].num_bars / Ac
+                
+                # sp = clear vertical spacing between spiral or hoop bars
+                sp = self.s - self.dbt
+                
+                # ke = confinement effectiveness coefficient (Equation 15)
+                ke = (1 - sp/(2*ds))/(1-ρcc)
+                
+                # flx and fly = lateral confining stress in x and y directions
+                Asp = self.dbt**2 * pi / 4 # @todo - lets add a Abt property
+                ρs = 4*Asp/(ds*self.s)  # Equation 17
+                fl = 0.5*ke*ρs*self.fyt # Equation 19
+                
+                # fcc = confined concrete strength
+                fcc = self.fc*(-1.254 + 2.254*sqrt(1+7.94*fl/self.fc) - 2*fl/self.fc)
+                
+                # Confinement Effect on Ductility (Section 3.4.4 of Chang and Mander 1994)
+                k1 = (fcc-fc)/fl
+                k2 = 5 * k1
+                eps_prime_cc = self.eps_c * (1 + k2 * x_bar)
+
+                ops.uniaxialMaterial("Concrete04", cover_concrete_material_id, -self.fc, -self.eps_c, -2 * self.eps_c,
+                                     self.Ec)
+                ops.uniaxialMaterial("Concrete04", core_concrete_material_id, -fcc, -eps_prime_cc, - 2 * eps_prime_cc,
+                                     self.Ec)
+                confinement = True
+    
+            elif conc_mat_type == "Concrete04_no_confinement":
+                ops.uniaxialMaterial("Concrete04", 2, -self.fc, -self.eps_c, -2 * self.eps_c, self.Ec)
+                confinement = False
+                
+            elif conc_mat_type == "ENT":
+                ops.uniaxialMaterial('ENT', 2, self.Ec)
+                confinement = False
+    
+            elif conc_mat_type == "Elastic":
+                ops.uniaxialMaterial('Elastic', 2, self.Ec)
+                confinement = False
+    
+            else:
+                raise ValueError(f"Concrete material {conc_mat_type} not supported")
+            # endregion
+    
+            # region Define fibers and patches
+            for i in self.reinforcement:
+                for index, value in enumerate(i.coordinates[0]):
+                    ops.fiber(value, i.coordinates[1][index], i.Ab, steel_material_id)
+                    if confinement:
+                        negative_area_material_id = core_concrete_material_id
+                    else:
+                        negative_area_material_id = concrete_material_id
+                    ops.fiber(value, i.coordinates[1][index], -i.Ab, negative_area_material_id)            
+    
+            d  = self.conc_cross_section.diameter
+            max_fiber_size = d/max(nfx,nfy)
+            if confinement:
+                ds = 2*self.reinforcement[0].rc + self.reinforcement[0].db + self.dbt
+                # Core Concrete
+                nfr = ceil(0.125*ds/max_fiber_size)              
+                nfc = ceil(0.25*ds*pi/max_fiber_size)
+                ops.patch('circ', core_concrete_material_id, nfc, nfr, 0, 0, 0,        0.125*ds, 0, 360)
+                nfc = ceil(0.5*ds*pi/max_fiber_size)
+                ops.patch('circ', core_concrete_material_id, nfc, nfr, 0, 0, 0.125*ds, 0.250*ds, 0, 360)
+                nfc = ceil(0.75*ds*pi/max_fiber_size)
+                ops.patch('circ', core_concrete_material_id, nfc, nfr, 0, 0, 0.250*ds, 0.375*ds, 0, 360)
+                nfc = ceil(ds*pi/max_fiber_size)
+                ops.patch('circ', core_concrete_material_id, nfc, nfr, 0, 0, 0.375*ds, 0.500*ds, 0, 360)
+                # Cover Concrete
+                nfr = ceil(0.5(d-ds)/max_fiber_size)              
+                nfc = ceil(d*pi/max_fiber_size)
+                ops.patch('circ', cover_concrete_material_id, nfc, nfr, 0, 0, 0.5*ds, 0.5*d, 0, 360)
+            else:
+                nfr = ceil(0.125*d/max_fiber_size)              
+                nfc = ceil(0.25*d*pi/max_fiber_size)
+                ops.patch('circ', concrete_material_id, nfc, nfr, 0, 0, 0,       0.125*d, 0, 360)
+                nfc = ceil(0.5*d*pi/max_fiber_size)
+                ops.patch('circ', concrete_material_id, nfc, nfr, 0, 0, 0.125*d, 0.250*d, 0, 360)
+                nfc = ceil(0.75*d*pi/max_fiber_size)
+                ops.patch('circ', concrete_material_id, nfc, nfr, 0, 0, 0.250*d, 0.375*d, 0, 360)
+                nfc = ceil(d*pi/max_fiber_size)
+                ops.patch('circ', concrete_material_id, nfc, nfr, 0, 0, 0.375*d, 0.500*d, 0, 360)
             # endregion
             
         else:

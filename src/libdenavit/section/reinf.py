@@ -88,21 +88,39 @@ class ReinfRect(Reinf):
         return x, y
 
     @property
-    def boundaries(self):
-        x = [-0.5 * self.Bx + self.xc,
-             -0.5 * self.Bx + self.xc,
-             +0.5 * self.Bx - self.xc,
-             +0.5 * self.Bx - self.xc, ]
-
-        y = [+0.5 * self.By - self.yc,
-             -0.5 * self.By + self.yc,
-             +0.5 * self.By - self.yc,
-             -0.5 * self.By + self.yc, ]
-        return x, y
-
-    @property
     def num_bars(self):
         n = 2 * (self.nbx + self.nby) - 4
         return n
 
 
+@dataclass
+class ReinfCirc(Reinf):
+    """
+    A ReinfCirc object is a rebar layer for a circular section with a given radius.
+
+    Parameters
+    ----------
+    rc : float
+        radius from center of the bar pattern to the center of the bar.
+    num_bars : int
+        number of bars in the circumference.
+    Ab : float
+        area of each rebar.
+    xc : float
+        The x coordinate of the center of the rebar layer.
+    yc : float
+        The y coordinate of the center of the rebar layer.
+
+    """
+    rc: float
+    num_bars: int
+    Ab: float
+    xc: float
+    yc: float
+
+    @property
+    def coordinates(self):
+        angles = np.linspace(0, 2 * np.pi, self.num_bars + 1)[:-1]
+        x = self.xc + self.rc * np.cos(angles)
+        y = self.yc + self.rc * np.sin(angles)
+        return x, y

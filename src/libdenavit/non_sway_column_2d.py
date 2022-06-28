@@ -194,15 +194,10 @@ class NonSwayColumn2d:
             # region Run lateral load (time = LFH)
             ops.loadConst('-time', 0.0)
             
-            ops.timeSeries('Linear', 100)
-            ops.pattern('Plain', 200, 100)
-            ops.load(self.ops_n_elem, 0, 0, self.et * e)
-            ops.load(0, 0, 0, -self.eb * e)
-            ops.constraints('Plain')
-            ops.numberer('RCM')
-            ops.system('UmfPack')
-            ops.test('NormUnbalance', 1e-2, 10)
-            ops.algorithm('Newton')
+            ops.timeSeries('Linear', 101)
+            ops.pattern('Plain', 201, 101)
+            ops.load(self.ops_n_elem, 0, 0, self.et)
+            ops.load(0, 0, 0, -self.eb)
             
             # @todo - we may eventually need more sophisticated selection of dof to control
             dU = self.length * disp_incr_factor
