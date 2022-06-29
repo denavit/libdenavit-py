@@ -115,8 +115,8 @@ class ReinfCirc(Reinf):
     rc: float
     num_bars: int
     Ab: float
-    xc: float
-    yc: float
+    xc: float = 0
+    yc: float = 0
 
     @property
     def coordinates(self):
