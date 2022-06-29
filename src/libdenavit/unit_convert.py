@@ -31,23 +31,34 @@ def unit_convert(old_value: float or int, old_unit: str, new_unit: str):
     old_unit = old_unit.strip()
     new_unit = new_unit.strip()
     
-    units_for_pint = {  "in": ureg.inch, # inch                  ## Length
+    units_for_pint = {  ## Length
+                        "in": ureg.inch, # inch
                         "ft": ureg.ft,   # foot
                         "m" : ureg.m,    # meter
                         "cm": ureg.cm,   # centimeter
                         "mm": ureg.mm,   # milimeter
-
-                        "1/in": 1/ureg.inch, # 1/inch                ## Curvature
+        
+                        ## Area
+                        "sqin": ureg.inch ** 2, # inch^2
+                        "sqft": ureg.ft ** 2,   # foot^2
+                        "sqm": ureg.m ** 2,    # meter^2
+                        "sqcm": ureg.cm ** 2,  # centimeter^2
+                        "sqmm": ureg.mm ** 2,  # milimeter^2
+        
+                        ## Curvature
+                        "1/in": 1/ureg.inch, # 1/inch
                         "1/mm": 1/ureg.mm,   # 1/millimeter
                         "1/m" : 1/ureg.m,    # 1/meter
                         
-                        "s"     : ureg.second, # second              ## Time
+                        ## Time
+                        "s"     : ureg.second, # second
                         "second": ureg.second, # second
                         "min"   : ureg.minute, # minute
                         "h"     : ureg.hour,   # hour
                         "hr"    : ureg.hour,   # hour
                         
-                        "kip"      : ureg.kip,              # kip              ## Force
+                        ## Force
+                        "kip"      : ureg.kip,              # kip
                         "kips"     : ureg.kip,              # kip
                         "lbf"      : ureg.lbf,              # pound-force
                         "kn"       : ureg.knewton,          # kilonewton
@@ -57,8 +68,9 @@ def unit_convert(old_value: float or int, old_unit: str, new_unit: str):
                         "tonne"    : ureg.force_metric_ton, # tonne
                         "longton"  : ureg.force_long_ton,   # long ton
                         "shortton" : ureg.force_ton,        # short ton
-
-                        'kin'   : ureg.kforce_pound*ureg.inch,      # kilo pound-inch       ## Moment
+                        
+                        ## Moment
+                        'kin'   : ureg.kforce_pound*ureg.inch,      # kilo pound-inch
                         'k-in'  : ureg.kforce_pound*ureg.inch,      # kilo pound-inch
                         'kip-in': ureg.kforce_pound*ureg.inch,      # kilo pound-inch
                         'kft'   : ureg.kforce_pound*ureg.foot,      # kilo pound-foot
@@ -75,7 +87,8 @@ def unit_convert(old_value: float or int, old_unit: str, new_unit: str):
                         'tfm'   : ureg.force_metric_ton*ureg.meter, # metric ton-force meter
                         'tf-m'  : ureg.force_metric_ton*ureg.meter, # metric ton-force meter
                         
-                        'psi'           : ureg.psi,                         # pound per inch^2        ##Pressure
+                        ## Pressure
+                        'psi'           : ureg.psi,                         # pound per inch^2
                         'psf'           : ureg.force_pound/ureg.foot**2,    # pound per foot^2
                         'ksi'           : ureg.kpsi,                        # killo pound per foot^2
                         'mpa'           : ureg.megaPa,                      # megapascal
@@ -88,14 +101,17 @@ def unit_convert(old_value: float or int, old_unit: str, new_unit: str):
                         'metricton/cm^2': ureg.force_metric_ton/ureg.cm**2, # metric tonne per cm^2
                         'longton/in^2'  : ureg.force_long_ton/ureg.inch**2, # long ton per inch^2
                         'shortton/in^2' : ureg.force_ton/ureg.inch**2,      # short ton per inch^2
-
-                        'pcf' : ureg.pound/ureg.ft**3,      # pounds per cubic foot    ##Density
+                        
+                        ## Density
+                        'pcf' : ureg.pound/ureg.ft**3,      # pounds per cubic foot
                         'kgcm': ureg.metric_ton/ureg.cm**3, # metric tonne per cm^2
 
-                        'rad': ureg.radian, # radian                ## Angle
+                        ## Angle
+                        'rad': ureg.radian, # radian
                         'deg': ureg.degree, # degree
                         
-                        'cbin': ureg.inch**3,  # cubic inch                ## Volume
+                        ## Volume
+                        'cbin': ureg.inch**3,  # cubic inch
                         'cbft': ureg.ft**3,    # cubic foot
                         'cbyd': ureg.yard**3,  # cubic yard
                         'cbm' : ureg.meter**3, # cubic meter
