@@ -18,7 +18,7 @@ class NonSwayColumn2d:
         
         # OpenSees analysis options
         self.ops_n_elem = n_elem
-        self.ops_element_type = "dispBeamColumn"
+        self.ops_element_type = "mixedBeamColumn"
         self.ops_geom_transf_type = "Corotational"
     
     @property
@@ -48,7 +48,7 @@ class NonSwayColumn2d:
         if type(self.section).__name__ == "RC":
             self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs)
         
-        ops.beamIntegration("Lobatto", 1, 1, 5)
+        ops.beamIntegration("Lobatto", 1, 1, 3)
         
         for index in range(self.ops_n_elem):
             ops.element(self.ops_element_type, index, index, index + 1, 100, 1)
