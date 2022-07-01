@@ -335,8 +335,8 @@ class RC:
                     raise ValueError(f"Unknown lat_config ({self.lat_config})")
                  
                 # flx and fly = lateral confining stress in x and y directions
-                flx = Asx / (self.s * dc) * self.fyt
-                fly = Asy / (self.s * bc) * self.fyt
+                flx = ke * Asx / (self.s * dc) * self.fyt
+                fly = ke * Asy / (self.s * bc) * self.fyt
                 
                 # Confinement effect from Chang, G. A., and Mander, J. B. (1994). 
                 # Seismic Energy Based Fatigue Damage Analysis of Bridge Columns: Part I - 
@@ -501,7 +501,7 @@ class RC:
                 nfc = ceil(ds*pi/max_fiber_size)
                 ops.patch('circ', core_concrete_material_id, nfc, nfr, 0, 0, 0.375*ds, 0.500*ds, 0, 360)
                 # Cover Concrete
-                nfr = ceil(0.5(d-ds)/max_fiber_size)              
+                nfr = ceil(0.5*(d-ds)/max_fiber_size)
                 nfc = ceil(d*pi/max_fiber_size)
                 ops.patch('circ', cover_concrete_material_id, nfc, nfr, 0, 0, 0.5*ds, 0.5*d, 0, 360)
             else:
