@@ -23,9 +23,7 @@ class Rectangle(GeometricShape):
     H: float
     B: float
     rc: float = 0
-
-    plot_fill_color = [0.90, 0.90, 0.90]
-
+    
     @property
     def is_section_valid(self):
         tf1 = self.B > 0    # B should be positive
@@ -127,7 +125,7 @@ class Rectangle(GeometricShape):
 
         return x, y, r
 
-    def plot_section(self, line_width=2):
+    def plot_section(self, **kwargs):
         if self.rc == 0:
             x = [self.B / 2, - self.B / 2, - self.B / 2, self.B / 2, self.B / 2]
             y = [self.H / 2, self.H / 2, - self.H / 2, - self.H / 2, self.H / 2]
@@ -142,7 +140,7 @@ class Rectangle(GeometricShape):
                  (-self.H / 2 + self.rc * sin(angles + pi)),
                  (-self.H / 2 + self.rc * sin(angles + 1.5 * pi)), self.H / 2]
 
-        plt.plot(x, y)
+        plt.fill(x, y, **kwargs)
 
     def add_to_fiber_section(self, fiber_section, mat_id):
         if self.rc == 0:
