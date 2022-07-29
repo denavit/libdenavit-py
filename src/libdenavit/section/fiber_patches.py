@@ -133,19 +133,20 @@ class FiberCirclePatch:
         ymax = self.yc + self.ro
         return xmin, xmax, ymin, ymax
 
-    def get_fiber_data(self, sf_r, sf_arc):
+    def get_fiber_data(self, sfx, sfy):
         A = []
         x = []
         y = []
 
         # Compute fiber data
-        nf_rad = math.ceil(self.ro / sf_r)
+        sf = min(sfx,sfy)
+        nf_rad = math.ceil((self.ro-self.ri) / sf)
         x_rad = np.linspace(self.ri, self.ro, nf_rad + 1)
 
         for i in range(nf_rad):
             ri_ith = x_rad[i]
             ro_ith = x_rad[i + 1]
-            nf_arc = max(1, math.ceil(ro_ith * (self.a2 - self.a1) / sf_arc))
+            nf_arc = max(1, math.ceil(ro_ith * (self.a2 - self.a1) / sf))
             d_ang = (self.a2 - self.a1) / nf_arc
             x_ang = np.linspace(self.a1, self.a2, nf_arc + 1)
             Ai = []
