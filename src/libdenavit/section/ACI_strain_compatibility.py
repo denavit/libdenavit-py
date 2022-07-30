@@ -19,7 +19,7 @@ class AciStrainCompatibilitySteelMaterial:
         # Follow an elastic perfectly plastic material model
 
         stress = []
-        for index, value in enumerate(strain):
+        for value in strain:
             if value <= -self.ey:
                 stress.append(-self.Fy)
             elif value <= self.ey:
@@ -74,7 +74,7 @@ class AciStrainCompatibilityConcreteMaterial:
         ecr = self.extreme_concrete_compression_strain * (1 - self.beta1)
 
         stress = []
-        for index, value in enumerate(strain):
+        for value in strain:
             if value <= ecr:
                 stress.append(-0.85 * self.fc)
             else:
@@ -190,6 +190,7 @@ class AciStrainCompatibility:
         a =  sin(angle)
         b = -cos(angle)
         c = -sin(angle) * xpt + cos(angle) * ypt
+
         y_ecf = self.extreme_concrete_compression_fiber(xpt, ypt, angle)
         if y_ecf < 0:
             strain = self.extreme_concrete_compression_strain / y_ecf * (a * self.x + b * self.y + c)
@@ -202,9 +203,9 @@ class AciStrainCompatibility:
             ind = np.where(self.m == i)
             stress[ind] = self._materials[i].get_stress(strain[ind])
 
-        P  = sum(stress * self.A)
-        Mx = sum(stress * self.A * - self.y)
-        My = sum(stress * self.A * self.x)
+        P  = np.sum(stress * self.A)
+        Mx = np.sum(stress * self.A * -self.y)
+        My = np.sum(stress * self.A *  self.x)
         et = self.extreme_steel_tensile_strain(xpt, ypt, angle)
 
         return P, Mx, My, et
