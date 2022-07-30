@@ -73,12 +73,25 @@ class FiberSection:
 
     def plot_fibers(self, scale=1):
         # Does not plot fibers with negative area
+        
         A, x, y, m = self.get_fiber_data()
-        color_map = {1: 'bo', 2: 'ro', 3: 'ko', 4: 'yo', 5: 'co', 6: 'go'}
+        
+        color_map = {1:'tab:blue', 2:'tab:orange', 3:'tab:green', 4:'tab:red', 5:'tab:purple'} 
+        # @todo - reference this color map to the material ids, not hard coded 1,2,3...
+        
+        plot_x = []
+        plot_y = []
+        plot_color = []
+        point_size = []
+
         for i, j in enumerate(m):
             if A[i] > 0:
-                plt.plot(x[i], y[i], color_map.get(j, 'ko'), markersize=A[i] * scale)
+                plot_x.append(x[i])
+                plot_y.append(y[i])
+                plot_color.append(color_map.get(j, 'k'))
+                point_size.append(A[i] * scale)
 
+        plt.scatter(plot_x, plot_y, color=plot_color, s=point_size)
         plt.axis('equal')
         plt.show()
 
@@ -123,6 +136,7 @@ class FiberSection:
                                    "Area": A_print.values(), "Ix": Ix_print.values(), "Iy": Iy_print.values()})
 
         print(print_list.to_string(index=False))
+        return print_list
 
 
 def run_example():
