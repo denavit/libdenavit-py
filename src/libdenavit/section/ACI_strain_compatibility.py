@@ -1,5 +1,5 @@
 import numpy as np
-from math import sin, cos
+from math import sin, cos, radians, pi
 
 
 class AciStrainCompatibilitySteelMaterial:
@@ -108,9 +108,16 @@ class AciStrainCompatibility:
         self.axes_origin = axes_origin
 
     def add_concrete_boundary(self, x, y, r):
-        self._concrete_boundary_x = np.vstack((self._concrete_boundary_x, x))
-        self._concrete_boundary_y = np.vstack((self._concrete_boundary_y, y))
-        self._concrete_boundary_r = np.vstack((self._concrete_boundary_r, r))
+        if isinstance(x, list):
+            if len(x) == len(y) == len(r):
+                for i in range(len(x)):
+                    self._concrete_boundary_x = np.vstack((self._concrete_boundary_x, x[i]))
+                    self._concrete_boundary_y = np.vstack((self._concrete_boundary_y, y[i]))
+                    self._concrete_boundary_r = np.vstack((self._concrete_boundary_r, r[i]))
+        else:
+            self._concrete_boundary_x = np.vstack((self._concrete_boundary_x, x))
+            self._concrete_boundary_y = np.vstack((self._concrete_boundary_y, y))
+            self._concrete_boundary_r = np.vstack((self._concrete_boundary_r, r))
 
     def add_steel_boundary(self, x, y, r):
         self._steel_boundary_x = np.vstack((self._steel_boundary_x, x))
@@ -179,33 +186,108 @@ class AciStrainCompatibility:
         (self.A, self.x, self.y, self.m) = self.fiber_section.get_fiber_data()
         return
 
-    def compute_point(self, xpt, ypt, angle):
+    def compute_point(self, xpt, ypt, angle, degrees=False):
 
-        # Get fiber data
-        # Compute perpendicular distance of each fiber from the neutral axis
-        # Compute the strain of each fiber
-        # Use the _materials to get stress for each fiber
-        # Sum to get P, Mx, and My
-        # P, Mx, and My are floats
+        if degrees:
+            angle = radians(angle)
+
+        # Compute the strain of each fiber        
         a =  sin(angle)
         b = -cos(angle)
         c = -sin(angle) * xpt + cos(angle) * ypt
-
         y_ecf = self.extreme_concrete_compression_fiber(xpt, ypt, angle)
         if y_ecf < 0:
             strain = self.extreme_concrete_compression_strain / y_ecf * (a * self.x + b * self.y + c)
         else:
             strain = self.default_tensile_strain * np.ones(self.m.size)
 
+        # Use the _materials to get stress for each fiber
         stress = np.zeros([len(self.m)])
         for i in self.uniq_mats:
             # Find fibers of the material
             ind = np.where(self.m == i)
             stress[ind] = self._materials[i].get_stress(strain[ind])
 
+        # Sum to get P, Mx, and My
         P  = np.sum(stress * self.A)
         Mx = np.sum(stress * self.A * -self.y)
         My = np.sum(stress * self.A *  self.x)
         et = self.extreme_steel_tensile_strain(xpt, ypt, angle)
 
         return P, Mx, My, et
+
+    def compute_point_uniform(self, strain):
+
+        # Use the _materials to get stress for each fiber
+        stress = np.zeros([len(self.m)])
+        for i in self.uniq_mats:
+            # Find fibers of the material
+            ind = np.where(self.m == i)
+            stress[ind] = self._materials[i].get_stress([strain])
+
+        # Sum to get P, Mx, and My
+        P  = np.sum(stress * self.A)
+        Mx = np.sum(stress * self.A * -self.y)
+        My = np.sum(stress * self.A *  self.x)
+        et = strain
+
+        return P, Mx, My, et
+        
+    def compute_section_interaction_2d(self,angle,num_points,degrees=False):
+
+        if degrees:
+            angle = radians(angle)
+
+        # Initlize output
+        P_list = []
+        Mx_list = []
+        My_list = []
+        et_list = []
+
+        # Select neutral axis locations
+        ymin,ymax = self.fiber_section.get_bounds_at_angle(angle)
+        d = ymax-ymin
+        middle_points = np.linspace(ymin-0.51*d,ymax+0.51*d,num_points-1)
+
+        # Uniform Compression
+        P, Mx, My, et = self.compute_point_uniform(self.extreme_concrete_compression_strain)
+        P_list.append(P)
+        Mx_list.append(Mx)
+        My_list.append(My)
+        et_list.append(et)
+                       
+        # Middle Points
+        for point in middle_points:
+            xpt = -sin(angle)*point
+            ypt =  cos(angle)*point
+            P, Mx, My, et = self.compute_point(xpt, ypt, angle)
+            P_list.append(P)
+            Mx_list.append(Mx)
+            My_list.append(My)
+            et_list.append(et)        
+        
+        # Uniform Tension
+        P, Mx, My, et = self.compute_point_uniform(self.default_tensile_strain)
+        P_list.append(P)
+        Mx_list.append(Mx)
+        My_list.append(My)
+        et_list.append(et)
+        
+        # Middle Points
+        for point in middle_points:
+            xpt = -sin(angle)*point
+            ypt =  cos(angle)*point
+            P, Mx, My, et = self.compute_point(xpt, ypt, angle+pi)
+            P_list.append(P)
+            Mx_list.append(Mx)
+            My_list.append(My)
+            et_list.append(et)  
+
+        # Uniform Compression
+        P, Mx, My, et = self.compute_point_uniform(self.extreme_concrete_compression_strain)
+        P_list.append(P)
+        Mx_list.append(Mx)
+        My_list.append(My)
+        et_list.append(et)
+
+        return np.array(P_list), np.array(Mx_list), np.array(My_list), np.array(et_list)

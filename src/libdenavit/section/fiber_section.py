@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from math import inf
+from math import inf, sin, cos, radians
 import numpy as np
 import pandas as pd
 
@@ -36,6 +36,18 @@ class FiberSection:
                 ymax = iymax
 
         return xmin, xmax, ymin, ymax
+
+    def get_bounds_at_angle(self,angle,degrees=False):
+        
+        if degrees:
+            angle = radians(angle)
+    
+        A, x, y, m = self.get_fiber_data()
+        dist = -sin(angle)*x + cos(angle)*y
+        ymin = min(dist) 
+        ymax = max(dist)
+        
+        return ymin, ymax
 
     def get_fiber_data(self):
         # Initialize arrays

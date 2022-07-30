@@ -147,25 +147,24 @@ class RC:
         f = ACI_phi(self.transverse_reinf_type, et, self.fy / self.Es)
         return f
 
-    def plot_section(self, **kwargs):
+    def plot_section(self, plot_show=True, **kwargs):
         plt.figure()
         self.conc_cross_section.plot_section(edgecolor='k',facecolor=[0.9,0.9,0.9],**kwargs)
         for i in range(len(self.reinforcement)):
             self.reinforcement[i].plot_section(color='k',**kwargs)
         plt.box(False)
         plt.axis('scaled')
-        plt.show()
+        if plot_show:
+            plt.show()
 
     def aci_strain_compatibility_object(self):
         id_conc = 1
         id_reinf = 2
         fs = self.fiber_section_object(id_conc, id_reinf)
-        fs.print_section_properties()
         scACI = AciStrainCompatibility(fs)
         # add concrete boundaries
         x, y, r = self.conc_cross_section.boundary_points
-        for i in range(len(x)):
-            scACI.add_concrete_boundary(x[i], y[i], r[i])
+        scACI.add_concrete_boundary(x, y, r)
         # add steel boundary
         for i in self.reinforcement:
             x, y = i.coordinates
@@ -188,51 +187,11 @@ class RC:
             i.add_to_fiber_section(fs, id_reinf, id_conc)
         return fs
 
-    def section_interaction_2d(self):
+    def section_interaction_2d(self,angle,num_points,degrees=False):
         scACI = self.aci_strain_compatibility_object()
-
-        plot_P = []
-        plot_Mx = []
-        plot_et = []
         scACI.build_data()
-
-        upper = self.conc_cross_section.H * 1.51
-        lower = -self.conc_cross_section.H * 2
-        r1 = np.array([-1e99])
-        r2 = np.arange(lower, lower / 2, 0.2)
-        r3 = np.arange(lower / 2, upper, 0.2)
-        r4 = np.array([1e99])
-        d = np.concatenate((r1, r2, r3, r4))
-
-        for i in d:
-            P, Mx, My, et = scACI.compute_point(0, i, 0)
-            plot_P.append(-P)
-            plot_Mx.append(Mx)
-            plot_et.append(et)
-
-        return plot_P, plot_Mx, plot_et
-
-    def plot_interaction_diagram(self, save_name=None):
-        plot_P, plot_Mx, plot_et = self.section_interaction_2d()
-        phi = []
-        for i in plot_et:
-            phi.append(self.phi(i))
-        plt.plot(plot_Mx, plot_P)
-        phi = np.array(phi)
-        plot_Mx = np.array(plot_Mx)
-        plot_P = np.array(plot_P)
-        plt.plot(phi * plot_Mx, phi * plot_P)
-        plt.xlabel('M')
-        plt.ylabel('P')
-        plt.title("Interaction Diagram")
-
-        if save_name:
-            plt.savefig(f'{save_name}')
-        else:
-            plt.show()
-
-        plt.clf()
-        plt.close()
+        P, Mx, My, et = scACI.compute_section_interaction_2d(angle,num_points,degrees)
+        return P, Mx, My, et
 
     def build_ops_fiber_section(self, section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx, GJ=1.0e6):
         """ Builds the fiber section object
@@ -539,8 +498,23 @@ def run_example():
     section.transverse_reinf_type = 'ties'
     
     # Plot Section
-    section.plot_section()
-    section.plot_interaction_diagram()
+    section.plot_section(plot_show=False)
+
+    # Plot Interaction Diagram
+    angle = 0
+    num_points = 40
+    P,Mx,My,et = section.section_interaction_2d(angle,num_points,degrees=True)
+    ϕ = section.phi(et)
+   
+    plt.figure()
+    plt.plot(Mx, -P, '-o', label="$M_x$ (nominal)")
+    plt.plot(My, -P, '-o', label="$M_y$ (nominal)")
+    plt.plot(ϕ*Mx, -ϕ*P, '-s', label="$M_x$ (design)")
+    plt.plot(ϕ*My, -ϕ*P, '-s', label="$M_y$ (design)")
+    plt.xlabel('Bending Moment (kip-in.)')
+    plt.ylabel('Axial Compression (kips)')
+    plt.legend()
+    plt.show()
 
 
 if __name__ == '__main__':
