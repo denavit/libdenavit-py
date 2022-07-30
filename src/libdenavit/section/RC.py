@@ -147,21 +147,14 @@ class RC:
         f = ACI_phi(self.transverse_reinf_type, et, self.fy / self.Es)
         return f
 
-    def plot_section(self, line_width=2, save_name=None):
+    def plot_section(self, **kwargs):
         plt.figure()
-        self.conc_cross_section.plot_section(line_width)
+        self.conc_cross_section.plot_section(edgecolor='k',facecolor=[0.9,0.9,0.9],**kwargs)
         for i in range(len(self.reinforcement)):
-            self.reinforcement[i].plot_section()
+            self.reinforcement[i].plot_section(color='k',**kwargs)
         plt.box(False)
         plt.axis('scaled')
-
-        if save_name:
-            plt.savefig(save_name)
-        else:
-            plt.show()
-
-        plt.clf()
-        plt.close()
+        plt.show()
 
     def aci_strain_compatibility_object(self):
         id_conc = 1
@@ -544,6 +537,8 @@ def run_example():
     # Define RC object
     section = RC(conc_cross_section, reinforcement, fc, fy, units)
     section.transverse_reinf_type = 'ties'
+    
+    # Plot Section
     section.plot_section()
     section.plot_interaction_diagram()
 

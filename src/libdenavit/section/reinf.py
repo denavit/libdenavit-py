@@ -21,9 +21,9 @@ class Reinf:
 
         return i
 
-    def plot_section(self, line_width=2):
+    def plot_section(self, **kwargs):
         xb, yb = self.coordinates
-        plt.plot(xb, yb, 'o', color=self.color_steelFill, linewidth=line_width, )
+        plt.plot(xb, yb, 'o', **kwargs)
     
     def add_to_fiber_section(self, fiber_section, id_reinf, id_conc):
         [x, y] = self.coordinates
