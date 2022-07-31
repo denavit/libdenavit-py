@@ -193,7 +193,7 @@ class RC:
         P, Mx, My, et = scACI.compute_section_interaction_2d(angle,num_points,degrees)
         return P, Mx, My, et
 
-    def build_ops_fiber_section(self, section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx, GJ=1.0e6):
+    def build_ops_fiber_section(self, section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx, GJ=1.0e6, axis=None):
         """ Builds the fiber section object
         
         Parameters
@@ -212,6 +212,13 @@ class RC:
             The minimum number of fibers in the x direction
         GJ : float (default 1.0e6)
             The torsional rigidity of the cross section
+        axis : str (default None)
+            Optional argument for defining a fiber section for 2-dimensional analysis
+              - If "None", then a 3-dimensional fiber section will be defined
+              - If "x", then a 2-dimensional fiber section will be defined based on 
+                bending about the x-axis (note that the value nfx will be ignored) 
+              - If "y", then a 2-dimensional fiber section will be defined based on 
+                bending about the y-axis (note that the value nfy will be ignored)
         """
 
         # Two or three uniaxial materials are defined in this function
