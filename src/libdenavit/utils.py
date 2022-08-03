@@ -39,3 +39,32 @@ def interpolate_list(the_list, ind, x=0):
         return the_list[ind]
         
     return the_list[ind] + (the_list[ind+1] - the_list[ind]) * x
+
+
+def find_intersection_between_two_lines(Ax,Ay,Bx,By,Cx,Cy,Dx,Dy):
+    # This function finds the intersection of lines AB and CD. The lines are defined by two points but the intesection
+    # may occur and outside of the two points. If the lines are parallel, Ix and Iy are retured as empty list.
+
+    if (Ax == Bx) and (Cx == Dx):
+        Ix = []
+        Iy = []
+
+    elif (Ax == Bx):
+        CDm = (Dy - Cy) / (Dx - Cx)
+        Ix = Ax
+        Iy = CDm * (Ix - Cx) + Cy
+    elif (Cx == Dx):
+        ABm = (By - Ay) / (Bx - Ax)
+        Ix = Cx
+        Iy = ABm * (Ix - Ax) + Ay
+    else:
+        ABm = (By - Ay) / (Bx - Ax)
+        CDm = (Dy - Cy) / (Dx - Cx)
+        if (ABm == CDm):
+            Ix = []
+            Iy = []
+        else:
+            Ix = (ABm * Ax - CDm * Cx - Ay + Cy) / (ABm - CDm)
+            Iy = ABm * (Ix - Ax) + Ay
+
+    return Ix, Iy
