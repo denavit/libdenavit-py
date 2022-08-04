@@ -199,11 +199,23 @@ class RC:
             i.add_to_fiber_section(fs, id_reinf, id_conc)
         return fs
 
-    def section_interaction_2d(self,angle,num_points,degrees=False):
+    def section_interaction_2d(self,axis,num_points,factored=False):
         scACI = self.aci_strain_compatibility_object()
         scACI.build_data()
-        P, Mx, My, et = scACI.compute_section_interaction_2d(angle,num_points,degrees)
-        return P, Mx, My, et
+        
+        if axis == 'x':
+            P, M, _, et = scACI.compute_section_interaction_2d(0,num_points,degrees=True)
+        elif axis == 'y':
+            P, _, M, et = scACI.compute_section_interaction_2d(90,num_points,degrees=True)
+        else:
+            raise ValueError(f'Unknown axis ({axis})')
+            
+        if factored:
+            ϕ = self.phi(et)
+            P = ϕ*P
+            M = ϕ*M
+            
+        return P, M
 
     def build_ops_fiber_section(self, section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx, GJ=1.0e6, axis=None):
         """ Builds the fiber section object
