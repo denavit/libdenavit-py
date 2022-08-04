@@ -6,7 +6,7 @@ import openseespy.opensees as ops
 
 
 class RC:
-    transverse_reinf_type = ''
+    
     treat_reinforcement_as_point = True
     _reinforcement = None
     _Ec = None
@@ -14,7 +14,7 @@ class RC:
     _eps_c = None
     _Abt = None
 
-    def __init__(self, conc_cross_section, reinforcement, fc, fy, units, dbt=None, s=None, fyt=None, lat_config="A"):
+    def __init__(self, conc_cross_section, reinforcement, fc, fy, units, dbt=None, s=None, fyt=None, lat_config="A", transverse_reinf_type='ties'):
         self.conc_cross_section = conc_cross_section
         self.reinforcement = reinforcement
         self.fc = fc
@@ -24,6 +24,7 @@ class RC:
         self.s = s
         self.fyt = fyt
         self.lat_config = lat_config
+        self.transverse_reinf_type = transverse_reinf_type
 
     @property
     def Ec(self):
@@ -137,7 +138,7 @@ class RC:
         # See Section 22.4.2 of ACI318-19
         if self.transverse_reinf_type.lower() == 'ties':
             pnco = 0.80 * self.p0
-        elif self.transverse_reinf_type.lower() == 'spiral' or 'spirals':
+        elif self.transverse_reinf_type.lower() == 'spiral' or 'spirals':  # @todo - is this right?
             pnco = 0.85 * self.p0
         else:
             raise ValueError("Unknown transverse_reinf_type")
@@ -502,7 +503,6 @@ def run_example():
 
     # Define RC object
     section = RC(conc_cross_section, reinforcement, fc, fy, units)
-    section.transverse_reinf_type = 'ties'
     
     # Plot Section
     section.plot_section(plot_show=False)
