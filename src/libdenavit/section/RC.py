@@ -144,6 +144,17 @@ class RC:
             raise ValueError("Unknown transverse_reinf_type")
         return pnco
 
+    def EIeff(self, axis, EI_type):
+        if EI_type == "a": 
+            # ACI 318-19, Section 6.6.4.4.4
+            return ( 0.2 * self.Ec * self.Ig(axis) + self.Es * self.Isr(axis))
+
+        if EI_type == "b":
+            # ACI 318-19, Section 6.6.4.4.4
+            return 0.4 * self.Ec * self.Ig(axis)
+
+        raise ValueError(f'Unknown EI_type (EI_type)')
+
     def phi(self, et):
         f = ACI_phi(self.transverse_reinf_type, et, self.fy / self.Es)
         return f
