@@ -2,7 +2,6 @@ from math import pi, sin
 from libdenavit import find_limit_point_in_list, interpolate_list
 from libdenavit.OpenSees import AnalysisResults
 import openseespy.opensees as ops
-import openseespy.postprocessing.Get_Rendering as oplt
 import numpy as np
 
 
