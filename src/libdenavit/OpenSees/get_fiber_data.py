@@ -22,8 +22,8 @@ def get_fiber_data(section_tag: str, filename='data_fiber_0xB0101010.json', keep
             section = value
 
     for j in section['fibers']:
-        x.append(j['coord'][0])
-        y.append(j['coord'][1])
+        y.append(j['coord'][0])
+        x.append(j['coord'][1])
         A.append(j['area'])
         m.append(j['material'])
 
