@@ -21,7 +21,7 @@ def cart2pol(x, y):
     return rho, phi
 
 
-class InteractionDiagram2d():
+class InteractionDiagram2D():
 
     def __init__(self, idx: list, idy: list):
         _, q = cart2pol(idx, idy)
@@ -89,7 +89,7 @@ class InteractionDiagram2d():
         return max_ratio
 
 
-    def findIntersection(self, pathX, pathY):
+    def find_intersection(self, pathX, pathY):
 
         line_1 = LineString(np.column_stack((a1, b1)))
         line_2 = LineString(np.column_stack((a2, b2)))
@@ -110,7 +110,7 @@ class InteractionDiagram2d():
         npts = 1000
         pathX = np.linspace(0, peakX, npts)
         pathY = Y * np.ones(npts)
-        X, _= self.findIntersection(pathX, pathY)
+        X, _= self.find_intersection(pathX, pathY)
         return X
 
 
@@ -125,7 +125,7 @@ class InteractionDiagram2d():
         npts = 1000
         pathX = X * np.ones(npts)
         pathY = np.linspace(0, peakY, npts)
-        _, Y= self.findIntersection(pathX, pathY)
+        _, Y= self.find_intersection(pathX, pathY)
         return Y
 
 
@@ -160,7 +160,7 @@ if __name__ == "__main__":
     plt.plot(distance*np.cos(angles), distance*np.sin(angles), 'bo', label='Angle Points')
     plt.plot(a1, b1, '-r', label='Interaction Diagram 1')
     plt.plot(a2, b2, '-g', label='Interaction Diagram 2')
-    plt.plot(*c1.findIntersection(a2, b2), "ro")
+    plt.plot(*c1.find_intersection(a2, b2), "ro")
     plt.legend()
 
     plt.show()
