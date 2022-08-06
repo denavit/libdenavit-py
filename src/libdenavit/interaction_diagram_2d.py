@@ -1,8 +1,8 @@
 import numpy as np
 import math
-from libdenavit import find_limit_point_in_list, interpolate_list
-from find_intersection_between_two_lines import find_intersection_between_two_lines
+from libdenavit import find_limit_point_in_list, interpolate_list, find_intersection_between_two_lines
 import operator
+from shapely.geometry import LineString
 
 def cart2pol(x, y):
     assert type(x) == type(y), "x and y must be of the same type"
@@ -90,17 +90,13 @@ class InteractionDiagram2D():
 
 
     def findIntersection(self, pathX, pathY):
-        d_path, q_path = cart2pol(pathX, pathY)
-        d = self.radial_distance(q_path)
-        ind, x = find_limit_point_in_list(list(map(operator.sub, d_path, d)), 0)
-        if ind == None:
-            X = None
-            Y = None
-        else:
-            X = interpolate_list(pathX, ind, x)
-            Y = interpolate_list(pathY, ind, x)
 
-        return X, Y, ind, x
+        line_1 = LineString(np.column_stack((a1, b1)))
+        line_2 = LineString(np.column_stack((a2, b2)))
+        intersection = line_1.intersection(line_2)
+
+        # @todo get ind and x from as output
+        return intersection.x, intersection.y,
 
 
     def findXgivenY(self, Y, signX):
@@ -114,7 +110,7 @@ class InteractionDiagram2D():
         npts = 1000
         pathX = np.linspace(0, peakX, npts)
         pathY = Y * np.ones(npts)
-        X, _, _, _ = self.findIntersection(pathX, pathY)
+        X, _= self.findIntersection(pathX, pathY)
         return X
 
 
@@ -129,7 +125,7 @@ class InteractionDiagram2D():
         npts = 1000
         pathX = X * np.ones(npts)
         pathY = np.linspace(0, peakY, npts)
-        _, Y, _, _ = self.findIntersection(pathX, pathY)
+        _, Y= self.findIntersection(pathX, pathY)
         return Y
 
 
@@ -164,6 +160,7 @@ if __name__ == "__main__":
     plt.plot(distance*np.cos(angles), distance*np.sin(angles), 'bo', label='Angle Points')
     plt.plot(a1, b1, '-r', label='Interaction Diagram 1')
     plt.plot(a2, b2, '-g', label='Interaction Diagram 2')
+    plt.plot(*c1.findIntersection(a2, b2), "ro")
     plt.legend()
 
     plt.show()
