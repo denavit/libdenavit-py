@@ -1,5 +1,6 @@
 from . import section
-from .utils import find_limit_point_in_list, interpolate_list, find_intersection_between_two_lines
+from .utils import find_limit_point_in_list, interpolate_list, find_intersection_between_two_lines,\
+    area_of_circular_segment, centroid_of_circular_segment
 from .unit_convert import unit_conversion_factor, unit_convert
 from .camber import camber
 from .joist import OpenWebSteelJoist, JoistGirder

@@ -1,3 +1,5 @@
+import math
+
 
 def find_limit_point_in_list(the_list, val):
 
@@ -68,3 +70,42 @@ def find_intersection_between_two_lines(Ax,Ay,Bx,By,Cx,Cy,Dx,Dy):
             Iy = ABm * (Ix - Ax) + Ay
 
     return Ix, Iy
+
+
+def area_of_circular_segment(radius, height):
+    # radius is the radius of the circle
+    # height is the distance from the center of the circle to the lower boundary of the segment
+    # https://mathworld.wolfram.com/CircularSegment.html
+
+    if radius <= 0:
+        return 0
+    if height <= 0:
+        return 0
+    if height > radius:
+        raise ValueError(f'height must be less than or equal to radius, {radius = }, {height = }')
+    if height == radius:
+        return 0.
+
+    theta = 2 * math.acos(height / radius)
+    area = 0.5 * radius ** 2 * (theta - math.sin(theta))
+    return area
+
+
+def centroid_of_circular_segment(radius, height):
+    # radius is the radius of the circle
+    # height is the distance from the center of the circle to the lower boundary of the segment
+    # https://mathworld.wolfram.com/CircularSegment.html
+
+    if radius <= 0:
+        return 0
+    if height <= 0:
+        return 0
+    if height > radius:
+        raise ValueError(f'height must be less than or equal to  radius, {radius = }, {height = }')
+    if height == radius:
+        return radius
+
+    theta = 2 * math.acos(height / radius)
+    centroid = (4 * radius * (math.sin(0.5 * theta)) ** 3) / (3 * (theta - math.sin(theta)))
+
+    return centroid
