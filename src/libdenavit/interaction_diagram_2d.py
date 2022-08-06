@@ -21,7 +21,7 @@ def cart2pol(x, y):
     return rho, phi
 
 
-class InteractionDiagram2D():
+class InteractionDiagram2d():
 
     def __init__(self, idx: list, idy: list):
         _, q = cart2pol(idx, idy)
@@ -99,7 +99,7 @@ class InteractionDiagram2D():
         return intersection.x, intersection.y,
 
 
-    def findXgivenY(self, Y, signX):
+    def find_x_given_y(self, Y, signX):
         if signX.lower() in ['+', 'positive', 'pos']:
             peakX = 1.1 * np.max(self.idx)
         elif signY.lower() in ['-', 'negative', 'neg']:
@@ -114,7 +114,7 @@ class InteractionDiagram2D():
         return X
 
 
-    def findYgivenX(self, X, signY):
+    def find_y_given_x(self, X, signY):
         if signY.lower() in ['+', 'positive', 'pos']:
             peakY = 1.1 * max(self.idy)
         elif signY.lower() in ['-', 'negative', 'neg']:
@@ -151,11 +151,11 @@ if __name__ == "__main__":
     print("Check point (0.9, 0.0): \n",
           c1.check_points(0.9, 0.0))
     print("Find Intersection: \n",
-          c1.findIntersection(a2, b2))
+          c1.find_intersection(a2, b2))
     print("Find X given Y: \n",
-          c1.findXgivenY(0.9, '+'))
+          c1.find_x_given_y(0.9, '+'))
     print("Find Y given X: \n",
-          c1.findYgivenX(0.9, '+'))
+          c1.find_y_given_x(0.9, '+'))
 
     plt.plot(distance*np.cos(angles), distance*np.sin(angles), 'bo', label='Angle Points')
     plt.plot(a1, b1, '-r', label='Interaction Diagram 1')
