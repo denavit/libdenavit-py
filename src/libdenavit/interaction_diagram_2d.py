@@ -21,7 +21,7 @@ def cart2pol(x, y):
     return rho, phi
 
 
-class InteractionDiagram2D():
+class InteractionDiagram2d():
 
     def __init__(self, idx: list, idy: list):
         _, q = cart2pol(idx, idy)
