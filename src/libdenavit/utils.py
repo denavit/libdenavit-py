@@ -79,8 +79,8 @@ def area_of_circular_segment(radius, height):
 
     if radius <= 0:
         raise ValueError(f'radius must be greater than zero, {radius = }')
-    if height <= 0:
-        raise ValueError(f'height must be greater than zero, {height = }')
+    if height < 0:
+        raise ValueError(f'height must be greater than or equal to zero, {height = }')
     if height > radius:
         raise ValueError(f'height must be less than or equal to radius, {radius = }, {height = }')
     if height == radius:
@@ -98,8 +98,8 @@ def centroid_of_circular_segment(radius, height):
 
     if radius <= 0:
         raise ValueError(f'radius must be greater than zero, {radius = }')
-    if height <= 0:
-        raise ValueError(f'height must be greater than zero, {height = }')
+    if height < 0:
+        raise ValueError(f'height must be greater than or equal to zero, {height = }')
     if height > radius:
         raise ValueError(f'height must be less than or equal to  radius, {radius = }, {height = }')
     if height == radius:
