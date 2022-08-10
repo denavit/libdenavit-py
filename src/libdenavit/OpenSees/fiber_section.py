@@ -1,9 +1,8 @@
 import openseespy.opensees as ops
 from libdenavit import area_of_circular_segment, centroid_of_circular_segment
-from libdenavit.OpenSees import get_fiber_data
 
 
-def circ_patch_2d(mat_tag, num_fibers_half_circle, D, yc=0):
+def circ_patch_2d(mat_tag, num_fibers_half_circle, D, Di=0, yc=0):
     # Height of each fiber (strip)
     dy = D / (2 * num_fibers_half_circle)
 
@@ -15,8 +14,21 @@ def circ_patch_2d(mat_tag, num_fibers_half_circle, D, yc=0):
         yc1 = centroid_of_circular_segment(D / 2, y1)
         A2 = area_of_circular_segment(D / 2, y1 + dy)
         yc2 = centroid_of_circular_segment(D / 2, y1 + dy)
-        iA = A2 - A1
-        iy = (yc2 * A2 - yc1 * A1) / iA
+        if y1 >= Di/2:
+            iA = A1 - A2
+            iy = (yc1 * A1 - yc2 * A2) / iA
+        elif (y1 + dy) >= Di/2:
+            A3 = area_of_circular_segment(Di / 2, y1)
+            yc3 = centroid_of_circular_segment(Di / 2, y1)
+            iA = A1 - A2 - A3
+            iy = (yc1 * A1 - yc2 * A2 - yc3 * A3) / iA 
+        else:
+            A3 = area_of_circular_segment(Di / 2, y1)
+            yc3 = centroid_of_circular_segment(Di / 2, y1)
+            A4 = area_of_circular_segment(Di / 2, y1 + dy)
+            yc4 = centroid_of_circular_segment(Di / 2, y1 + dy)
+            iA = A1 - A2 - A3 + A4
+            iy = (yc1 * A1 - yc2 * A2 - yc3 * A3 + yc4 * A4) / iA 
 
         ops.fiber(yc + iy, 0, iA, mat_tag)  # Fiber on top half of circle
         ops.fiber(yc - iy, 0, iA, mat_tag)  # Fiber on bottom half of circle
@@ -24,7 +36,10 @@ def circ_patch_2d(mat_tag, num_fibers_half_circle, D, yc=0):
     return
 
 
-if __name__ == "__main__":
+def run_example():
+    D = 10
+    Di = 5
+    
     ops.wipe()
     ops.model('basic', '-ndm', 3, '-ndf', 6)
 
@@ -36,11 +51,24 @@ if __name__ == "__main__":
     ops.uniaxialMaterial('Elastic', 2, 2000)
 
     ops.section("Fiber", 1, '-GJ', 10e6)
-    circ_patch_2d(1, 10, 10)
+    circ_patch_2d(1, 100, D, Di = Di)
     ops.element('zeroLengthSection', 1, 0, 1, 1)
 
-    x, y, A, m = get_fiber_data("1", keep_json=True)
+    from libdenavit.OpenSees import get_fiber_data
+    x, y, A, m = get_fiber_data("1")
     print(f'x: {x}\n', f'y: {y}\n', f'A: {A}\n', f'm: {m}\n')
 
     print(sum(A))
+    import math
+    print(math.pi/4*(D*D-Di*Di))
+
+    import numpy as np
+    y = np.array(y)
+    A = np.array(A)
+    I = np.sum(A*y*y)
+    print(I)
+    print(math.pi/64*(D**4-Di**4))    
+
+if __name__ == "__main__":
+    run_example()
 
