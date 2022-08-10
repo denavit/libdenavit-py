@@ -91,8 +91,8 @@ class InteractionDiagram2d():
 
     def find_intersection(self, pathX, pathY):
 
-        line_1 = LineString(np.column_stack((a1, b1)))
-        line_2 = LineString(np.column_stack((a2, b2)))
+        line_1 = LineString(np.column_stack((self.idx, self.idy)))
+        line_2 = LineString(np.column_stack((pathX, pathY)))
         intersection = line_1.intersection(line_2)
 
         # @todo get ind and x from as output
@@ -102,30 +102,30 @@ class InteractionDiagram2d():
     def find_x_given_y(self, Y, signX):
         if signX.lower() in ['+', 'positive', 'pos']:
             peakX = 1.1 * np.max(self.idx)
-        elif signY.lower() in ['-', 'negative', 'neg']:
+        elif signX.lower() in ['-', 'negative', 'neg']:
             peakX = 1.1 * np.min(self.idx)
         else:
             raise ValueError('signX must be positive or negative')
 
-        npts = 1000
+        npts = 10
         pathX = np.linspace(0, peakX, npts)
         pathY = Y * np.ones(npts)
-        X, _= self.find_intersection(pathX, pathY)
+        X, _ = self.find_intersection(pathX, pathY)
         return X
 
 
     def find_y_given_x(self, X, signY):
         if signY.lower() in ['+', 'positive', 'pos']:
-            peakY = 1.1 * max(self.idy)
+            peakY = 1.1 * np.max(self.idy)
         elif signY.lower() in ['-', 'negative', 'neg']:
-            peakY = 1.1 * min(self.idy)
+            peakY = 1.1 * np.min(self.idy)
         else:
             raise ValueError('signY must be positive or negative')
 
         npts = 1000
         pathX = X * np.ones(npts)
         pathY = np.linspace(0, peakY, npts)
-        _, Y= self.find_intersection(pathX, pathY)
+        _, Y = self.find_intersection(pathX, pathY)
         return Y
 
 
