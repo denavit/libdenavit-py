@@ -216,7 +216,7 @@ class RC:
             P = ϕ*P
             M = ϕ*M
             
-        return P, M
+        return P, M, et
 
     def build_ops_fiber_section(self, section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx, GJ=1.0e6, axis=None):
         """ Builds the fiber section object
@@ -362,12 +362,12 @@ class RC:
             if (axis is None) or (axis == '3d'): 
                 for i in self.reinforcement:
                     for index, value in enumerate(i.coordinates[0]):
-                        ops.fiber(value, i.coordinates[1][index], i.Ab, steel_material_id)
+                        ops.fiber(i.coordinates[1][index], value, i.Ab, steel_material_id)
                         if confinement:
                             negative_area_material_id = core_concrete_material_id
                         else:
                             negative_area_material_id = concrete_material_id
-                        ops.fiber(value, i.coordinates[1][index], -i.Ab, negative_area_material_id)
+                        ops.fiber(i.coordinates[1][index], value, -i.Ab, negative_area_material_id)
 
                 H = self.conc_cross_section.H
                 B = self.conc_cross_section.B
@@ -471,13 +471,13 @@ class RC:
             if (axis is None) or (axis == '3d'): 
                 for i in self.reinforcement:
                     for index, value in enumerate(i.coordinates[0]):
-                        ops.fiber(value, i.coordinates[1][index], i.Ab, steel_material_id)
+                        ops.fiber(i.coordinates[1][index], value, i.Ab, steel_material_id)
                         # @todo - are the x and y coordinates mixed up here? try 3 bars to see. 
                         if confinement:
                             negative_area_material_id = core_concrete_material_id
                         else:
                             negative_area_material_id = concrete_material_id
-                        ops.fiber(value, i.coordinates[1][index], -i.Ab, negative_area_material_id)            
+                        ops.fiber(i.coordinates[1][index], value, -i.Ab, negative_area_material_id)
         
                 d  = self.conc_cross_section.diameter
                 max_fiber_size = d/max(nfx,nfy)
@@ -568,7 +568,7 @@ def run_example():
     # Define reinforcement
     rhosr = 0.06
     nbB = 2
-    nbH = 2
+    nbH = 3
     cover = 0.15 * H
     Ab = H * B * rhosr / (2 * nbB + 2 * nbH - 4)
     reinforcement = ReinfRect(B - 2 * cover, H - 2 * cover, nbB, nbH, Ab)
@@ -587,14 +587,12 @@ def run_example():
     # Plot Interaction Diagram
     angle = 0
     num_points = 40
-    P,Mx,My,et = section.section_interaction_2d(angle,num_points,degrees=True)
+    P, M, et = section.section_interaction_2d("x",num_points)
     ϕ = section.phi(et)
    
     plt.figure()
-    plt.plot(Mx, -P, '-o', label="$M_x$ (nominal)")
-    plt.plot(My, -P, '-o', label="$M_y$ (nominal)")
-    plt.plot(ϕ*Mx, -ϕ*P, '-s', label="$M_x$ (design)")
-    plt.plot(ϕ*My, -ϕ*P, '-s', label="$M_y$ (design)")
+    plt.plot(M, -P, '-o', label="$M_x$ (nominal)")
+    plt.plot(ϕ*M, -ϕ*P, '-s', label="$M_x$ (design)")
     plt.xlabel('Bending Moment (kip-in.)')
     plt.ylabel('Axial Compression (kips)')
     plt.legend()
