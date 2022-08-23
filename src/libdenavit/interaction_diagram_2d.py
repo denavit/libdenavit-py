@@ -2,7 +2,7 @@ import numpy as np
 import math
 from libdenavit import find_limit_point_in_list, interpolate_list, find_intersection_between_two_lines
 import operator
-from shapely.geometry import LineString
+from shapely.geometry import LineString, Polygon
 
 def cart2pol(x, y):
     assert type(x) == type(y), "x and y must be of the same type"
@@ -23,7 +23,7 @@ def cart2pol(x, y):
 
 class InteractionDiagram2d():
 
-    def __init__(self, idx: list, idy: list):
+    def __init__(self, idx: list, idy: list, is_closed=False):
         _, q = cart2pol(idx, idy)
         q = [i%(2*np.pi) for i in q]
         ind = np.argsort(q)
@@ -34,6 +34,7 @@ class InteractionDiagram2d():
         self.idx = idx
         self.idy = idy
         self.q = q
+        self.is_closed = is_closed
 
 
     def radial_distance(self, angles, degrees=False):
@@ -74,10 +75,11 @@ class InteractionDiagram2d():
         return d
 
 
-    def compare_two(self, test_id, angles):
-        d_base = self.radial_distance(angles)
-        d_test = test_id.radial_distance(angles)
-
+    def compare_two(self, test_id, angles, degrees=False):
+        d_base = self.radial_distance(angles, degrees)
+        d_test = test_id.radial_distance(angles, degrees)
+        d_base = np.array(d_base)
+        d_test = np.array(d_test)
         errors = [(i-j) / i for i, j in zip(d_base, d_test)]
         return errors
 
@@ -90,10 +92,20 @@ class InteractionDiagram2d():
 
 
     def find_intersection(self, pathX, pathY):
+        if self.is_closed:
+            polin = Polygon(np.column_stack((self.idx, self.idy)))
+            line_1 = LineString(list(polin.exterior.coords))
+            line_2 = LineString(np.column_stack((pathX, pathY)))
+            intersection = line_1.intersection(line_2)
+            if intersection.type != 'Point':
+                raise Exception('could not find an intersection')
 
-        line_1 = LineString(np.column_stack((self.idx, self.idy)))
-        line_2 = LineString(np.column_stack((pathX, pathY)))
-        intersection = line_1.intersection(line_2)
+        else:
+            line_1 = LineString(np.column_stack((self.idx, self.idy)))
+            line_2 = LineString(np.column_stack((pathX, pathY)))
+            intersection = line_1.intersection(line_2)
+            if intersection.type != 'Point':
+                raise Exception('could not find an intersection')
 
         # @todo get ind and x from as output
         return intersection.x, intersection.y,
@@ -137,11 +149,11 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     a1 = [0.9, 1.0, 0.8, 0.0]
     b1 = [0.0, 0.4, 0.9, 1.0]
-    c1 = InteractionDiagram2D(a1, b1)
+    c1 = InteractionDiagram2d(a1, b1)
 
     a2 = [0.8, 1.0, 0.8, 0.0]
     b2 = [0.0, 0.4, 1.0, 1.1]
-    c2 = InteractionDiagram2D(a2, b2)
+    c2 = InteractionDiagram2d(a2, b2)
 
     angles = np.linspace(0, np.pi/2, 50)
     distance = c1.radial_distance(angles)
