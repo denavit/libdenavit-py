@@ -413,7 +413,7 @@ class RC:
                 if self.reinforcement[0].xc != 0 or self.reinforcement[0].yc != 0:
                     raise ValueError(f"Reinforcing pattern must be centered")
                 if self.dbt is None:
-                   raise ValueError("dbt must be defined")
+                    raise ValueError("dbt must be defined")
                 if self.s is None:
                     raise ValueError("s must be defined")
 
@@ -472,7 +472,6 @@ class RC:
                 for i in self.reinforcement:
                     for index, value in enumerate(i.coordinates[0]):
                         ops.fiber(i.coordinates[1][index], value, i.Ab, steel_material_id)
-                        # @todo - are the x and y coordinates mixed up here? try 3 bars to see. 
                         if confinement:
                             negative_area_material_id = core_concrete_material_id
                         else:
