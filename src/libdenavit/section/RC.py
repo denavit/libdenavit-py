@@ -188,7 +188,7 @@ class RC:
                 else:
                     raise ValueError("Not implemented yet")
 
-        scACI.maxCompressiveStrength = -self.pnco
+        scACI.max_compressive_strength = -self.pnco
         scACI.add_material(id_conc, 'concrete', self.fc, self.units)
         scACI.add_material(id_reinf, 'steel', self.fy, self.Es)
         return scACI

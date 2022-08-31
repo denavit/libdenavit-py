@@ -102,6 +102,7 @@ class AciStrainCompatibility:
 
     extreme_concrete_compression_strain = -0.003
     default_tensile_strain = 0.005
+    max_compressive_strength = None
 
     def __init__(self, fiber_section, axes_origin="AsDefined"):
         self.fiber_section = fiber_section
@@ -289,5 +290,19 @@ class AciStrainCompatibility:
         Mx_list.append(Mx)
         My_list.append(My)
         et_list.append(et)
+        
+        # Convert lists to numpy arrays
+        P_list = np.array(P_list)
+        Mx_list = np.array(Mx_list)
+        My_list = np.array(My_list)
+        et_list = np.array(et_list)
+        
+        # Apply Maximum Compressive Strength Cap
+        if self.max_compressive_strength is not None:
+            if self.max_compressive_strength > 0:
+                raise ValueError(f"max_compressive_strength set to a positive (i.e., tensile) value: {self.max_compressive_strength}")
+            for i, v in enumerate(P_list):
+                if v < self.max_compressive_strength:
+                    P_list[i] = self.max_compressive_strength
 
-        return np.array(P_list), np.array(Mx_list), np.array(My_list), np.array(et_list)
+        return P_list, Mx_list, My_list, et_list
