@@ -441,8 +441,9 @@ class RC:
                 fcc = self.fc*(-1.254 + 2.254*sqrt(1+7.94*fl/self.fc) - 2*fl/self.fc)
                 
                 # Confinement Effect on Ductility (Section 3.4.4 of Chang and Mander 1994)
-                k1 = (fcc-fc)/fl
+                k1 = (fcc-self.fc)/fl
                 k2 = 5 * k1
+                x_bar = (fl + fl) / (2 * self.fc)
                 eps_prime_cc = self.eps_c * (1 + k2 * x_bar)
 
                 ops.uniaxialMaterial("Concrete04", cover_concrete_material_id, -self.fc, -self.eps_c, -2 * self.eps_c,
