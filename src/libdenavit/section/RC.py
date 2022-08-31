@@ -160,14 +160,14 @@ class RC:
         f = ACI_phi(self.transverse_reinf_type, et, self.fy / self.Es)
         return f
 
-    def plot_section(self, plot_show=True, **kwargs):
+    def plot_section(self, show=True, **kwargs):
         plt.figure()
         self.conc_cross_section.plot_section(edgecolor='k',facecolor=[0.9,0.9,0.9],**kwargs)
         for i in range(len(self.reinforcement)):
             self.reinforcement[i].plot_section(color='k',**kwargs)
         plt.box(False)
         plt.axis('scaled')
-        if plot_show:
+        if show:
             plt.show()
 
     def aci_strain_compatibility_object(self):
@@ -582,7 +582,7 @@ def run_example():
     section = RC(conc_cross_section, reinforcement, fc, fy, units)
     
     # Plot Section
-    section.plot_section(plot_show=False)
+    section.plot_section(show=False)
 
     # Plot Interaction Diagram
     angle = 0
