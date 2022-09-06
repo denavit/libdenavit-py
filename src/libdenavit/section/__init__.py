@@ -10,3 +10,4 @@ from .rectangle_shape import Rectangle,PlateMember_AISC2016
 from .circle_shape import Circle
 from .reinf import Reinf, ReinfRect, ReinfCirc
 from .RC import RC
+from .ccft import CCFT
