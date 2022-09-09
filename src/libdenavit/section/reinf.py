@@ -124,3 +124,55 @@ class ReinfCirc(Reinf):
         x = self.xc + self.rc * np.cos(angles)
         y = self.yc + self.rc * np.sin(angles)
         return x, y
+
+
+class ReinfIntersectingLoops(Reinf):
+    """
+    A ReinfIntersectingLoops object is a rebar layer for a obround section with two circular patterns.
+
+    Parameters
+    ----------
+    D  : float
+        diameter of the intersecting loops (measured to the center of the bars).
+    a  : float
+        seperation of the centers of the two circlar bar patterns.
+    num_bars : int
+        number of bars in the patter, must be even.
+    Ab : float
+        area of each reinforcing bar.
+    xc : float
+        The x coordinate of the center of the whole pattern.
+    yc : float
+        The y coordinate of the center of the whole pattern.
+
+    """
+
+    def __init__(self,D,a,num_bars,Ab,xc=0,yc=0):
+        self.D = D
+        self.a = a
+        self.num_bars = num_bars
+        self.Ab = Ab
+        self.xc = xc
+        self.yc = yc
+
+    @property
+    def coordinates(self):
+        if self.a >= self.D:
+            raise ValueError(f'a should be less than D')
+        if self.num_bars % 2 != 0:
+            raise ValueError(f'num_bars should be even ({self.num_bars = })')
+        
+        theta = np.arccos(self.a/self.D)
+        
+        angles = np.linspace(-np.pi+theta, np.pi-theta, self.num_bars//2+1)
+        x1 = self.xc + self.D/2 * np.cos(angles) + self.a/2
+        y1 = self.yc + self.D/2 * np.sin(angles)
+        
+        angles = np.linspace(theta, 2*np.pi-theta, self.num_bars//2+1)[1:-1]
+        x2 = self.xc + self.D/2 * np.cos(angles) - self.a/2
+        y2 = self.yc + self.D/2 * np.sin(angles)
+        
+        x = np.append(x1,x2)
+        y = np.append(y1,y2)
+        
+        return x, y
