@@ -280,25 +280,27 @@ class NonSwayColumn2d:
         else:
             raise ValueError(f'Analysis type {analysis_type} not implemented')
 
-    def run_ops_interaction(self, section_args, section_kwargs, num_points=10):
+    def run_ops_interaction(self, section_args, section_kwargs, num_points=10, prop_disp_incr_factor=1e-7, nonprop_disp_incr_factor=1e-4):
         
         # Run one axial load only analyis to determine maximum axial strength
-        results = self.run_ops_analysis('proportional_limit_point', section_args, section_kwargs, e=0)
+        results = self.run_ops_analysis('proportional_limit_point', section_args, section_kwargs, e=0, disp_incr_factor=prop_disp_incr_factor)
         P = [results.applied_axial_load_at_limit_point]
         M1 = [0]
         M2 = [results.maximum_abs_moment_at_limit_point]
+        if P is None:
+            raise ValueError('Analysis failed at axial only loading')
 
         # Loop axial linearly spaced axial loads witn non-proportional analyses
         for i in range(1,num_points):
             iP = P[0] * (num_points-1-i) / (num_points-1)
             if iP == 0:
                 iP = 0.001*P[0] # @todo - change this to run a cross sectional analysis
-            results = self.run_ops_analysis('nonproportional_limit_point', section_args, section_kwargs, P=iP)
+            results = self.run_ops_analysis('nonproportional_limit_point', section_args, section_kwargs, P=iP, disp_incr_factor=nonprop_disp_incr_factor)
             P.append(iP)
             M1.append(max(results.applied_moment_top))
             M2.append(max(results.maximum_abs_moment))
 
-        return P, M1, M2
+        return np.array(P), np.array(M1), np.array(M2)
 
     def run_ops_interaction_proportional(self, section_args, section_kwargs, e_list, **kwargs):
         P  = []
@@ -311,7 +313,7 @@ class NonSwayColumn2d:
             M1.append(results.applied_moment_top_at_limit_point)
             M2.append(results.maximum_abs_moment_at_limit_point)
 
-        return P, M1, M2
+        return np.array(P), np.array(M1), np.array(M2)
 
     def ops_get_maximum_abs_moment(self):
         # This code assumed (but does not check) that moment at j-end of 
