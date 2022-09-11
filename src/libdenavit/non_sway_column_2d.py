@@ -1,5 +1,5 @@
 from math import pi, sin
-from libdenavit import find_limit_point_in_list, interpolate_list
+from libdenavit import find_limit_point_in_list, interpolate_list, InteractionDiagram2d
 from libdenavit.OpenSees import AnalysisResults
 import openseespy.opensees as ops
 import numpy as np
@@ -330,3 +330,73 @@ class NonSwayColumn2d:
             disp.append(abs(ops.nodeDisp(i, 1)))
         
         return max(disp)
+
+    @property
+    def Cm(self):
+        Cm = 0.6 + 0.4 * min([self.et, self.eb], key=abs) / max([self.et, self.eb], key=abs)
+        return Cm
+    
+    def run_AASHTO_interaction(self, axis, EI_type, num_points=10, section_factored=True, Pc_factor=0.75, beta_dns=0, minimum_eccentricity=False):
+    
+        # beta_dns is the ratio of the maximum factored sustained axial load divided by
+        # the total factored axial load associated with the same load combination
+        # default is zero (i.e., short term loading)
+        
+        # Note that this function uses 
+        #   M1 to mean applied first-order moment 
+        #   M2 to mean internal second-order moment
+        # this notation is differnt than what is used in AASHTO.
+        
+        # Parameters
+        k = 1  # Effective length factor (always one for this non-sway column)
+        EIeff = self.section.EIeff(axis, EI_type, beta_dns)
+        Pc = pi**2 * EIeff / (k * self.length)**2
+        h = self.section.depth(axis)
+        
+        # Get cross-sectional interaction diagram
+        P_id, M_id, _ = self.section.section_interaction_2d(axis, 100, factored=section_factored)
+        id2d = InteractionDiagram2d(M_id, P_id, is_closed=True)
+
+        # Run one axial load only analysis to determine maximum axial strength
+        if minimum_eccentricity:
+            P_path  = np.linspace(0, max(1.001*min(P_id),-0.999*Pc_factor*Pc), 1000)
+            M2_path = np.zeros_like(P_path)
+            for i,P in enumerate(P_path):
+                delta = max(self.Cm/(1 - (-P)/(Pc_factor*Pc)), 1.0)
+                if self.section.units.lower() == "us":
+                    M1_min = -P*(0.6 + 0.03 * h)  # ACI 6.6.4.5.4
+                elif self.section.units.lower() == "si":
+                    M1_min = -P * (0.015 + 0.03 * h)
+                else:
+                    raise ValueError("The unit system defined in the section is not supported")
+                M2_path[i] = delta*M1_min
+
+            iM2, iP = id2d.find_intersection(M2_path, P_path)
+
+            P_list  = [iP]
+            M1_list = [0]
+            M2_list = [iM2]
+
+        else:
+            M1_min = 0
+            buckling_load = -Pc_factor*Pc
+            if buckling_load < min(P_id):
+                P_list = [min(P_id)]
+                M1_list = [0]
+                M2_list = [0]
+            else:
+                P_list  = [buckling_load]
+                M1_list = [0]
+                M2_list = [id2d.find_x_given_y(buckling_load, 'pos')]            
+
+        # Loop axial linearly spaced axial loads witn non-proportional analyses
+        for i in range(1,num_points):
+            iP = P_list[0] * (num_points-1-i) / (num_points-1)
+            iM2 = id2d.find_x_given_y(iP, 'pos')
+            delta = max(self.Cm / (1 - (-iP) / (Pc_factor * Pc)), 1.0)
+            iM1 = iM2/delta
+            P_list.append(iP)
+            M1_list.append(iM1)
+            M2_list.append(iM2)
+
+        return np.array(P_list), np.array(M1_list), np.array(M2_list)
