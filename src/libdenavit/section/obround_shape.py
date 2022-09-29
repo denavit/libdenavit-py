@@ -13,7 +13,7 @@ class Obround(GeometricShape):
         top and bottom length of interior rectangle
     """
     
-    section_type = "Circle"
+    section_type = "Obround"
     
     def __init__(self, D, a):
         if D <= 0:
