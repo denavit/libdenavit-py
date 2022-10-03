@@ -157,27 +157,44 @@ class WideFlangeMember_AISC2016:
     def Mn(self,Lb,Cb):
         
         # Check width-to-thickness ratios
-        if self.section.bf_over_2tf > 0.38*sqrt(self.E/self.Fy):
-            raise Exception('Mn not yet implemented for noncompact or slender flanges') 
         if self.section.h_over_tw > 3.76*sqrt(self.E/self.Fy) :
             raise Exception('Mn not yet implemented for noncompact or slender webs')           
-        
+               
         # Yielding 
-        Mn_Y = self.Fy*self.section.Zx
-        
+        Mp = self.Fy*self.section.Zx
+        Mn = Mp
+
+        # Compression Flange Local Buckling
+        λ  = self.section.bf_over_2tf
+        λp = 0.38*sqrt(self.E/self.Fy)
+        λr = 1.0*sqrt(self.E/self.Fy)
+        if λ <= λp:
+            pass
+        elif λ <= λr:
+            Mn_CFLB = Mp - (Mp-0.7*self.Fy*self.section.Sx)*(λ-λp)/(λr-λp)
+            Mn = min(Mn,Mn_CFLB)
+        else:
+            kc = 4/sqrt(self.section.h_over_tw)
+            if kc > 0.76:
+                kc = 0.76
+            if kc < 0.35:
+                kc = 0.35
+            Mn_CFLB = (0.9*self.E*kc*self.section.Sx)/(λ**2)
+            Mn = min(Mn,Mn_CFLB)
+
         # Lateral-Torsional Buckling
         Lp = 1.76*self.section.ry*sqrt(self.E/self.Fy)
         Lr = 1.95*self.section.rts*(self.E/(0.7*self.Fy))*sqrt((self.section.J/(self.section.Sx*self.section.ho))+sqrt(((self.section.J/(self.section.Sx*self.section.ho))**2)+(6.76*((0.7*self.Fy)/self.E)**2)))
         
         if Lb <= Lp:
-            Mn = Mn_Y
+            pass
         if Lb <= Lr:
             Mn_LTB = Cb*((self.Fy*self.section.Zx)-(((self.Fy*self.section.Zx)-(0.7*self.Fy*self.section.Sx))*((Lb-Lp)/(Lr-Lp))))
-            Mn = min(Mn_LTB,Mn_Y)
+            Mn = min(Mn,Mn_LTB)
         else:
             Fcr= Cb*(pi**2)*((self.E)/((Lb/self.section.rts)**2))*sqrt(1+(0.078*((self.section.J/(self.section.Sx*self.section.ho))*((Lb/self.section.rts)**2))))
             Mn_LTB = Fcr*self.section.Sx
-            Mn = min(Mn_LTB,Mn_Y)
+            Mn = min(Mn,Mn_LTB)
                 
         return available_strength(Mn,self.strength_type,0.9,1.67)
     
