@@ -336,6 +336,10 @@ class NonSwayColumn2d:
         Cm = 0.6 + 0.4 * min([self.et, self.eb], key=abs) / max([self.et, self.eb], key=abs)
         return Cm
     
+    def run_section_analysis(self, axis, num_points=10, section_factored=False):
+        P_id, M_id, _ = self.section.section_interaction_2d(axis, num_points, factored=section_factored)
+        return P_id, M_id
+    
     def run_AASHTO_interaction(self, axis, EI_type, num_points=10, section_factored=True, Pc_factor=0.75, beta_dns=0, minimum_eccentricity=False):
     
         # beta_dns is the ratio of the maximum factored sustained axial load divided by
@@ -354,7 +358,7 @@ class NonSwayColumn2d:
         h = self.section.depth(axis)
         
         # Get cross-sectional interaction diagram
-        P_id, M_id, _ = self.section.section_interaction_2d(axis, 100, factored=section_factored)
+        P_id, M_id, _ = self.section.section_interaction_2d(axis, num_points, factored=section_factored)
         id2d = InteractionDiagram2d(M_id, P_id, is_closed=True)
 
         # Run one axial load only analysis to determine maximum axial strength
