@@ -50,6 +50,22 @@ class FiberSingle:
 
 @dataclass
 class FiberQuadPatch:
+
+    """
+    # Creates a set of fibers to describe a quadrilateral patch
+    #
+    # x and y parameters are the coordiantes of the four corners of the patch as labeled below:
+    #
+    #   y |
+    #     |    J  o-----o K
+    #     |      /     /
+    #     |     /     /
+    #     |  I o-----o L
+    #     |______________
+    #                   x
+    """
+
+
     # region input arguments
     xI: float
     yI: float
