@@ -246,7 +246,7 @@ class AciStrainCompatibility:
         et_list = []
 
         # Select neutral axis locations
-        ymin,ymax = self.fiber_section.get_bounds_at_angle(angle, degrees=True)
+        ymin,ymax = self.fiber_section.get_bounds_at_angle(angle)
         d = ymax-ymin
         middle_points = np.linspace(ymin-0.51*d,ymax+0.51*d,num_points-2)
         # Uniform Compression
