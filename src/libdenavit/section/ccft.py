@@ -95,7 +95,6 @@ class CCFT:
         scACI = AciStrainCompatibility(fs)
         scACI.add_concrete_boundary(0.0, 0.0, 0.5*self.D-self.t)
         scACI.add_steel_boundary(0.0, 0.0, 0.5*self.D)
-        scACI.max_compressive_strength = -0.85 * (self.As * self.Fy + 0.85 * self.Ac * self.fc)
         scACI.add_material(id_steel, 'steel', self.Fy, self.Es)
         scACI.add_material(id_conc, 'concrete', self.fc, self.units)
         scACI.add_material(id_reinf, 'steel', self.Fylr, self.Es)
