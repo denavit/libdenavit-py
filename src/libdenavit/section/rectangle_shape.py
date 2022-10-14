@@ -152,6 +152,65 @@ class Rectangle(GeometricShape):
         else:
             ValueError('Not yet implemented')
 
+class RectangularTube:
+    def __init__(self, H, B, t, ro=0):
+        self.H = H
+        self.B = B
+        self.t = t
+        self.ro = ro
+
+        if self.H <= 0:
+            raise ValueError('Section height must be positive')
+        if self.B <= 0:
+            raise ValueError('Section height must be positive')
+        if self.t <= 0:
+            raise ValueError('Section thickness must be positive')
+        if self.t > min([self.H, self.B])/2:
+            raise ValueError('Section thickness must be less than half the smaller dimension')
+        if self.ro < 0:
+            raise ValueError('Section outer radius must be positive')
+
+    @property
+    def ri(self):
+        return max(0, self.ro-self.t)
+
+    @property
+    def A(self):
+        recto = Rectangle(self.H, self.B, self.ro)
+        recti = Rectangle(self.H-2*self.t, self.B-2*self.t, self.ri)
+        a = recto.A - recti.A
+        return a
+
+    def I(self, axis):
+        recto = Rectangle(self.H, self.B, self.ro)
+        recti = Rectangle(self.H - 2 * self.t, self.B - 2 * self.t, self.ri)
+        i = recto.I(axis) - recti.I(axis)
+        return i
+
+    def S(self, axis):
+        I = self.I(axis)
+        if axis in ['x', 'z', 'major', 'strong']:
+            return I/(0.5*self.H)
+        elif axis in ['y', 'minor', 'weak']:
+            return I/(0.5*self.B)
+        else:
+            raise ValueError('Invalid axis')
+
+    def Z(self, axis):
+        recto = Rectangle(self.H, self.B, self.ro)
+        recti = Rectangle(self.H - 2 * self.t, self.B - 2 * self.t, self.ri)
+        z = recto.Z(axis) - recti.Z(axis)
+        return z
+
+    @property
+    def J(self):
+        # This equation is from "Torsional Section Properties of Steel Shapes"
+        # published by the Canadian Institute of Steel Construction, 2002
+        rc = (self.ro + self.ri) / 2
+        p = 2 * ((self.H - self.t) + (self.B - self.t)) - 2 * rc * (4 - pi)
+        Ap = (self.H - self.t) * (self.B - self.t) - rc * (4 - pi)
+        j = 4 * Ap**2 * self.t/p
+        return j
 
 class PlateMember_AISC2016:
     def __init__(self,section,Fy,E,Lcx,Lcy,strength_type):
