@@ -121,7 +121,21 @@ class RCFT:
 
     def Ic(self, axis):
         shp = Rectangle(self.Hc, self.Bc, self.ri)
-        return shp.I(axis)
+        return shp.I(axis) - self.Isr(axis)
+
+    def Isr(self, axis):
+        I = 0
+        (x,y) = self.reinforcing_coordinates()
+        if axis == 'x':
+            for yi in y:
+                I += yi*yi
+        elif axis == 'y':
+            for xi in x:
+                I += xi*xi
+        else:
+            raise ValueError(f'Unknown option for axis: {axis}') 
+        I = I*self.Ab
+        return I
 
     def Ig(self, axis):
         shp = Rectangle(self.H, self.B, self.ri)
@@ -218,7 +232,6 @@ class RCFT:
 
 
 def run_example():
-    # pass
     H = 40
     B = 20
     t = 1
@@ -226,15 +239,23 @@ def run_example():
     fc = 4
     ri = 0
 
-    section = RCFT(H, B, t, fy, fc, 'US', ri, 2, 2, Dp=2, Ab=1)
+    section = RCFT(H, B, t, fy, fc, 'US', ri, 3, 3, Dp=2, Ab=1.3)
 
     fs = section.fiber_section_object(1, 2, 3)
+    fs.plot_fibers()
     fs.print_section_properties()
 
     print(f'As  = {section.As}')
     print(f'Ac  = {section.Ac}')
     print(f'Asr = {section.Asr}')
-
+    
+    axis = 'y'
+    Is  = section.Is(axis)
+    Ic  = section.Ic(axis)
+    Isr = section.Isr(axis)
+    print(f'Is  = {Is}')
+    print(f'Ic  = {Ic}')
+    print(f'Isr = {Isr}')
 
 if __name__ == '__main__':
     run_example()
