@@ -152,7 +152,7 @@ class RCFT:
             for i in range(self.nbH):
                 for j in range(self.nbB):
                     if i in [0, self.nbH - 1] or j in [0, self.nbB - 1]:
-                        x.append(i * (self.B - 2 * self.Dp) / (self.nbB - 1) - self.B / 2 + self.Dp)
+                        x.append(j * (self.B - 2 * self.Dp) / (self.nbB - 1) - self.B / 2 + self.Dp)
                         y.append(i * (self.H - 2 * self.Dp) / (self.nbH - 1) - self.H / 2 + self.Dp)
         return x, y
 
