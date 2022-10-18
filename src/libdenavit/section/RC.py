@@ -1,13 +1,12 @@
 from math import sqrt, pi, ceil, exp
 from libdenavit.section import AciStrainCompatibility, FiberSingle, FiberSection, ACI_phi
-from libdenavit.OpenSees import circ_patch_2d
+from libdenavit.OpenSees import circ_patch_2d, obround_patch_2d, obround_patch_2d_confined
 import matplotlib.pyplot as plt
 import numpy as np
 import openseespy.opensees as ops
 
 
 class RC:
-    
     treat_reinforcement_as_point = True
     _reinforcement = None
     _Ec = None
@@ -46,7 +45,7 @@ class RC:
 
     @property
     def Abt(self):
-        if self._Abt is None:
+        if self._Abt is not None:
             return self._Abt
         else:
             return pi * self.dbt ** 2 / 4
@@ -139,7 +138,7 @@ class RC:
         # See Section 22.4.2 of ACI318-19
         if self.transverse_reinf_type.lower() == 'ties':
             pnco = 0.80 * self.p0
-        elif self.transverse_reinf_type.lower() == 'spiral' or 'spirals':  # @todo - is this right?
+        elif self.transverse_reinf_type.lower() in ['spiral', 'spirals']:
             pnco = 0.85 * self.p0
         else:
             raise ValueError("Unknown transverse_reinf_type")
@@ -433,9 +432,8 @@ class RC:
                 ke = (1 - sp/(2*ds))/(1-ρcc)
                 
                 # flx and fly = lateral confining stress in x and y directions
-                Asp = self.dbt**2 * pi / 4 # @todo - lets add a Abt property
-                ρs = 4*Asp/(ds*self.s)  # Equation 17
-                fl = 0.5*ke*ρs*self.fyt # Equation 19
+                ρs = 4*self.Abt/(ds*self.s)  # Equation 17
+                fl = 0.5*ke*ρs*self.fyt  # Equation 19
                 
                 # fcc = confined concrete strength
                 fcc = self.fc*(-1.254 + 2.254*sqrt(1+7.94*fl/self.fc) - 2*fl/self.fc)
@@ -552,7 +550,115 @@ class RC:
             else:
                 raise ValueError(f'Unknown option for axis: {axis}')
             # endregion
-            
+
+        elif type(self.conc_cross_section).__name__ == 'Obround':
+
+            # region Define Concrete Material
+            if conc_mat_type == "Concrete04":
+                # Defined based on Mander, J. B., Priestley, M. J. N., and Park, R. (1988).
+                # “Theoretical Stress-Strain Model for Confined Concrete.” Journal of Structural
+                # Engineering, ASCE, 114(8), 1804―1826.
+
+                if type(self.reinforcement[0]).__name__ != 'ReinfIntersectingLoops':
+                    raise ValueError(f"Reinforcement type {type(self.reinforcement[0]).__name__} not supported for this section type")
+                if self.reinforcement[0].xc != 0 or self.reinforcement[0].yc != 0:
+                    raise ValueError(f"Reinforcing pattern must be centered")
+                if self.dbt is None:
+                    raise ValueError("dbt must be defined")
+                if self.s is None:
+                    raise ValueError("s must be defined")
+
+                # ds = core diameter based on center line of perimeter hoop
+                ds = self.reinforcement[0].D + self.reinforcement[0].db + self.dbt
+
+                # Ac = area of core of section enclosed by the center line of the perimeter hoops
+                Ac = pi / 4 * ds * ds
+
+                # ρcc = ratio of area of longitudinal reinforcement to area of core of section
+                ρcc = self.reinforcement[0].Ab * self.reinforcement[0].num_bars/2 / Ac
+
+                # sp = clear vertical spacing between spiral or hoop bars
+                sp = self.s - self.dbt
+
+                # ke = confinement effectiveness coefficient (Equation 15)
+                ke = (1 - sp / (2 * ds)) / (1 - ρcc)
+
+                # flx and fly = lateral confining stress in x and y directions
+                ρs = 4 * self.Abt / ds * self.s  # Equation 17
+                fl = 0.5 * ke * ρs * self.fyt  # Equation 19
+
+                # fcc = confined concrete strength
+                fcc = self.fc * (-1.254 + 2.254 * sqrt(1 + 7.94 * fl / self.fc) - 2 * fl / self.fc)
+
+                # Confinement Effect on Ductility (Section 3.4.4 of Chang and Mander 1994)
+                k1 = (fcc - self.fc) / fl
+                k2 = 5 * k1
+                x_bar = (fl + fl) / (2 * self.fc)
+                eps_prime_cc = self.eps_c * (1 + k2 * x_bar)
+
+                ops.uniaxialMaterial("Concrete04", cover_concrete_material_id, -self.fc, -self.eps_c,
+                                     -2 * self.eps_c, self.Ec)
+                ops.uniaxialMaterial("Concrete04", core_concrete_material_id, -fcc, -eps_prime_cc,
+                                     - 2 * eps_prime_cc, self.Ec)
+                confinement = True
+                
+            elif conc_mat_type == "Concrete04_no_confinement":
+                ops.uniaxialMaterial("Concrete04", 2, -self.fc, -self.eps_c, -2 * self.eps_c, self.Ec)
+                confinement = False
+
+            elif conc_mat_type == "ENT":
+                ops.uniaxialMaterial('ENT', 2, self.Ec)
+                confinement = False
+
+            elif conc_mat_type == "Elastic":
+                ops.uniaxialMaterial('Elastic', 2, self.Ec)
+                confinement = False
+
+            else:
+                raise ValueError(f"Concrete material {conc_mat_type} not supported")
+            # endregion
+
+            # region Define fibers and patches
+            if (axis is None) or (axis == '3d'):
+                raise ValueError(f'3D option not supported for obround cross-sections yet')
+
+            elif axis == 'x' or axis == 'y':
+                for i in self.reinforcement:
+                    if axis == 'x':
+                        for index, value in enumerate(i.coordinates[1]):
+                            ops.fiber(value, 0, i.Ab, steel_material_id)
+                            if confinement:
+                                negative_area_material_id = core_concrete_material_id
+                            else:
+                                negative_area_material_id = concrete_material_id
+                            ops.fiber(value, 0, -i.Ab, negative_area_material_id)
+                    elif axis == 'y':
+                        for index, value in enumerate(i.coordinates[0]):
+                            ops.fiber(value, 0, i.Ab, steel_material_id)
+                            if confinement:
+                                negative_area_material_id = core_concrete_material_id
+                            else:
+                                negative_area_material_id = concrete_material_id
+                            ops.fiber(value, 0, -i.Ab, negative_area_material_id)
+
+                if axis == 'x':
+                    nf = nfx
+                elif axis == 'y':
+                    nf = nfy
+
+                if confinement:
+                    obround_patch_2d_confined(cover_concrete_material_id, core_concrete_material_id, nf,
+                                              self.conc_cross_section.D, self.conc_cross_section.a,
+                                              self.reinforcement.D + self.reinforcement.db/2 + self.dbt/2,
+                                              axis=axis)
+                else:
+                    obround_patch_2d(concrete_material_id, nf, self.conc_cross_section.D,
+                                     self.conc_cross_section.a, axis=axis)
+
+            else:
+                raise ValueError(f'Unknown option for axis: {axis}')
+            # endregion
+
         else:
             raise ValueError(f"Concrete cross section {self.conc_cross_section.section_type} not supported")
 
@@ -599,5 +705,45 @@ def run_example():
     plt.show()
 
 
+def run_example_2():
+    D = 36
+    a = 18
+    Dc = D - 6
+    nb = 20
+    Ab = 1
+
+    from libdenavit.section import Obround, ReinfIntersectingLoops
+    conc_cross_section = Obround(D, a)
+
+    # Define reinforcement
+    reinforcement = ReinfIntersectingLoops(Dc, a, nb, Ab)
+
+    # Define materials
+    fc = 4
+    fy = 60
+    units = 'US'
+    axis = 'y'
+    # Define RC object
+    section = RC(conc_cross_section, reinforcement, fc, fy, units)
+
+    # Plot Section
+    section.plot_section(show=False)
+
+    # Plot Interaction Diagram
+    angle = 0
+    num_points = 40
+    P, M, et = section.section_interaction_2d('x', num_points)
+    ϕ = section.phi(et)
+
+    plt.figure()
+    plt.plot(M, -P, '-o', label="$M_x$ (nominal)")
+    plt.plot(ϕ * M, -ϕ * P, '-s', label="$M_x$ (design)")
+    plt.xlabel('Bending Moment (kip-in.)')
+    plt.ylabel('Axial Compression (kips)')
+    plt.legend()
+    plt.show()
+
+
 if __name__ == '__main__':
-    run_example()
+    # run_example()
+    run_example_2()
