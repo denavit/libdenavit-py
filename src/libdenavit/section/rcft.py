@@ -162,15 +162,15 @@ class RCFT:
         id_reinf = 3
         fs = self.fiber_section_object(id_steel, id_conc, id_reinf)
         scACI = AciStrainCompatibility(fs, "RCFT")
-        scACI.add_concrete_boundary(-self.Bc + self.ri, -self.Hc + self.ri, self.ri)
-        scACI.add_concrete_boundary(-self.Bc + self.ri, +self.Hc - self.ri, self.ri)
-        scACI.add_concrete_boundary(+self.Bc - self.ri, -self.Hc + self.ri, self.ri)
-        scACI.add_concrete_boundary(+self.Bc - self.ri, +self.Hc - self.ri, self.ri)
+        scACI.add_concrete_boundary(-self.Bc/2 + self.ri, -self.Hc/2 + self.ri, self.ri)
+        scACI.add_concrete_boundary(-self.Bc/2 + self.ri, +self.Hc/2 - self.ri, self.ri)
+        scACI.add_concrete_boundary(+self.Bc/2 - self.ri, -self.Hc/2 + self.ri, self.ri)
+        scACI.add_concrete_boundary(+self.Bc/2 - self.ri, +self.Hc/2 - self.ri, self.ri)
 
-        scACI.add_steel_boundary(-self.B + self.ro, -self.H + self.ro, self.ro)
-        scACI.add_steel_boundary(-self.B + self.ro, +self.H - self.ro, self.ro)
-        scACI.add_steel_boundary(+self.B - self.ro, -self.H + self.ro, self.ro)
-        scACI.add_steel_boundary(+self.B - self.ro, +self.H - self.ro, self.ro)
+        scACI.add_steel_boundary(-self.B/2 + self.ro, -self.H/2 + self.ro, self.ro)
+        scACI.add_steel_boundary(-self.B/2 + self.ro, +self.H/2 - self.ro, self.ro)
+        scACI.add_steel_boundary(+self.B/2 - self.ro, -self.H/2 + self.ro, self.ro)
+        scACI.add_steel_boundary(+self.B/2 - self.ro, +self.H/2 - self.ro, self.ro)
 
         scACI.add_material(id_steel, 'steel', self.Fy, self.Es)
         scACI.add_material(id_conc, 'concrete', self.fc, self.units)
