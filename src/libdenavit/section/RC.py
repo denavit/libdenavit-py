@@ -623,22 +623,20 @@ class RC:
                 raise ValueError(f'3D option not supported for obround cross-sections yet')
 
             elif axis == 'x' or axis == 'y':
+
+                if confinement:
+                    negative_area_material_id = core_concrete_material_id
+                else:
+                    negative_area_material_id = concrete_material_id
+
                 for i in self.reinforcement:
                     if axis == 'x':
                         for index, value in enumerate(i.coordinates[1]):
                             ops.fiber(value, 0, i.Ab, steel_material_id)
-                            if confinement:
-                                negative_area_material_id = core_concrete_material_id
-                            else:
-                                negative_area_material_id = concrete_material_id
                             ops.fiber(value, 0, -i.Ab, negative_area_material_id)
                     elif axis == 'y':
                         for index, value in enumerate(i.coordinates[0]):
                             ops.fiber(value, 0, i.Ab, steel_material_id)
-                            if confinement:
-                                negative_area_material_id = core_concrete_material_id
-                            else:
-                                negative_area_material_id = concrete_material_id
                             ops.fiber(value, 0, -i.Ab, negative_area_material_id)
 
                 if axis == 'x':
@@ -648,12 +646,12 @@ class RC:
 
                 if confinement:
                     obround_patch_2d_confined(cover_concrete_material_id, core_concrete_material_id, nf,
-                                              self.conc_cross_section.D, self.conc_cross_section.a,
-                                              self.reinforcement.D + self.reinforcement.db/2 + self.dbt/2,
+                                              self.conc_cross_section.D, self.conc_cross_section.a, ds,
                                               axis=axis)
                 else:
-                    obround_patch_2d(concrete_material_id, nf, self.conc_cross_section.D,
-                                     self.conc_cross_section.a, axis=axis)
+                    obround_patch_2d(concrete_material_id, nf, 
+                                     self.conc_cross_section.D, self.conc_cross_section.a,
+                                     axis=axis)
 
             else:
                 raise ValueError(f'Unknown option for axis: {axis}')
