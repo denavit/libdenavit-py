@@ -13,3 +13,4 @@ from .reinf import Reinf, ReinfRect, ReinfCirc, ReinfIntersectingLoops
 from .RC import RC
 from .ccft import CCFT
 from .rcft import RCFT
+from .encased_composite import SRC
