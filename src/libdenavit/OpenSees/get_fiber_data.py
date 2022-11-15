@@ -3,7 +3,13 @@ import json
 import os
 
 
-def get_fiber_data(section_tag: str, filename='data_fiber_0xB0101010.json', keep_json=False):
+def get_fiber_data(section_tag: str, filename=None, keep_json=False, plot_fibers=False):
+    
+    if filename is None:
+        from datetime import datetime
+        now = datetime.now()
+        filename = 'data_fiber_' + now.strftime('%Y%m%d_%H%M%S%f') + '.json'
+    
     if os.path.exists(filename):
         ans = input('The file already exists. Enter "Y" to overwrite it or "N" to cancel: ')
         if ans == 'N':
@@ -29,6 +35,12 @@ def get_fiber_data(section_tag: str, filename='data_fiber_0xB0101010.json', keep
 
     if not keep_json:
         os.remove(f'{filename}')
+
+    if plot_fibers:
+        import matplotlib.pyplot as plt
+        m_int = list(map(int,m))
+        plt.scatter(x,y,A,m_int)
+        plt.show()
 
     return x, y, A, m
 
