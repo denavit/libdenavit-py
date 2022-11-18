@@ -1,10 +1,13 @@
+from typing import Union
+
 import pint
+
 ureg = pint.UnitRegistry()
 
-def unit_conversion_factor(old_unit, new_unit):
-    return unit_convert(1,old_unit,new_unit)
+def unit_conversion_factor(old_unit: str, new_unit: str) -> float:
+    return unit_convert(1, old_unit, new_unit)
 
-def unit_convert(old_value: float or int, old_unit: str, new_unit: str):
+def unit_convert(old_value: Union[float, int], old_unit: str, new_unit: str) -> float:
     """
     **Defined units to use:**
         Length Units: in, ft, m, cm, mm
