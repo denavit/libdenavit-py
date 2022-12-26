@@ -189,7 +189,7 @@ class SwayColumn2d:
             def record():
                 time = ops.getTime()
                 results.applied_axial_load.append(time)
-                results.applied_horizonal_load.append(time*e/lever_arm)
+                results.applied_horizonal_load.append(time*e/self.lever_arm)
                 results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
                 results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp()[0])
                 results.lowest_eigenvalue.append(ops.eigen(1)[0])
