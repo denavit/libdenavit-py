@@ -337,12 +337,12 @@ class RC:
                 k2 = 5 * k1
                 eps_prime_cc = self.eps_c * (1 + k2 * x_bar)
 
-                ops.uniaxialMaterial("Concrete04", cover_concrete_material_id, -self.fc, -self.eps_c, -2 * self.eps_c, self.Ec)
-                ops.uniaxialMaterial("Concrete04", core_concrete_material_id, -fcc, -eps_prime_cc, - 2 * eps_prime_cc, self.Ec)
+                ops.uniaxialMaterial("Concrete04", cover_concrete_material_id, -self.fc, -self.eps_c, -1.0, self.Ec)
+                ops.uniaxialMaterial("Concrete04", core_concrete_material_id, -fcc, -eps_prime_cc, -1.0, self.Ec)
                 confinement = True
 
             elif conc_mat_type == "Concrete04_no_confinement":
-                ops.uniaxialMaterial("Concrete04", concrete_material_id, -self.fc, -self.eps_c, -2 * self.eps_c, self.Ec)
+                ops.uniaxialMaterial("Concrete04", concrete_material_id, -self.fc, -self.eps_c, -1.0, self.Ec)
                 confinement = False
             
             elif conc_mat_type == "ENT":
@@ -444,14 +444,12 @@ class RC:
                 x_bar = (fl + fl) / (2 * self.fc)
                 eps_prime_cc = self.eps_c * (1 + k2 * x_bar)
 
-                ops.uniaxialMaterial("Concrete04", cover_concrete_material_id, -self.fc, -self.eps_c, -2 * self.eps_c,
-                                     self.Ec)
-                ops.uniaxialMaterial("Concrete04", core_concrete_material_id, -fcc, -eps_prime_cc, - 2 * eps_prime_cc,
-                                     self.Ec)
+                ops.uniaxialMaterial("Concrete04", cover_concrete_material_id, -self.fc, -self.eps_c, -1.0, self.Ec)
+                ops.uniaxialMaterial("Concrete04", core_concrete_material_id, -fcc, -eps_prime_cc, -1.0, self.Ec)
                 confinement = True
     
             elif conc_mat_type == "Concrete04_no_confinement":
-                ops.uniaxialMaterial("Concrete04", 2, -self.fc, -self.eps_c, -2 * self.eps_c, self.Ec)
+                ops.uniaxialMaterial("Concrete04", 2, -self.fc, -self.eps_c, -1.0, self.Ec)
                 confinement = False
                 
             elif conc_mat_type == "ENT":
