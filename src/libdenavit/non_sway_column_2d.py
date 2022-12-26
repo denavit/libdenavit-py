@@ -6,7 +6,7 @@ import numpy as np
 
 
 class NonSwayColumn2d:
-    def __init__(self, section, length, et, eb, dxo=0.0, n_elem=8):
+    def __init__(self, section, length, et, eb, dxo=0.0, n_elem=6):
         # Physical parameters
         self.section = section
         self.length = length
@@ -49,12 +49,14 @@ class NonSwayColumn2d:
         
         if type(self.section).__name__ == "RC":
             self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs)
-        
+        else:
+            raise ValueError(f'Unknown cross section type {type(self.section).__name__}')
+
         ops.beamIntegration("Lobatto", 1, 1, 3)
         
         for index in range(self.ops_n_elem):
             ops.element(self.ops_element_type, index, index, index + 1, 100, 1)
-    
+
     def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=1.0, P=0,
                          perc_drop=0.05, maximum_abs_disp_limit_ratio=0.1, num_steps_vertical=10, disp_incr_factor=0.00005):
         """ Run an OpenSees analysis of the column
@@ -70,7 +72,7 @@ class NonSwayColumn2d:
                 - 'proportional_target_disp' (not yet implemented)
                 - 'nonproportional_target_disp' (not yet implemented)
         section_args : list
-            Non-keyworded arguments for the section's build_ops_fiber_section 
+            Non-keyworded arguments for the section's build_ops_fiber_section
         section_kwargs : dict
             Keyworded arguments for the section's build_ops_fiber_section
         
@@ -79,9 +81,9 @@ class NonSwayColumn2d:
         - The vertical load applied to column is P = LFV
         - The moment applied to bottom of column is M = LFH*eb
         - The moment applied to top of column is M = -LFH*et
-        - For proportional analyses, LFV and LFH are increased simultaneously 
+        - For proportional analyses, LFV and LFH are increased simultaneously
           with a ratio of LFH/LFV = e (P is ignored)
-        - For non-proportional analyses, LFV is increased to P first then held 
+        - For non-proportional analyses, LFV is increased to P first then held
           constant, then LFH is increased (e is ignored)
           
         """
@@ -131,8 +133,8 @@ class NonSwayColumn2d:
             # @todo - we may eventually need more sophisticated selection of dof to control
             if self.et * e == 0. and self.eb * e == 0.:
                 # Axial only analysis
-                dU = -self.length * disp_incr_factor
-                ops.integrator('DisplacementControl', self.ops_n_elem, 2, dU)
+                dU = self.length * disp_incr_factor
+                ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
             else:
                 dU = self.length * disp_incr_factor
                 ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
@@ -154,11 +156,11 @@ class NonSwayColumn2d:
             maximum_applied_axial_load = 0.
             while True:
                 ok = ops.analyze(1)
-                
+
                 if ok != 0:
                     results.exit_message = 'Analysis Failed'
                     break
-                
+
                 record()
 
                 # Check for drop in applied load
@@ -172,7 +174,7 @@ class NonSwayColumn2d:
                 if results.lowest_eigenvalue[-1] < 0:
                     results.exit_message = 'Limit Point Reached'
                     break
-                
+
                 # Check for maximum displacement
                 if results.maximum_abs_disp[-1] > maximum_abs_disp_limit_ratio * self.length:
                     results.exit_message = 'Deformation Limit Reached'
@@ -180,7 +182,7 @@ class NonSwayColumn2d:
 
             find_limit_point()
             return results
-        
+
         elif analysis_type.lower() == 'nonproportional_limit_point':
             # region Run vertical load (time = LFV)
             ops.timeSeries('Linear', 100)
@@ -228,10 +230,17 @@ class NonSwayColumn2d:
             ops.pattern('Plain', 201, 101)
             ops.load(self.ops_n_elem, 0, 0, self.et)
             ops.load(0, 0, 0, -self.eb)
-            
+
             # @todo - we may eventually need more sophisticated selection of dof to control
-            dU = self.length * disp_incr_factor
-            ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+            #dU = self.length * disp_incr_factor
+            #ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+            
+            if self.et == 0:
+                dU = np.sign(-self.eb)*disp_incr_factor/10
+                ops.integrator('DisplacementControl', 0, 3, dU)
+            else:
+                dU = np.sign(self.et)*disp_incr_factor/10
+                ops.integrator('DisplacementControl', self.ops_n_elem, 3, dU)
             
             ops.analysis('Static')
             
@@ -250,8 +259,27 @@ class NonSwayColumn2d:
             maximum_time = 0
             while True:
                 ok = ops.analyze(1)
-                
+
                 if ok != 0:
+                    print('Trying ModifiedNewton')
+                    ops.algorithm('ModifiedNewton')
+                    ok = ops.analyze(1)
+
+                if ok != 0:
+                    print('Trying KrylovNewton')
+                    ops.algorithm('KrylovNewton')
+                    ok = ops.analyze(1)
+
+                if ok != 0:
+                    print('Trying KrylovNewton and Greater Tolerance')
+                    ops.algorithm('KrylovNewton')
+                    ops.test('NormUnbalance', 1e-1, 10, 1)
+                    ok = ops.analyze(1)
+                
+                if ok == 0:
+                    ops.algorithm('Newton')
+                    ops.test('NormUnbalance', 1e-2, 10, 1)
+                else:
                     results.exit_message = 'Analysis Failed'
                     break
                 
@@ -261,12 +289,12 @@ class NonSwayColumn2d:
                 current_time = ops.getTime()
                 maximum_time = max(maximum_time, current_time)
                 if current_time < (1 - perc_drop) * maximum_time:
-                    results.exit_message = 'Limit Point Reached'
+                    results.exit_message = 'Limit Point Reached (Load Drop)'
                     break
                     
                 # Check for lowest eigenvalue less than zero
                 if results.lowest_eigenvalue[-1] < 0:
-                    results.exit_message = 'Limit Point Reached'
+                    results.exit_message = 'Limit Point Reached (Eigenvalue)'
                     break
                 
                 # Check for maximum displacement
@@ -281,12 +309,13 @@ class NonSwayColumn2d:
             raise ValueError(f'Analysis type {analysis_type} not implemented')
 
     def run_ops_interaction(self, section_args, section_kwargs, num_points=10, prop_disp_incr_factor=1e-7, nonprop_disp_incr_factor=1e-4):
-        
+
         # Run one axial load only analyis to determine maximum axial strength
         results = self.run_ops_analysis('proportional_limit_point', section_args, section_kwargs, e=0, disp_incr_factor=prop_disp_incr_factor)
         P = [results.applied_axial_load_at_limit_point]
         M1 = [0]
         M2 = [results.maximum_abs_moment_at_limit_point]
+        exit_message = [results.exit_message]
         if P is None:
             raise ValueError('Analysis failed at axial only loading')
 
@@ -299,8 +328,29 @@ class NonSwayColumn2d:
             P.append(iP)
             M1.append(max(results.applied_moment_top))
             M2.append(max(results.maximum_abs_moment))
+            exit_message.append(results.exit_message)
+            
+            plot_at_step=False
+            if plot_at_step:
+                import matplotlib.pyplot as plt
+                plt.figure()
+                plt.title(f'Axial Load = {iP}, column: D= {self.section.depth("x")}, L={self.length}')
+                plt.plot(results.mid_node_disp, results.applied_moment_top, '-ro')
+                plt.plot(results.mid_node_disp, results.maximum_abs_moment, '-bo')
+                plt.legend(['M1', 'M2'])
 
-        return np.array(P), np.array(M1), np.array(M2)
+                plt.figure()
+                plt.plot(results.mid_node_disp, results.lowest_eigenvalue)
+                plt.show()
+
+        # Store results in AnalysisResults object
+        results = AnalysisResults()
+        results.P = np.array(P)
+        results.M1 = np.array(M1)
+        results.M2 = np.array(M2)
+        results.exit_message = exit_message
+
+        return results
 
     def run_ops_interaction_proportional(self, section_args, section_kwargs, e_list, **kwargs):
         P  = []
