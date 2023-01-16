@@ -14,7 +14,7 @@ class Reinf:
         x, y = self.coordinates
         if axis.lower() == "x":
             i = sum(self.Ab * y ** 2)
-        elif axis.lower == "y":
+        elif axis.lower() == "y":
             i = sum(self.Ab * x ** 2)
         else:
             raise ValueError("Unknown Axis")
