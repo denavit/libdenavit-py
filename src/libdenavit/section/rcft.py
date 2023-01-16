@@ -43,7 +43,10 @@ class RCFT:
     @property
     def num_bars(self):
         if self.nbH != 0 and self.nbB != 0:
-            return 2 * (self.nbH + self.nbB) - 4
+            if self.nbH == 1:
+                return self.nbB
+            else:
+                return 2 * (self.nbH + self.nbB) - 4
         else:
             return 0
 
@@ -124,18 +127,22 @@ class RCFT:
         return shp.I(axis) - self.Isr(axis)
 
     def Isr(self, axis):
-        I = 0
-        (x,y) = self.reinforcing_coordinates()
-        if axis == 'x':
-            for yi in y:
-                I += yi*yi
-        elif axis == 'y':
-            for xi in x:
-                I += xi*xi
+        if self.nbH == 0 or self.nbB == 0:
+            return 0
+
         else:
-            raise ValueError(f'Unknown option for axis: {axis}') 
-        I = I*self.Ab
-        return I
+            I = 0
+            (x,y) = self.reinforcing_coordinates()
+            if axis == 'x':
+                for yi in y:
+                    I += yi*yi
+            elif axis == 'y':
+                for xi in x:
+                    I += xi*xi
+            else:
+                raise ValueError(f'Unknown option for axis: {axis}')
+            I = I*self.Ab
+            return I
 
     def Ig(self, axis):
         shp = Rectangle(self.H, self.B, self.ri)
@@ -146,7 +153,15 @@ class RCFT:
         return shp.J(axis)
 
     def reinforcing_coordinates(self):
-        if self.nbH != 0 and self.nbB != 0:
+        if self.nbH == 1:
+            x = []
+            y = []
+            for j in range(self.nbB):
+                x.append(j * (self.B - 2 * self.Dp) / (self.nbB - 1) - self.B / 2 + self.Dp)
+                y.append(- self.H / 2 + self.Dp)
+            return x, y
+
+        elif self.nbH != 0 and self.nbB != 0:
             x = []
             y = []
             for i in range(self.nbH):
@@ -154,7 +169,9 @@ class RCFT:
                     if i in [0, self.nbH - 1] or j in [0, self.nbB - 1]:
                         x.append(j * (self.B - 2 * self.Dp) / (self.nbB - 1) - self.B / 2 + self.Dp)
                         y.append(i * (self.H - 2 * self.Dp) / (self.nbH - 1) - self.H / 2 + self.Dp)
-        return x, y
+            return x, y
+        else:
+            return 0, 0
 
     def aci_strain_compatibility_object(self):
         id_steel = 1
@@ -239,7 +256,7 @@ def run_example():
     fc = 4
     ri = 0
 
-    section = RCFT(H, B, t, fy, fc, 'US', ri, 3, 3, Dp=2, Ab=1.3)
+    section = RCFT(H, B, t, fy, fc, 'US', ri, 1, 4, Ab=0.2, Fylr=60, Dp=3)
 
     fs = section.fiber_section_object(1, 2, 3)
     fs.plot_fibers()
@@ -256,6 +273,9 @@ def run_example():
     print(f'Is  = {Is}')
     print(f'Ic  = {Ic}')
     print(f'Isr = {Isr}')
+
+    scACI = section.aci_strain_compatibility_object()
+
 
 if __name__ == '__main__':
     run_example()
