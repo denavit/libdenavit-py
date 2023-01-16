@@ -38,7 +38,7 @@ def circ_patch_2d(mat_tag, num_fibers_half_circle, D, Di=0, yc=0):
 
 
 def obround_patch_2d(mat_tag, num_fibers, D, a, axis='x', yc=0):
-    if axis == 'x':
+    if axis == 'y':
        
         # Number of fibers in each region
         nfa = ceil(a / (D + a) * num_fibers)
@@ -64,7 +64,7 @@ def obround_patch_2d(mat_tag, num_fibers, D, a, axis='x', yc=0):
             ops.fiber(yc+iy+a/2, 0, iA, mat_tag)
             ops.fiber(yc-iy-a/2, 0, iA, mat_tag)
 
-    elif axis == 'y':
+    elif axis == 'x':
     
         # Number of fibers in each region
         num_fib_half = ceil(num_fibers/2)
