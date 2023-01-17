@@ -37,7 +37,7 @@ def circ_patch_2d(mat_tag, num_fibers_half_circle, D, Di=0, yc=0):
     return
 
 
-def obround_patch_2d(mat_tag, num_fibers, D, a, axis='x', yc=0):
+def obround_patch_2d(mat_tag, num_fibers, D, a, axis, yc=0):
     if axis == 'y':
        
         # Number of fibers in each region
@@ -91,7 +91,7 @@ def obround_patch_2d(mat_tag, num_fibers, D, a, axis='x', yc=0):
         raise ValueError(f'obround_patch_2d not implemented for {axis = })')
 
 
-def obround_patch_2d_confined(mat_tag_cover, mat_tag_core, num_fibers, D, a, Dc, axis='x', yc=0):
+def obround_patch_2d_confined(mat_tag_cover, mat_tag_core, num_fibers, D, a, Dc, axis, yc=0):
     if axis == 'x':
         
         # Number of fibers in each region

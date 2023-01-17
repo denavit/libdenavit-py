@@ -24,6 +24,10 @@ class RCFT:
             self.ri = ri
 
         # Reinforcing
+        if type(nbH) is not int or type(nbB) is not int:
+            raise ValueError('nbH and nbB must be integers')
+        if 1 in (nbH, nbB) or (nbH < 0 or nbB < 0):
+            raise ValueError('nbH or nbB value is not valid')
         self.nbH = nbH
         self.nbB = nbB
         if bar_size is None:
@@ -43,10 +47,7 @@ class RCFT:
     @property
     def num_bars(self):
         if self.nbH != 0 and self.nbB != 0:
-            if self.nbH == 1:
-                return self.nbB
-            else:
-                return 2 * (self.nbH + self.nbB) - 4
+            return 2 * (self.nbH + self.nbB) - 4
         else:
             return 0
 
@@ -153,15 +154,7 @@ class RCFT:
         return shp.J(axis)
 
     def reinforcing_coordinates(self):
-        if self.nbH == 1:
-            x = []
-            y = []
-            for j in range(self.nbB):
-                x.append(j * (self.B - 2 * self.Dp) / (self.nbB - 1) - self.B / 2 + self.Dp)
-                y.append(- self.H / 2 + self.Dp)
-            return x, y
-
-        elif self.nbH != 0 and self.nbB != 0:
+        if self.nbH != 0 and self.nbB != 0:
             x = []
             y = []
             for i in range(self.nbH):
