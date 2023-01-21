@@ -65,7 +65,7 @@ def uniaxial_material_analysis(definition, peak_points, rate_type = 'None', rate
     # ------------------------------       
     ops.constraints('Plain')
     ops.numberer('RCM')
-    ops.system('BandSPD')
+    ops.system('UmfPack')
     ops.test('NormUnbalance', 1e-8, 10)
     ops.algorithm('Newton')
     ops.integrator('DisplacementControl', 2, 1, peak_points[0])
