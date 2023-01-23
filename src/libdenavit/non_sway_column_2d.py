@@ -78,6 +78,7 @@ class NonSwayColumn2d:
         
         Loading Notes
         -------------
+        - Compression is positive
         - The vertical load applied to column is P = LFV
         - The moment applied to bottom of column is M = LFH*eb
         - The moment applied to top of column is M = -LFH*et
@@ -273,12 +274,12 @@ class NonSwayColumn2d:
                 if ok != 0:
                     print('Trying KrylovNewton and Greater Tolerance')
                     ops.algorithm('KrylovNewton')
-                    ops.test('NormUnbalance', 1e-1, 10, 1)
+                    ops.test('NormUnbalance', 1e-1, 10)
                     ok = ops.analyze(1)
                 
                 if ok == 0:
                     ops.algorithm('Newton')
-                    ops.test('NormUnbalance', 1e-2, 10, 1)
+                    ops.test('NormUnbalance', 1e-2, 10)
                 else:
                     results.exit_message = 'Analysis Failed'
                     break
@@ -316,7 +317,7 @@ class NonSwayColumn2d:
         M1 = [0]
         M2 = [results.maximum_abs_moment_at_limit_point]
         exit_message = [results.exit_message]
-        if P is None:
+        if P is None or P == [None]:
             raise ValueError('Analysis failed at axial only loading')
 
         # Loop axial linearly spaced axial loads witn non-proportional analyses
@@ -343,14 +344,7 @@ class NonSwayColumn2d:
                 plt.plot(results.mid_node_disp, results.lowest_eigenvalue)
                 plt.show()
 
-        # Store results in AnalysisResults object
-        results = AnalysisResults()
-        results.P = np.array(P)
-        results.M1 = np.array(M1)
-        results.M2 = np.array(M2)
-        results.exit_message = exit_message
-
-        return results
+        return {'P': list(np.array(P)*-1), 'M1': M1, 'M2': M2, 'exit_message': exit_message}
 
     def run_ops_interaction_proportional(self, section_args, section_kwargs, e_list, **kwargs):
         P  = []
@@ -363,29 +357,8 @@ class NonSwayColumn2d:
             M1.append(results.applied_moment_top_at_limit_point)
             M2.append(results.maximum_abs_moment_at_limit_point)
 
-        return np.array(P), np.array(M1), np.array(M2)
+        return {'P': list(np.array(P)*-1), 'M1': M1, 'M2': M2}
 
-    def ops_get_maximum_abs_moment(self):
-        # This code assumed (but does not check) that moment at j-end of 
-        # one element equals the moment at the i-end of the next element.
-        moment = [abs(ops.eleForce(0, 3))]
-        for i in range(self.ops_n_elem):
-            moment.append(abs(ops.eleForce(i, 6)))
-        
-        return max(moment)
-    
-    def ops_get_maximum_abs_disp(self):
-        disp = []
-        for i in range(self.ops_n_elem + 1):
-            disp.append(abs(ops.nodeDisp(i, 1)))
-        
-        return max(disp)
-
-    @property
-    def Cm(self):
-        Cm = 0.6 + 0.4 * min([self.et, self.eb], key=abs) / max([self.et, self.eb], key=abs)
-        return Cm
-    
     def run_AASHTO_interaction(self, axis, EI_type, num_points=10, section_factored=True, Pc_factor=0.75, beta_dns=0, minimum_eccentricity=False):
     
         # beta_dns is the ratio of the maximum factored sustained axial load divided by
@@ -441,7 +414,7 @@ class NonSwayColumn2d:
 
         # Loop axial linearly spaced axial loads witn non-proportional analyses
         for i in range(1,num_points):
-            iP = P_list[0] * (num_points-1-i) / (num_points-1)
+            iP = 0.999*P_list[0] * (num_points-i) / (num_points-1)
             iM2 = id2d.find_x_given_y(iP, 'pos')
             delta = max(self.Cm / (1 - (-iP) / (Pc_factor * Pc)), 1.0)
             iM1 = iM2/delta
@@ -449,4 +422,58 @@ class NonSwayColumn2d:
             M1_list.append(iM1)
             M2_list.append(iM2)
 
-        return np.array(P_list), np.array(M1_list), np.array(M2_list)
+        results = {'P':P_list,'M1':M1_list,'M2':M2_list}
+        return results
+
+    def ops_get_maximum_abs_moment(self):
+        # This code assumed (but does not check) that moment at j-end of 
+        # one element equals the moment at the i-end of the next element.
+        moment = [abs(ops.eleForce(0, 3))]
+        for i in range(self.ops_n_elem):
+            moment.append(abs(ops.eleForce(i, 6)))
+        
+        return max(moment)
+    
+    def ops_get_maximum_abs_disp(self):
+        disp = []
+        for i in range(self.ops_n_elem + 1):
+            disp.append(abs(ops.nodeDisp(i, 1)))
+        
+        return max(disp)
+
+    @property
+    def Cm(self):
+        Cm = 0.6 + 0.4 * min([self.et, self.eb], key=abs) / max([self.et, self.eb], key=abs)
+        return Cm
+
+    def calculated_EI(self, axis, P_list, M1_list, P_CS = None, M_CS = None, section_factored=True, Pc_factor=0.75):
+    
+        EIgross = self.section.EIgross(axis)
+    
+        if (M_CS is None) or (P_CS is None):
+            P_CS, M_CS, _ = self.section.section_interaction_2d(axis, 100, factored=section_factored)
+        
+        id2d = InteractionDiagram2d(M_CS, P_CS, is_closed=True)
+        
+        EI_list = []
+        for P,M1 in zip(P_list,M1_list):
+            
+            if P < min(P_CS):
+                EI_list.append(float("nan"))
+                continue
+                       
+            M2 = id2d.find_x_given_y(P, 'pos')
+            
+            if M1 >= M2:
+                # EI_list.append(EIgross)
+                EI_list.append(float("nan"))
+                continue
+            
+            delta = M2/M1
+            Pc = delta * (-P) / (Pc_factor * (delta - self.Cm))
+            k = 1  # Effective length factor (always one for this non-sway column)
+            EI = Pc * (k*self.length/pi)**2
+            EI_list.append(EI)
+
+        results = {'P':np.array(P_list),'EI':np.array(EI_list),'EIgross':EIgross}
+        return results
