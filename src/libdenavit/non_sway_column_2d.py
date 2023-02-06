@@ -6,13 +6,14 @@ import numpy as np
 
 
 class NonSwayColumn2d:
-    def __init__(self, section, length, et, eb, dxo=0.0, n_elem=6):
+    def __init__(self, section, length, et, eb, dxo=0.0, n_elem=6, axis=None):
         # Physical parameters
         self.section = section
         self.length = length
         self.et = et
         self.eb = eb
         self.dxo = dxo
+        self.axis = axis
         
         # General options
         self.include_initial_geometric_imperfections = True
@@ -48,7 +49,7 @@ class NonSwayColumn2d:
         ops.geomTransf(self.ops_geom_transf_type, 100)
         
         if type(self.section).__name__ == "RC":
-            self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs)
+            self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs, axis=self.axis)
         else:
             raise ValueError(f'Unknown cross section type {type(self.section).__name__}')
 
@@ -359,7 +360,7 @@ class NonSwayColumn2d:
 
         return {'P': list(np.array(P)*-1), 'M1': M1, 'M2': M2}
 
-    def run_AASHTO_interaction(self, axis, EI_type, num_points=10, section_factored=True, Pc_factor=0.75, beta_dns=0, minimum_eccentricity=False):
+    def run_AASHTO_interaction(self, EI_type, num_points=10, section_factored=True, Pc_factor=0.75, beta_dns=0, minimum_eccentricity=False):
     
         # beta_dns is the ratio of the maximum factored sustained axial load divided by
         # the total factored axial load associated with the same load combination
@@ -372,12 +373,12 @@ class NonSwayColumn2d:
         
         # Parameters
         k = 1  # Effective length factor (always one for this non-sway column)
-        EIeff = self.section.EIeff(axis, EI_type, beta_dns)
+        EIeff = self.section.EIeff(self.axis, EI_type, beta_dns)
         Pc = pi**2 * EIeff / (k * self.length)**2
-        h = self.section.depth(axis)
+        h = self.section.depth(self.axis)
         
         # Get cross-sectional interaction diagram
-        P_id, M_id, _ = self.section.section_interaction_2d(axis, 100, factored=section_factored)
+        P_id, M_id, _ = self.section.section_interaction_2d(self.axis, 100, factored=section_factored)
         id2d = InteractionDiagram2d(M_id, P_id, is_closed=True)
 
         # Run one axial load only analysis to determine maximum axial strength
@@ -446,12 +447,12 @@ class NonSwayColumn2d:
         Cm = 0.6 + 0.4 * min([self.et, self.eb], key=abs) / max([self.et, self.eb], key=abs)
         return Cm
 
-    def calculated_EI(self, axis, P_list, M1_list, P_CS = None, M_CS = None, section_factored=True, Pc_factor=0.75):
+    def calculated_EI(self, P_list, M1_list, P_CS = None, M_CS = None, section_factored=True, Pc_factor=0.75):
     
-        EIgross = self.section.EIgross(axis)
+        EIgross = self.section.EIgross(self.axis)
     
         if (M_CS is None) or (P_CS is None):
-            P_CS, M_CS, _ = self.section.section_interaction_2d(axis, 100, factored=section_factored)
+            P_CS, M_CS, _ = self.section.section_interaction_2d(self.axis, 100, factored=section_factored)
         
         id2d = InteractionDiagram2d(M_CS, P_CS, is_closed=True)
         
