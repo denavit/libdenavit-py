@@ -1,5 +1,5 @@
 from math import pi, sin
-from libdenavit import find_limit_point_in_list, interpolate_list, InteractionDiagram2d
+from libdenavit import find_limit_point_in_list, interpolate_list, InteractionDiagram2d, CrossSection2d
 from libdenavit.OpenSees import AnalysisResults
 import openseespy.opensees as ops
 import numpy as np
@@ -100,12 +100,14 @@ class NonSwayColumn2d:
         results.maximum_abs_moment = []
         results.maximum_abs_disp = []
         results.lowest_eigenvalue = []
-
+        results.maximum_concrete_compression_strain = []
+        results.maximum_steel_strain = []
         # Define function to find limit point
         def find_limit_point():
             ind,x = find_limit_point_in_list(results.lowest_eigenvalue,0)
             if ind is None:
-                # @todo - if eigenvalue does not reach zero, we can define the limit point based on deformation or strain
+                ind, x = find_limit_point_in_list(results.maximum_concrete_compression_strain, -0.005)
+            if ind is None:
                 results.applied_axial_load_at_limit_point = None
                 results.applied_moment_top_at_limit_point = None
                 results.applied_moment_bot_at_limit_point = None
@@ -152,6 +154,8 @@ class NonSwayColumn2d:
                 results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
                 results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp())
                 results.lowest_eigenvalue.append(ops.eigen(1)[0])
+                results.maximum_concrete_compression_strain.append(self.ops_get_concrete_compression_strain())
+                results.maximum_steel_strain.append(self.get_maximum_steel_strain())
 
             record()
             
@@ -182,6 +186,11 @@ class NonSwayColumn2d:
                     results.exit_message = 'Deformation Limit Reached'
                     break
 
+                # Check for strain in extreme compressive fiber
+                if results.maximum_concrete_compression_strain[-1] < -0.005:
+                    results.exit_message = 'Extreme Compressive Fiber Limit Point is Reached'
+                    break
+
             find_limit_point()
             return results
 
@@ -207,6 +216,8 @@ class NonSwayColumn2d:
                 results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
                 results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp())
                 results.lowest_eigenvalue.append(ops.eigen(1)[0])
+                results.maximum_concrete_compression_strain.append(self.ops_get_concrete_compression_strain())
+                results.maximum_steel_strain.append(self.get_maximum_steel_strain())
             
             record()
             
@@ -255,6 +266,8 @@ class NonSwayColumn2d:
                 results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
                 results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp())
                 results.lowest_eigenvalue.append(ops.eigen(1)[0])
+                results.maximum_concrete_compression_strain.append(self.ops_get_concrete_compression_strain())
+                results.maximum_steel_strain.append(self.get_maximum_steel_strain())
 
             record()
             
@@ -310,10 +323,12 @@ class NonSwayColumn2d:
         else:
             raise ValueError(f'Analysis type {analysis_type} not implemented')
 
-    def run_ops_interaction(self, section_args, section_kwargs, num_points=10, prop_disp_incr_factor=1e-7, nonprop_disp_incr_factor=1e-4):
+    def run_ops_interaction(self, section_args, section_kwargs, num_points=10, prop_disp_incr_factor=1e-7,
+                            nonprop_disp_incr_factor=1e-4, section_load_factor=1e-1):
 
         # Run one axial load only analyis to determine maximum axial strength
-        results = self.run_ops_analysis('proportional_limit_point', section_args, section_kwargs, e=0, disp_incr_factor=prop_disp_incr_factor)
+        results = self.run_ops_analysis('proportional_limit_point', section_args, section_kwargs, e=0,
+                                        disp_incr_factor=prop_disp_incr_factor)
         P = [results.applied_axial_load_at_limit_point]
         M1 = [0]
         M2 = [results.maximum_abs_moment_at_limit_point]
@@ -325,13 +340,18 @@ class NonSwayColumn2d:
         for i in range(1,num_points):
             iP = P[0] * (num_points-1-i) / (num_points-1)
             if iP == 0:
-                iP = 0.001*P[0] # @todo - change this to run a cross sectional analysis
-            results = self.run_ops_analysis('nonproportional_limit_point', section_args, section_kwargs, P=iP, disp_incr_factor=nonprop_disp_incr_factor)
-            P.append(iP)
-            M1.append(max(results.applied_moment_top))
-            M2.append(max(results.maximum_abs_moment))
-            exit_message.append(results.exit_message)
-            
+                cross_section = CrossSection2d(self.section, self.axis)
+                results = cross_section.run_ops_analysis('nonproportional_limit_point', section_args, section_kwargs, P=0, load_incr_factor=section_load_factor)
+                P.append(iP)
+                M1.append(results.maximum_abs_moment_at_limit_point)
+                M2.append(results.maximum_abs_moment_at_limit_point)
+
+            else:
+                results = self.run_ops_analysis('nonproportional_limit_point', section_args, section_kwargs, P=iP, disp_incr_factor=nonprop_disp_incr_factor)
+                P.append(iP)
+                M1.append(max(results.applied_moment_top))
+                M2.append(max(results.maximum_abs_moment))
+                exit_message.append(results.exit_message)
             plot_at_step=False
             if plot_at_step:
                 import matplotlib.pyplot as plt
@@ -345,7 +365,7 @@ class NonSwayColumn2d:
                 plt.plot(results.mid_node_disp, results.lowest_eigenvalue)
                 plt.show()
 
-        return {'P': list(np.array(P)*-1), 'M1': M1, 'M2': M2, 'exit_message': exit_message}
+        return {'P': list(np.array(P)), 'M1': M1, 'M2': M2, 'exit_message': exit_message}
 
     def run_ops_interaction_proportional(self, section_args, section_kwargs, e_list, **kwargs):
         P  = []
@@ -358,7 +378,7 @@ class NonSwayColumn2d:
             M1.append(results.applied_moment_top_at_limit_point)
             M2.append(results.maximum_abs_moment_at_limit_point)
 
-        return {'P': list(np.array(P)*-1), 'M1': M1, 'M2': M2}
+        return {'P': list(np.array(P)), 'M1': M1, 'M2': M2}
 
     def run_AASHTO_interaction(self, EI_type, num_points=10, section_factored=True, Pc_factor=0.75, beta_dns=0, minimum_eccentricity=False):
     
@@ -415,7 +435,7 @@ class NonSwayColumn2d:
 
         # Loop axial linearly spaced axial loads witn non-proportional analyses
         for i in range(1,num_points):
-            iP = 0.999*P_list[0] * (num_points-i) / (num_points-1)
+            iP = 0.999*P_list[0] * (num_points-i-1) / (num_points-1)
             iM2 = id2d.find_x_given_y(iP, 'pos')
             delta = max(self.Cm / (1 - (-iP) / (Pc_factor * Pc)), 1.0)
             iM1 = iM2/delta
@@ -423,8 +443,23 @@ class NonSwayColumn2d:
             M1_list.append(iM1)
             M2_list.append(iM2)
 
-        results = {'P':P_list,'M1':M1_list,'M2':M2_list}
+        results = {'P':list(-1*np.array(P_list)),'M1':M1_list,'M2':M2_list}
         return results
+
+    def ops_get_concrete_compression_strain(self):
+        strain = []
+        for i in range(self.ops_n_elem):
+            axial_strain = ops.nodeDisp(i, 2)
+            curvature = ops.nodeDisp(self.ops_mid_node, 3)
+            strain.append(self.section.maximum_concrete_compression_strain(axial_strain, curvature, self.axis))
+        return min(strain)
+    def get_maximum_steel_strain(self):
+        strain = []
+        for i in range(self.ops_n_elem):
+            axial_strain = ops.nodeDisp(i, 2)
+            curvature = ops.nodeDisp(i, 3)
+            strain.append(self.section.maximum_steel_strain(axial_strain, curvature, self.axis))
+        return max(strain)
 
     def ops_get_maximum_abs_moment(self):
         # This code assumed (but does not check) that moment at j-end of 
@@ -448,30 +483,28 @@ class NonSwayColumn2d:
         return Cm
 
     def calculated_EI(self, P_list, M1_list, P_CS = None, M_CS = None, section_factored=True, Pc_factor=0.75):
-    
+        P_list = np.array(P_list)
         EIgross = self.section.EIgross(self.axis)
     
         if (M_CS is None) or (P_CS is None):
-            P_CS, M_CS, _ = self.section.section_interaction_2d(self.axis, 100, factored=section_factored)
-        
-        id2d = InteractionDiagram2d(M_CS, P_CS, is_closed=True)
+            P_CS, M_CS, _ = self.section.section_interaction_2d(self.axis, 100, factored=section_factored, only_compressive=True)
+        id2d = InteractionDiagram2d(M_CS, P_CS, is_closed=False)
         
         EI_list = []
-        for P,M1 in zip(P_list,M1_list):
-            
-            if P < min(P_CS):
+
+        for P, M1 in zip(P_list, M1_list):
+            if P < min(P_CS) or P == max(P_CS):
                 EI_list.append(float("nan"))
                 continue
                        
             M2 = id2d.find_x_given_y(P, 'pos')
             
             if M1 >= M2:
-                # EI_list.append(EIgross)
                 EI_list.append(float("nan"))
                 continue
             
             delta = M2/M1
-            Pc = delta * (-P) / (Pc_factor * (delta - self.Cm))
+            Pc = delta * P / (Pc_factor * (delta - self.Cm))
             k = 1  # Effective length factor (always one for this non-sway column)
             EI = Pc * (k*self.length/pi)**2
             EI_list.append(EI)
