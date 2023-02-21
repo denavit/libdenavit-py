@@ -4,6 +4,7 @@ from libdenavit.OpenSees import circ_patch_2d, obround_patch_2d, obround_patch_2
 import matplotlib.pyplot as plt
 import numpy as np
 import openseespy.opensees as ops
+from libdenavit import find_limit_point_in_list, interpolate_list
 
 
 class RC:
@@ -116,6 +117,19 @@ class RC:
             a += i.num_bars * i.Ab
         return a
 
+    def maximum_concrete_compression_strain(self, axial_strain, curvature, axis):
+        return axial_strain - self.depth(axis) /2 * curvature
+
+    def maximum_steel_strain(self, axial_strain, curvature, axis):
+        if type(self.reinforcement[0]).__name__ == 'ReinfRect':
+            if axis == "x":
+                return axial_strain - (self.reinforcement[0].By / 2) * curvature
+            elif axis == "y":
+                return axial_strain - (self.reinforcement[0].Bx / 2) * curvature
+
+        elif type(self.reinforcement[0]).__name__ == 'ReinfCirc':
+            return axial_strain + (self.reinforcement[0].rc) * curvature
+
     def Ig(self, axis):
         return self.conc_cross_section.I(axis)
 
@@ -150,7 +164,7 @@ class RC:
     def EIeff(self, axis, EI_type, beta = 0.0):
         if EI_type == "a": 
             # ACI 318-19, Section 6.6.4.4.4
-            return ( 0.2 * self.Ec * self.Ig(axis) + self.Es * self.Isr(axis)) / (1 + beta)
+            return (0.2 * self.Ec * self.Ig(axis) + self.Es * self.Isr(axis)) / (1 + beta)
 
         if EI_type == "b":
             # ACI 318-19, Section 6.6.4.4.4
@@ -205,7 +219,7 @@ class RC:
             i.add_to_fiber_section(fs, id_reinf, id_conc)
         return fs
 
-    def section_interaction_2d(self,axis,num_points,factored=False):
+    def section_interaction_2d(self,axis,num_points,factored=False, only_compressive=False):
         scACI = self.aci_strain_compatibility_object()
         scACI.build_data()
         
@@ -220,12 +234,37 @@ class RC:
             ϕ = self.phi(et)
             P = ϕ*P
             M = ϕ*M
-            
+
+        if only_compressive:
+            from libdenavit import InteractionDiagram2d
+            P = -1 * P
+            P_M_id2d = InteractionDiagram2d(M, P, is_closed=True)
+            P_et_id2d = InteractionDiagram2d(et, P, is_closed=False)
+            M_et_id2d = InteractionDiagram2d(M, et, is_closed=False)
+
+            P = np.append(P, 0)
+            M = np.append(M, P_M_id2d.find_x_given_y(0, 'pos'))
+            et = np.append(et, P_et_id2d.find_x_given_y(0, 'pos')) # @todo- chcek this
+
+            P = np.insert(P, 0, P_M_id2d.find_y_given_x(0, 'pos'))
+            M = np.insert(M, 0, 0)
+            et = np.insert(et, 0, M_et_id2d.find_y_given_x(0, 'pos'))# @todo- chcek this
+
+            # Delete extra points
+            ind_P_negative = np.where(P < 0)
+            P = np.delete(P, ind_P_negative)
+            M = np.delete(M, ind_P_negative)
+            et = np.delete(et, ind_P_negative)
+            ind_M_negative = np.where(M < 0)
+            P = np.delete(P, ind_M_negative)
+            M = np.delete(M, ind_M_negative)
+            et = np.delete(et, ind_M_negative)
+
         return P, M, et
 
     def build_ops_fiber_section(self, section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx, GJ=1.0e6, axis=None):
         """ Builds the fiber section object
-        
+
         Parameters
         ----------
         section_id : int
@@ -268,7 +307,8 @@ class RC:
             ops.uniaxialMaterial("Hardening", steel_material_id, self.Es, self.fy, 0.001*self.Es, 0)
 
         elif steel_mat_type == "ReinforcingSteel":
-            ops.uniaxialMaterial("ReinforcingSteel", steel_material_id, self.fy, self.fy * 1.5, self.Es, self.Es / 2, 0.002, 0.008)
+            ops.uniaxialMaterial("ReinforcingSteel", steel_material_id, self.fy, self.fy * 1.5, self.Es, self.Es / 2,
+                                 0.002, 0.008)
 
         else:
             raise ValueError(f"Steel material {steel_mat_type} not supported")
