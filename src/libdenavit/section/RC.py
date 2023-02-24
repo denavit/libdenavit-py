@@ -416,34 +416,73 @@ class RC:
 
                 H = self.conc_cross_section.H
                 B = self.conc_cross_section.B
-                cdb = (H - self.reinforcement[0].Bx)/2 - self.reinforcement[0].db / 2
+                cdb = (H - self.reinforcement[0].By) / 2 - self.reinforcement[0].db / 2
                 if self.dbt is not None:
                     cdb = cdb - self.dbt / 2
                 
                 if confinement:
-                    ops.patch('rect', cover_concrete_material_id, ceil(cdb * nfy / H), nfx, 
-                        -H/2, -B/2, -H/2 + cdb, B/2)
-                    
-                    ops.patch('rect', cover_concrete_material_id, ceil((H - 2 * cdb) * nfy / H), ceil(cdb * nfx / B), 
-                        -H/2 + cdb, -B/2, H/2 - cdb, -B/2 + cdb)
-                    
-                    ops.patch('rect', cover_concrete_material_id, ceil(cdb * nfy / H), nfx, 
-                        H/2 - cdb, -B/2, H/2, B/2)
-                    
-                    ops.patch('rect', cover_concrete_material_id, ceil((H - 2 * cdb) * nfy / H), ceil(cdb * nfx / B),
-                        -H/2 + cdb, B/2 - cdb, H/2 - cdb, B/2)
-                    
-                    ops.patch('rect', core_concrete_material_id, ceil((H - 2 * cdb) * nfy / H), ceil((B - 2 * cdb) * nfx / B),
-                        -H/2 + cdb, -B/2 + cdb, H/2 - cdb, B/2 - cdb)
+                    nfy_cover = ceil(cdb * nfy / H)
+                    nfx_cover = ceil(cdb * nfx / B)
+                    nfy_core = ceil((H - 2 * cdb) * nfy / H)
+                    nfx_core = ceil((B - 2 * cdb) * nfx / B)
+
+                    ops.patch('rect', cover_concrete_material_id, nfy_cover, nfx,
+                              -H / 2, -B / 2, -H / 2 + cdb, B / 2)
+
+                    ops.patch('rect', cover_concrete_material_id, nfy_core, nfx_cover,
+                              -H / 2 + cdb, -B / 2, H / 2 - cdb, -B / 2 + cdb)
+
+                    ops.patch('rect', cover_concrete_material_id, nfy_cover, nfx,
+                              H / 2 - cdb, -B / 2, H / 2, B / 2)
+
+                    ops.patch('rect', cover_concrete_material_id, nfy_core, nfx_cover,
+                              -H / 2 + cdb, B / 2 - cdb, H / 2 - cdb, B / 2)
+
+                    ops.patch('rect', core_concrete_material_id, nfy_core, nfx_core,
+                              -H / 2 + cdb, -B / 2 + cdb, H / 2 - cdb, B / 2 - cdb)
                 else:
-                    ops.patch('rect', concrete_material_id, nfy, nfx, -H/2, -B/2, H/2, B/2)
-            elif axis == 'x':
-                raise ValueError('build_ops_fiber_section not yet implemnted for two-dimensional rectangular cross sections bent about the x-axis')
-            elif axis == 'y':
-                raise ValueError('build_ops_fiber_section not yet implemnted for two-dimensional rectangular cross sections bent about the r-axis')
-            else:
-                raise ValueError(f'Unknown option for axis: {axis}')
-            # endregion
+                    ops.patch('rect', concrete_material_id, nfy, nfx, -H / 2, -B / 2, H / 2, B / 2)
+
+            elif axis in ['x', 'y']:
+                for i in self.reinforcement:
+                    if axis == 'x':
+                        rebar_coords = i.coordinates[1]
+                        H = self.conc_cross_section.H
+                        B = self.conc_cross_section.B
+                        nfd = nfy
+                    else:
+                        rebar_coords = i.coordinates[0]
+                        H = self.conc_cross_section.B
+                        B = self.conc_cross_section.H
+                        nfd = nfx
+
+                    for index, value in enumerate(rebar_coords):
+                        ops.fiber(value, 0, i.Ab, steel_material_id)
+                        if confinement:
+                            negative_area_material_id = core_concrete_material_id
+                        else:
+                            negative_area_material_id = concrete_material_id
+                        ops.fiber(value, 0, -i.Ab, negative_area_material_id)
+
+                cdb = (H - self.reinforcement[0].By) / 2 - self.reinforcement[0].db / 2
+                if self.dbt is not None:
+                    cdb = cdb - self.dbt / 2
+                if confinement:
+                    nfd_cover = ceil(cdb * nfd / H)
+                    nfd_core = ceil((H - 2 * cdb) * nfd / H)
+
+                    core_fiber_height = (H - 2 * cdb) / nfd_core
+                    cover_fiber_height = cdb / nfd_cover
+
+                    ops.layer('straight', core_concrete_material_id, nfd_core, core_fiber_height * B,
+                              -H / 2 + cdb, 0, H / 2 - cdb, 0)
+                    ops.layer('straight', cover_concrete_material_id, nfd_cover, cover_fiber_height * B,
+                              -H / 2, 0, -H / 2 + cdb, 0)
+                    ops.layer('straight', cover_concrete_material_id, nfd_cover, cover_fiber_height * B,
+                              H / 2 - cdb, 0, H / 2, 0)
+                else:
+                    fiber_height = H / nfd
+                    ops.layer('straight', concrete_material_id, nfd, fiber_height * B, -H / 2, 0, H / 2, 0)
         
         elif type(self.conc_cross_section).__name__ == 'Circle':
         
@@ -549,8 +588,13 @@ class RC:
                     ops.patch('circ', concrete_material_id, nfc, nfr, 0, 0, 0.250*d, 0.375*d, 0, 360)
                     nfc = ceil(d*pi/max_fiber_size)
                     ops.patch('circ', concrete_material_id, nfc, nfr, 0, 0, 0.375*d, 0.500*d, 0, 360)
-            elif axis == 'x':
+            elif axis in ['x', 'y']:
                 for i in self.reinforcement:
+                    if axis == 'x':
+                        rebar_coords = i.coordinates[1]
+                    else:
+                        rebar_coords = i.coordinates[0]
+
                     for index, value in enumerate(i.coordinates[1]):
                         ops.fiber(value, 0, i.Ab, steel_material_id)
                         if confinement:
@@ -564,28 +608,7 @@ class RC:
                 if confinement:
                     ds = 2*self.reinforcement[0].rc + self.reinforcement[0].db + self.dbt
                     nf = ceil(0.5*ds/max_fiber_size)
-                    circ_patch_2d( core_concrete_material_id, nf, ds)
-                    nf = ceil(0.5*d/max_fiber_size)
-                    circ_patch_2d(cover_concrete_material_id, nf, d, Di=ds)
-                else:
-                    nf = ceil(0.5*d/max_fiber_size)
-                    circ_patch_2d( concrete_material_id, nf, d)
-            elif axis == 'y':
-                for i in self.reinforcement:
-                    for index, value in enumerate(i.coordinates[0]):
-                        ops.fiber(value, 0, i.Ab, steel_material_id)
-                        if confinement:
-                            negative_area_material_id = core_concrete_material_id
-                        else:
-                            negative_area_material_id = concrete_material_id
-                        ops.fiber(value, 0, -i.Ab, negative_area_material_id)            
-        
-                d  = self.conc_cross_section.diameter
-                max_fiber_size = d/nfy
-                if confinement:
-                    ds = 2*self.reinforcement[0].rc + self.reinforcement[0].db + self.dbt
-                    nf = ceil(0.5*ds/max_fiber_size)
-                    circ_patch_2d( core_concrete_material_id, nf, ds)
+                    circ_patch_2d(core_concrete_material_id, nf, ds)
                     nf = ceil(0.5*d/max_fiber_size)
                     circ_patch_2d(cover_concrete_material_id, nf, d, Di=ds)
                 else:
