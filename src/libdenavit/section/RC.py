@@ -241,10 +241,12 @@ class RC:
             P_M_id2d = InteractionDiagram2d(M, P, is_closed=True)
             P_et_id2d = InteractionDiagram2d(et, P, is_closed=False)
             M_et_id2d = InteractionDiagram2d(M, et, is_closed=False)
-
-            P = np.append(P, 0)
-            M = np.append(M, P_M_id2d.find_x_given_y(0, 'pos'))
-            et = np.append(et, P_et_id2d.find_x_given_y(0, 'pos')) # @todo- chcek this
+        
+            from libdenavit import find_limit_point_in_list
+            ind, x = find_limit_point_in_list(P, 0)
+            P = np.insert(P, ind+1, 0)
+            M = np.insert(M, ind+1, P_M_id2d.find_x_given_y(0, 'pos'))
+            et = np.insert(et, ind+1, P_et_id2d.find_x_given_y(0, 'pos')) # @todo- chcek this
 
             P = np.insert(P, 0, P_M_id2d.find_y_given_x(0, 'pos'))
             M = np.insert(M, 0, 0)
@@ -259,7 +261,6 @@ class RC:
             P = np.delete(P, ind_M_negative)
             M = np.delete(M, ind_M_negative)
             et = np.delete(et, ind_M_negative)
-
         return P, M, et
 
     def build_ops_fiber_section(self, section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx, GJ=1.0e6, axis=None):
@@ -390,7 +391,11 @@ class RC:
             elif conc_mat_type == "Concrete04_no_confinement":
                 ops.uniaxialMaterial("Concrete04", concrete_material_id, -self.fc, -self.eps_c, -1.0, self.Ec)
                 confinement = False
-            
+
+            elif conc_mat_type == "Concrete01_no_confinement":
+                ops.uniaxialMaterial("Concrete01", concrete_material_id, -self.fc, -2*self.fc/self.Ec, 0, 0.006)
+                confinement = False
+
             elif conc_mat_type == "ENT":
                 ops.uniaxialMaterial('ENT', concrete_material_id, self.Ec)
                 confinement = False
@@ -534,9 +539,13 @@ class RC:
                 confinement = True
     
             elif conc_mat_type == "Concrete04_no_confinement":
-                ops.uniaxialMaterial("Concrete04", 2, -self.fc, -self.eps_c, -1.0, self.Ec)
+                ops.uniaxialMaterial("Concrete04", concrete_material_id, -self.fc, -self.eps_c, -1.0, self.Ec)
                 confinement = False
-                
+
+            elif conc_mat_type == "Concrete01_no_confinement":
+                ops.uniaxialMaterial("Concrete01", concrete_material_id, -self.fc, -2*self.fc/self.Ec, 0, 0.006)
+                confinement = False
+
             elif conc_mat_type == "ENT":
                 ops.uniaxialMaterial('ENT', 2, self.Ec)
                 confinement = False
@@ -671,6 +680,10 @@ class RC:
                 
             elif conc_mat_type == "Concrete04_no_confinement":
                 ops.uniaxialMaterial("Concrete04", 2, -self.fc, -self.eps_c, -2 * self.eps_c, self.Ec)
+                confinement = False
+
+            elif conc_mat_type == "Concrete01_no_confinement":
+                ops.uniaxialMaterial("Concrete01", concrete_material_id, -self.fc, -2 * self.fc / self.Ec, 0, 0.006)
                 confinement = False
 
             elif conc_mat_type == "ENT":
