@@ -3,6 +3,7 @@ import math
 from libdenavit import find_limit_point_in_list, interpolate_list, find_intersection_between_two_lines
 import operator
 from shapely.geometry import LineString, Polygon
+import matplotlib.pyplot as plt
 
 def cart2pol(x, y):
     assert type(x) == type(y), "x and y must be of the same type"
