@@ -365,7 +365,7 @@ class NonSwayColumn2d:
                 plt.plot(results.mid_node_disp, results.lowest_eigenvalue)
                 plt.show()
 
-        return {'P': list(np.array(P)), 'M1': M1, 'M2': M2, 'exit_message': exit_message}
+        return {'P': list(np.array(P)), 'M1': M1, 'M2': M2, 'exit_message': exit_message} # @todo what is going on with P?
 
     def run_ops_interaction_proportional(self, section_args, section_kwargs, e_list, **kwargs):
         P  = []
@@ -453,6 +453,7 @@ class NonSwayColumn2d:
             curvature = ops.nodeDisp(self.ops_mid_node, 3)
             strain.append(self.section.maximum_concrete_compression_strain(axial_strain, curvature, self.axis))
         return min(strain)
+
     def get_maximum_steel_strain(self):
         strain = []
         for i in range(self.ops_n_elem):

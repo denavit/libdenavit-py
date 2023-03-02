@@ -11,8 +11,8 @@ class SwayColumn2d:
     _K = None
     def __init__(self, section, length, k_bot, k_top, gamma, dxo=0.0, Dxo=0.0, n_elem=6, axis=None):
         # Physical parameters
-        # k_top = 6(0.4*EI_col)/(Gtop*L)
-        # k_bot = 6(0.4*EI_col)/(Gbot*L)
+        # Note that the rotational spring stiffnesses (k_top and b_bot) 
+        # can be defined from G using k = (6*EI_col)/(G*L)
         self.section = section
         self.length = length
         self.dxo = dxo
@@ -20,10 +20,10 @@ class SwayColumn2d:
         self.k_top = k_top
         self.k_bot = k_bot
         self.gamma = gamma
+        self.axis = axis
 
         # General options
         self.include_initial_geometric_imperfections = True
-        self.axis = axis
 
         # OpenSees analysis options
         self.ops_n_elem = n_elem
@@ -39,7 +39,7 @@ class SwayColumn2d:
         elif self.k_bot == self.k_top:
             return self.length/2
         else:
-            raise ValueError(f'lever_arm not implemented for k_bot = {self.k_bot = } and k_top = {self.k_top}')
+            raise ValueError(f'lever_arm not implemented for k_bot = {self.k_bot} and k_top = {self.k_top}')
 
     def build_ops_model(self, section_id, section_args, section_kwargs):
         ops.wipe()
@@ -587,37 +587,3 @@ class SwayColumn2d:
 
         results = {'P': np.array(P_list), 'EI': np.array(EI_list), 'EIgross': EIgross}
         return results
-
-if __name__ == "__main__":
-    import math
-    from libdenavit.section import RC, Circle, ReinfCirc
-
-    # Input Properties
-    D = 48
-    num_bars = 24
-    fc = 4
-    fy = 60
-    rhosr = 0.02
-    Ab = rhosr * math.pi / 4 * D ** 2 / num_bars
-    length = 15 * D
-    axis = 'x'
-    num_bars = 24
-    Ab = rhosr * math.pi / 4 * D ** 2 / num_bars
-    k_top = 2000000
-    k_bot = 2000000
-
-    # Define RC section object
-    conc_cross_section = Circle(D)
-    reinforcement = ReinfCirc(0.5 * D - 3, num_bars, Ab)
-    section = RC(conc_cross_section, reinforcement, fc, fy, 'US')
-
-    col = SwayColumn2d(section, length, k_bot, k_top, 0, axis=axis)
-    section_args = (1, "ElasticPP", "Concrete04_no_confinement", 20, 20)
-    section_kwargs = dict()
-
-    result = col.run_ops_analysis('proportional_limit_point', section_args, section_kwargs, e=0)
-    print(f"P: {result.applied_axial_load}")
-    print(f"M_top: {result.moment_at_top}")
-    print(f"M_bottom: {result.moment_at_bottom}")
-    print(f"Max abs disp: {result.maximum_abs_disp}")
-    print(result.exit_message)

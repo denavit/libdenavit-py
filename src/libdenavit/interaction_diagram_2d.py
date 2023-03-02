@@ -147,7 +147,7 @@ class InteractionDiagram2d():
 
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
+
     a1 = [0.9, 1.0, 0.8, 0.0]
     b1 = [0.0, 0.4, 0.9, 1.0]
     c1 = InteractionDiagram2d(a1, b1)
