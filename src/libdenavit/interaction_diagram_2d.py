@@ -105,11 +105,20 @@ class InteractionDiagram2d():
             line_1 = LineString(np.column_stack((self.idx, self.idy)))
             line_2 = LineString(np.column_stack((pathX, pathY)))
             intersection = line_1.intersection(line_2)
-            if intersection.type != 'Point':
+            if intersection.type not in ['Point', 'MultiPoint']:
                 raise Exception('could not find an intersection')
 
         # @todo get ind and x from as output
-        return intersection.x, intersection.y,
+        if intersection.type == 'Point':
+            return intersection.x, intersection.y
+        elif intersection.type == 'MultiPoint':
+            x = []
+            y = []
+            for i in intersection.geoms:
+                x.append(i.x)
+                y.append(i.y)
+
+            return x, y
 
 
     def find_x_given_y(self, Y, signX):
@@ -143,7 +152,7 @@ class InteractionDiagram2d():
 
 
     def plot(self, *args):
-        plt.plot(self.idx, self.idy, *args)
+        plt.plot(self.idx, self.idy, '-o', *args)
 
 
 if __name__ == "__main__":
