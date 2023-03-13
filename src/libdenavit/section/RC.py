@@ -15,7 +15,8 @@ class RC:
     _eps_c = None
     _Abt = None
 
-    def __init__(self, conc_cross_section, reinforcement, fc, fy, units, dbt=None, s=None, fyt=None, lat_config="A", transverse_reinf_type='ties'):
+    def __init__(self, conc_cross_section, reinforcement, fc, fy, units, dbt=None, s=None, fyt=None, lat_config="A",
+                 transverse_reinf_type='ties'):
         self.conc_cross_section = conc_cross_section
         self.reinforcement = reinforcement
         self.fc = fc
@@ -116,19 +117,36 @@ class RC:
         for i in self.reinforcement:
             a += i.num_bars * i.Ab
         return a
+    def maximum_concrete_compression_strain(self, axial_strain, curvatureX=0, curvatureY=0):
+        if type(self.conc_cross_section).__name__ == 'Rectangle':
+            extreme_strain = axial_strain - self.conc_cross_section.H/2 * abs(curvatureX) \
+                             - self.conc_cross_section.B/2 * abs(curvatureY)
+            return extreme_strain
 
-    def maximum_concrete_compression_strain(self, axial_strain, curvature, axis):
-        return axial_strain - self.depth(axis) /2 * curvature
+        if type(self.conc_cross_section).__name__ == 'Circle':
+            extreme_strain = axial_strain - self.conc_cross_section.D/2 * sqrt(curvatureX**2 + curvatureY**2)
+            return extreme_strain
 
-    def maximum_steel_strain(self, axial_strain, curvature, axis):
-        if type(self.reinforcement[0]).__name__ == 'ReinfRect':
-            if axis == "x":
-                return axial_strain - (self.reinforcement[0].By / 2) * curvature
-            elif axis == "y":
-                return axial_strain - (self.reinforcement[0].Bx / 2) * curvature
+        if  type(self.conc_cross_section).__name__ == 'Obround':
+            extreme_strain = float("inf")
+            for i in range(100):
+                x_coord = self.reinforcement[0].a/2 + D/2 * sin(pi/2 * i/100)
+                y_coord = self.reinforcement[0].D/2 - D/2 * sin(pi/2 * i/100)
+                strain = axial_strain - y_coord * abs(curvatureX) - x_coord * abs(curvatureY)
+                if strain < extreme_strain:
+                    extreme_strain = strain
+            return extreme_strain
 
-        elif type(self.reinforcement[0]).__name__ == 'ReinfCirc':
-            return axial_strain + (self.reinforcement[0].rc) * curvature
+        raise ValueError(f'No maximum concrete compression strain implemented for {type(self.conc_cross_section).__name__ = }')
+
+    def maximum_tensile_steel_strain(self, axial_strain, curvatureX=0, curvatureY=0):
+        max_strain = float('-inf')
+        for i in self.reinforcement[0].coordinates:
+            strain = axial_strain - (i[1] - self.reinforcement[0].yc) * curvatureX \
+                     - (i[0] - self.reinforcement[0].xc) * curvatureY
+            if strain > max_strain:
+                max_strain = strain
+        return max_strain
 
     def Ig(self, axis):
         return self.conc_cross_section.I(axis)
@@ -238,7 +256,7 @@ class RC:
         if only_compressive:
             from libdenavit import InteractionDiagram2d
             P = -1 * P
-            P_M_id2d = InteractionDiagram2d(M, P, is_closed=True)
+            P_M_id2d = InteractionDiagram2d(M, P, is_closed=False)
             P_et_id2d = InteractionDiagram2d(et, P, is_closed=False)
             M_et_id2d = InteractionDiagram2d(M, et, is_closed=False)
         
