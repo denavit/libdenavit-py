@@ -152,7 +152,10 @@ class InteractionDiagram2d():
 
 
     def plot(self, *args):
-        plt.plot(self.idx, self.idy, '-o', *args)
+        if  len(args) == 0:
+            plt.plot(self.idx, self.idy, '-o')
+        else:
+            plt.plot(self.idx, self.idy, *args)
 
 
 if __name__ == "__main__":
