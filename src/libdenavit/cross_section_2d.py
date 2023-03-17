@@ -79,11 +79,11 @@ class CrossSection2d:
                 results.maximum_abs_moment.append(0)
                 results.lowest_eigenvalue.append(ops.eigen("-fullGenLapack", 1)[0])
                 axial_strain = ops.nodeDisp(2, 1)
-                curvature = ops.nodeDisp(2, 3)
+                curvatureX = ops.nodeDisp(2, 3)
                 results.maximum_concrete_compression_strain.append(
-                    self.section.maximum_concrete_compression_strain(axial_strain, curvature, self.axis))
+                    self.section.maximum_concrete_compression_strain(axial_strain, curvatureX=curvatureX))
                 results.maximum_steel_strain.append(
-                    self.section.maximum_steel_strain(axial_strain, curvature, self.axis))
+                    self.section.maximum_tensile_steel_strain(axial_strain, curvatureX=curvatureX))
 
             record()
 
@@ -136,11 +136,11 @@ class CrossSection2d:
                 results.maximum_abs_moment.append(0)
                 results.lowest_eigenvalue.append(ops.eigen("-fullGenLapack", 1)[0])
                 axial_strain = ops.nodeDisp(2, 1)
-                curvature = ops.nodeDisp(2, 3)
+                curvatureX = ops.nodeDisp(2, 3)
                 results.maximum_concrete_compression_strain.append(
-                    self.section.maximum_concrete_compression_strain(axial_strain, curvature, self.axis))
+                    self.section.maximum_concrete_compression_strain(axial_strain, curvatureX=curvatureX))
                 results.maximum_steel_strain.append(
-                    self.section.maximum_steel_strain(axial_strain, curvature, self.axis))
+                    self.section.maximum_tensile_steel_strain(axial_strain, curvatureX=curvatureX))
 
             record()
             for i in range(num_steps_vertical):
@@ -170,11 +170,11 @@ class CrossSection2d:
                 results.maximum_abs_moment.append(abs(ops.eleForce(1, 3)))
                 results.lowest_eigenvalue.append(ops.eigen("-fullGenLapack", 1)[0])
                 axial_strain = ops.nodeDisp(2, 1)
-                curvature = ops.nodeDisp(2, 3)
+                curvatureX = ops.nodeDisp(2, 3)
                 results.maximum_concrete_compression_strain.append(
-                    self.section.maximum_concrete_compression_strain(axial_strain, curvature, self.axis))
+                    self.section.maximum_concrete_compression_strain(axial_strain, curvatureX))
                 results.maximum_steel_strain.append(
-                    self.section.maximum_steel_strain(axial_strain, curvature, self.axis))
+                    self.section.maximum_tensile_steel_strain(axial_strain, curvatureX))
 
             record()
 
