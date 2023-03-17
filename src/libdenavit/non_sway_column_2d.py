@@ -3,6 +3,7 @@ from libdenavit import find_limit_point_in_list, interpolate_list, InteractionDi
 from libdenavit.OpenSees import AnalysisResults
 import openseespy.opensees as ops
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 class NonSwayColumn2d:
@@ -355,8 +356,11 @@ class NonSwayColumn2d:
         else:
             raise ValueError(f'Analysis type {analysis_type} not implemented')
 
-    def run_ops_interaction(self, section_args, section_kwargs, num_points=10, prop_disp_incr_factor=1e-7,
-                            nonprop_disp_incr_factor=1e-4, section_load_factor=1e-1):
+    def run_ops_interaction(self, section_args, section_kwargs, num_points=10, prop_disp_incr_factor=1e-6,
+                            nonprop_disp_incr_factor=1e-5, section_load_factor=1e-1):
+        plot_load_deformation=True
+        if plot_load_deformation:
+            fig_at_step, ax_at_step = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [3, 1]})
 
         # Run one axial load only analyis to determine maximum axial strength
         results = self.run_ops_analysis('proportional_limit_point', section_args, section_kwargs, e=0,
@@ -384,20 +388,27 @@ class NonSwayColumn2d:
                 M1.append(max(results.applied_moment_top))
                 M2.append(max(results.maximum_abs_moment))
                 exit_message.append(results.exit_message)
-            plot_at_step=False
-            if plot_at_step:
-                import matplotlib.pyplot as plt
-                plt.figure()
-                plt.title(f'Axial Load = {iP}, column: D= {self.section.depth("x")}, L={self.length}')
-                plt.plot(results.mid_node_disp, results.applied_moment_top, '-ro')
-                plt.plot(results.mid_node_disp, results.maximum_abs_moment, '-bo')
-                plt.legend(['M1', 'M2'])
 
-                plt.figure()
-                plt.plot(results.mid_node_disp, results.lowest_eigenvalue)
-                plt.show()
+            if plot_load_deformation:
+                print(f'{iP=:,.0f}')
+                if iP==0:
+                    continue
+                ax_at_step[0].plot(results.maximum_abs_disp, results.applied_moment_top, '-o', label=f'{iP:,.0f}', markersize=5)
+                ax_at_step[0].legend()
 
-        return {'P': list(np.array(P)), 'M1': M1, 'M2': M2, 'exit_message': exit_message} # @todo what is going on with P?
+                ax_at_step[1].plot(results.maximum_abs_disp, results.lowest_eigenvalue, label=f'{iP:,.0f}', markersize=5)
+        if plot_load_deformation:
+            ax_at_step[0].set_xlabel('Displacement (in)')
+            ax_at_step[0].set_ylabel('Applied Moment (kips)')
+
+            ax_at_step[1].set_xlabel('Displacement (in)')
+            ax_at_step[1].set_ylabel('Eigenvalue')
+            ax_at_step[1].set_ylim(-100,)
+
+            fig_at_step.tight_layout()
+            plt.show()
+
+        return {'P': P, 'M1': M1, 'M2': M2, 'exit_message': exit_message}
 
     def run_ops_interaction_proportional(self, section_args, section_kwargs, e_list, **kwargs):
         P  = []
