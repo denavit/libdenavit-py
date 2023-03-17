@@ -23,6 +23,7 @@ class NonSwayColumn2d:
         self.ops_n_elem = n_elem
         self.ops_element_type = "mixedBeamColumn"
         self.ops_geom_transf_type = "Corotational"
+        self.ops_integration_points = 3
     
     @property
     def ops_mid_node(self):
@@ -54,7 +55,7 @@ class NonSwayColumn2d:
         else:
             raise ValueError(f'Unknown cross section type {type(self.section).__name__}')
 
-        ops.beamIntegration("Lobatto", 1, 1, 3)
+        ops.beamIntegration("Lobatto", 1, 1, self.ops_integration_points)
         
         for index in range(self.ops_n_elem):
             ops.element(self.ops_element_type, index, index, index + 1, 100, 1)
@@ -110,26 +111,31 @@ class NonSwayColumn2d:
 
         # Define function to find limit point
         def find_limit_point():
-            ind,x = find_limit_point_in_list(results.lowest_eigenvalue,0)
-            if ind is None:
+            if 'Analysis Failed' in results.exit_message:
+                results.applied_axial_load_at_limit_point = np.nan
+                results.applied_moment_top_at_limit_point = np.nan
+                results.applied_moment_bot_at_limit_point = np.nan
+                results.maximum_abs_moment_at_limit_point = np.nan
+                results.maximum_abs_disp_at_limit_point   = np.nan
+                return
+
+            elif 'Eigenvalue Limit' in results.exit_message:
+                ind,x = find_limit_point_in_list(results.lowest_eigenvalue,0)
+            elif 'Extreme Compressive Fiber Strain Limit Reached' in results.exit_message:
                 ind, x = find_limit_point_in_list(results.maximum_concrete_compression_strain, -0.005)
-            if ind is None:
-                results.applied_axial_load_at_limit_point = None
-                results.applied_moment_top_at_limit_point = None
-                results.applied_moment_bot_at_limit_point = None
-                results.maximum_abs_moment_at_limit_point = None
-                results.maximum_abs_disp_at_limit_point   = None
-            else:
-                results.applied_axial_load_at_limit_point = interpolate_list(results.applied_axial_load,ind,x)
-                results.applied_moment_top_at_limit_point = interpolate_list(results.applied_moment_top,ind,x)
-                results.applied_moment_bot_at_limit_point = interpolate_list(results.applied_moment_bot,ind,x)
-                results.maximum_abs_moment_at_limit_point = interpolate_list(results.maximum_abs_moment,ind,x)
-                results.maximum_abs_disp_at_limit_point   = interpolate_list(results.maximum_abs_disp,ind,x)
+            elif 'Deformation Limit Reached' in results.exit_message:
+                ind, x = find_limit_point_in_list(results.maximum_abs_disp, maximum_abs_disp_limit_ratio * self.length)
+            elif 'Load Drop Limit Reached' in results.exit_message:
+                ind, x = find_limit_point_in_list(results.applied_axial_load, (1 - perc_drop) * maximum_applied_axial_load)
+
             results.applied_axial_load_at_limit_point = interpolate_list(results.applied_axial_load,ind,x)
+            results.applied_moment_top_at_limit_point = interpolate_list(results.applied_moment_top,ind,x)
+            results.applied_moment_bot_at_limit_point = interpolate_list(results.applied_moment_bot,ind,x)
+            results.maximum_abs_moment_at_limit_point = interpolate_list(results.maximum_abs_moment,ind,x)
+            results.maximum_abs_disp_at_limit_point   = interpolate_list(results.maximum_abs_disp,ind,x)
         
         # Run analysis
         if analysis_type.lower() == 'proportional_limit_point':
-            
             # time = LFV
             ops.timeSeries('Linear', 100)
             ops.pattern('Plain', 200, 100)
@@ -142,10 +148,8 @@ class NonSwayColumn2d:
             ops.algorithm('Newton')
             
             # @todo - we may eventually need more sophisticated selection of dof to control
-            if self.et * e == 0. and self.eb * e == 0.:
-                # Axial only analysis
-                dU = self.length * disp_incr_factor
-                ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+            if np.sign(self.et) != np.sign(self.eb):
+                dU = self.length * disp_incr_factor/2
                 ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
             else:
                 dU = self.length * disp_incr_factor
@@ -172,6 +176,42 @@ class NonSwayColumn2d:
                 ok = ops.analyze(1)
 
                 if ok != 0:
+                    if np.sign(self.et) != np.sign(self.eb):
+                        dU = self.length * disp_incr_factor/200
+                        ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
+                    else:
+                        dU = self.length * disp_incr_factor/100
+                        ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+                    ok = ops.analyze(1)
+
+                if ok != 0:
+                    print('Trying ModifiedNewton')
+                    ops.algorithm('ModifiedNewton')
+                    ok = ops.analyze(1)
+
+                if ok != 0:
+                    print('Trying KrylovNewton')
+                    ops.algorithm('KrylovNewton')
+                    ok = ops.analyze(1)
+
+                if ok != 0:
+                    print('Trying KrylovNewton and Greater Tolerance')
+                    ops.algorithm('KrylovNewton')
+                    ops.test('NormUnbalance', 1e-1, 10)
+                    ok = ops.analyze(1)
+
+                if ok == 0:
+                    if np.sign(self.et) != np.sign(self.eb):
+                        dU = self.length * disp_incr_factor / 2
+                        ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
+                    else:
+                        dU = self.length * disp_incr_factor
+                        ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+
+                    ops.algorithm('Newton')
+                    ops.test('NormUnbalance', 1e-2, 10)
+
+                else:
                     results.exit_message = 'Analysis Failed'
                     print('Analysis Failed')
                     break
@@ -272,11 +312,8 @@ class NonSwayColumn2d:
             ops.load(0, 0, 0, -self.eb)
 
             # @todo - we may eventually need more sophisticated selection of dof to control
-                dU = np.sign(-self.eb)*disp_incr_factor/10
-                ops.integrator('DisplacementControl', 0, 3, dU)
-            else:
-                dU = np.sign(self.et)*disp_incr_factor/10
-                ops.integrator('DisplacementControl', self.ops_n_elem, 3, dU)
+
+            dU = disp_incr_factor
             ops.integrator('DisplacementControl', self.ops_n_elem, 3, dU)
             
             ops.analysis('Static')
@@ -289,15 +326,19 @@ class NonSwayColumn2d:
                 results.applied_moment_bot.append(-self.eb * time)
                 results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
                 results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp())
-                results.lowest_eigenvalue.append(ops.eigen(1)[0])
-                results.maximum_concrete_compression_strain.append(self.ops_get_concrete_compression_strain())
-                results.maximum_steel_strain.append(self.get_maximum_steel_strain())
+                results.lowest_eigenvalue.append(ops.eigen('-fullGenLapack', 1)[0])
+                results.maximum_concrete_compression_strain.append(self.ops_get_section_strains()[0])
+                results.maximum_steel_strain.append(self.ops_get_section_strains()[1])
 
             record()
             
             maximum_time = 0
             while True:
                 ok = ops.analyze(1)
+
+                if ok != 0:
+                    dU = np.sign(self.et) * disp_incr_factor/100
+                    ops.integrator('DisplacementControl', self.ops_n_elem, 3, dU)
 
                 if ok != 0:
                     print('Trying ModifiedNewton')
@@ -316,6 +357,8 @@ class NonSwayColumn2d:
                     ok = ops.analyze(1)
                 
                 if ok == 0:
+                    dU = np.sign(self.et) * disp_incr_factor
+                    ops.integrator('DisplacementControl', self.ops_n_elem, 3, dU)
                     ops.algorithm('Newton')
                     ops.test('NormUnbalance', 1e-2, 10)
                 else:
@@ -369,7 +412,7 @@ class NonSwayColumn2d:
         M1 = [0]
         M2 = [results.maximum_abs_moment_at_limit_point]
         exit_message = [results.exit_message]
-        if P is None or P == [None]:
+        if P is np.nan or P == [np.nan]:
             raise ValueError('Analysis failed at axial only loading')
 
         # Loop axial linearly spaced axial loads witn non-proportional analyses
@@ -377,16 +420,18 @@ class NonSwayColumn2d:
             iP = P[0] * (num_points-1-i) / (num_points-1)
             if iP == 0:
                 cross_section = CrossSection2d(self.section, self.axis)
-                results = cross_section.run_ops_analysis('nonproportional_limit_point', section_args, section_kwargs, P=0, load_incr_factor=section_load_factor)
+                results = cross_section.run_ops_analysis('nonproportional_limit_point', section_args, section_kwargs,
+                                                         P=0, load_incr_factor=section_load_factor)
                 P.append(iP)
                 M1.append(results.maximum_abs_moment_at_limit_point)
                 M2.append(results.maximum_abs_moment_at_limit_point)
 
             else:
-                results = self.run_ops_analysis('nonproportional_limit_point', section_args, section_kwargs, P=iP, disp_incr_factor=nonprop_disp_incr_factor)
+                results = self.run_ops_analysis('nonproportional_limit_point', section_args, section_kwargs, P=iP,
+                                                disp_incr_factor=nonprop_disp_incr_factor)
                 P.append(iP)
-                M1.append(max(results.applied_moment_top))
-                M2.append(max(results.maximum_abs_moment))
+                M1.append(results.applied_moment_top_at_limit_point)
+                M2.append(results.maximum_abs_moment_at_limit_point)
                 exit_message.append(results.exit_message)
 
             if plot_load_deformation:
