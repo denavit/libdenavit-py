@@ -49,7 +49,7 @@ class NonSwayColumn2d:
         ops.geomTransf(self.ops_geom_transf_type, 100)
         
         if type(self.section).__name__ == "RC":
-            self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs, axis=self.axis)
+            self.section.build_ops_fiber_section(section_id, axis=self.axis, *section_args, **section_kwargs)
         else:
             raise ValueError(f'Unknown cross section type {type(self.section).__name__}')
 
@@ -59,7 +59,7 @@ class NonSwayColumn2d:
             ops.element(self.ops_element_type, index, index, index + 1, 100, 1)
 
     def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=1.0, P=0,
-                         perc_drop=0.05, maximum_abs_disp_limit_ratio=0.1, num_steps_vertical=10, disp_incr_factor=0.00005):
+                         perc_drop=0.05, maximum_abs_disp_limit_ratio=0.1, num_steps_vertical=10, disp_incr_factor=1e-5):
         """ Run an OpenSees analysis of the column
         
         Parameters
@@ -102,10 +102,11 @@ class NonSwayColumn2d:
         results.applied_moment_top = []
         results.applied_moment_bot = []
         results.maximum_abs_moment = []
-        results.maximum_abs_disp = []
-        results.lowest_eigenvalue = []
+        results.maximum_abs_disp   = []
+        results.lowest_eigenvalue  = []
         results.maximum_concrete_compression_strain = []
         results.maximum_steel_strain = []
+
         # Define function to find limit point
         def find_limit_point():
             ind,x = find_limit_point_in_list(results.lowest_eigenvalue,0)
@@ -123,6 +124,7 @@ class NonSwayColumn2d:
                 results.applied_moment_bot_at_limit_point = interpolate_list(results.applied_moment_bot,ind,x)
                 results.maximum_abs_moment_at_limit_point = interpolate_list(results.maximum_abs_moment,ind,x)
                 results.maximum_abs_disp_at_limit_point   = interpolate_list(results.maximum_abs_disp,ind,x)
+            results.applied_axial_load_at_limit_point = interpolate_list(results.applied_axial_load,ind,x)
         
         # Run analysis
         if analysis_type.lower() == 'proportional_limit_point':
@@ -135,7 +137,7 @@ class NonSwayColumn2d:
             ops.constraints('Plain')
             ops.numberer('RCM')
             ops.system('UmfPack')
-            ops.test('NormUnbalance', 1e-2, 10)
+            ops.test('NormUnbalance', 1e-1, 10)
             ops.algorithm('Newton')
             
             # @todo - we may eventually need more sophisticated selection of dof to control
@@ -143,6 +145,7 @@ class NonSwayColumn2d:
                 # Axial only analysis
                 dU = self.length * disp_incr_factor
                 ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+                ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
             else:
                 dU = self.length * disp_incr_factor
                 ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
@@ -157,9 +160,9 @@ class NonSwayColumn2d:
                 results.applied_moment_bot.append(-self.eb * e * time)
                 results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
                 results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp())
-                results.lowest_eigenvalue.append(ops.eigen(1)[0])
-                results.maximum_concrete_compression_strain.append(self.ops_get_concrete_compression_strain())
-                results.maximum_steel_strain.append(self.get_maximum_steel_strain())
+                results.lowest_eigenvalue.append(ops.eigen('-fullGenLapack', 1)[0])
+                results.maximum_concrete_compression_strain.append(self.ops_get_section_strains()[0])
+                results.maximum_steel_strain.append(self.ops_get_section_strains()[1])
 
             record()
             
@@ -169,6 +172,7 @@ class NonSwayColumn2d:
 
                 if ok != 0:
                     results.exit_message = 'Analysis Failed'
+                    print('Analysis Failed')
                     break
 
                 record()
@@ -224,9 +228,9 @@ class NonSwayColumn2d:
                 results.applied_moment_bot.append(0)
                 results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
                 results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp())
-                results.lowest_eigenvalue.append(ops.eigen(1)[0])
-                results.maximum_concrete_compression_strain.append(self.ops_get_concrete_compression_strain())
-                results.maximum_steel_strain.append(self.get_maximum_steel_strain())
+                results.lowest_eigenvalue.append(ops.eigen('-fullGenLapack', 1)[0])
+                results.maximum_concrete_compression_strain.append(self.ops_get_section_strains()[0])
+                results.maximum_steel_strain.append(self.ops_get_section_strains()[1])
             
             record()
             
@@ -235,6 +239,7 @@ class NonSwayColumn2d:
                 
                 if ok != 0:
                     results.exit_message = 'Analysis Failed In Vertical Loading'
+                    print('Analysis Failed In Vertical Loading')
                     return results
                 
                 record()
@@ -266,15 +271,12 @@ class NonSwayColumn2d:
             ops.load(0, 0, 0, -self.eb)
 
             # @todo - we may eventually need more sophisticated selection of dof to control
-            #dU = self.length * disp_incr_factor
-            #ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
-            
-            if self.et == 0:
                 dU = np.sign(-self.eb)*disp_incr_factor/10
                 ops.integrator('DisplacementControl', 0, 3, dU)
             else:
                 dU = np.sign(self.et)*disp_incr_factor/10
                 ops.integrator('DisplacementControl', self.ops_n_elem, 3, dU)
+            ops.integrator('DisplacementControl', self.ops_n_elem, 3, dU)
             
             ops.analysis('Static')
             
