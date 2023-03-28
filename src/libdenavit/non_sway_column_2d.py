@@ -91,11 +91,12 @@ class NonSwayColumn2d:
           constant, then LFH is increased (e is ignored)
           
         """
-        eigenvalue_as_limit = True
-        load_drop_as_limit = True
-        deformation_as_limit = True
-        concrete_strain_as_limit = True
-        steel_strain_as_limit = True
+
+        eigenvalue_limit = 0
+        load_drop_limit = None # defined later as the maximum load is obtained
+        deformation_limit = maximum_abs_disp_limit_ratio * self.length
+        concrete_strain_limit = -0.01
+        steel_strain_limit = 0.05
 
         self.build_ops_model(1, section_args, section_kwargs)
         
@@ -121,15 +122,15 @@ class NonSwayColumn2d:
                 return
 
             elif 'Eigenvalue Limit' in results.exit_message:
-                ind,x = find_limit_point_in_list(results.lowest_eigenvalue,0)
+                ind,x = find_limit_point_in_list(results.lowest_eigenvalue, eigenvalue_limit)
             elif 'Extreme Compressive Fiber Strain Limit Reached' in results.exit_message:
-                ind, x = find_limit_point_in_list(results.maximum_concrete_compression_strain, -0.01)
+                ind, x = find_limit_point_in_list(results.maximum_concrete_compression_strain, concrete_strain_limit)
             elif 'Extreme Steel Fiber Strain Limit Reached' in results.exit_message:
-                ind, x = find_limit_point_in_list(results.maximum_steel_strain, 0.05)
+                ind, x = find_limit_point_in_list(results.maximum_steel_strain, steel_strain_limit)
             elif 'Deformation Limit Reached' in results.exit_message:
-                ind, x = find_limit_point_in_list(results.maximum_abs_disp, maximum_abs_disp_limit_ratio * self.length)
+                ind, x = find_limit_point_in_list(results.maximum_abs_disp, deformation_limit)
             elif 'Load Drop Limit Reached' in results.exit_message:
-                ind, x = find_limit_point_in_list(results.applied_axial_load, (1 - perc_drop) * max(results.applied_axial_load))
+                ind, x = find_limit_point_in_list(results.applied_axial_load, load_drop_limit)
 
             results.applied_axial_load_at_limit_point = interpolate_list(results.applied_axial_load,ind,x)
             results.applied_moment_top_at_limit_point = interpolate_list(results.applied_moment_top,ind,x)
@@ -224,31 +225,34 @@ class NonSwayColumn2d:
                 # Check for drop in applied load
                 current_applied_axial_load = results.applied_axial_load[-1]
                 maximum_applied_axial_load = max(maximum_applied_axial_load, current_applied_axial_load)
+                load_drop_limit = (1 - perc_drop) * maximum_applied_axial_load
 
-                if load_drop_as_limit:
-                    if current_applied_axial_load < (1 - perc_drop) * maximum_applied_axial_load:
+                if load_drop_limit is not None:
+                    if current_applied_axial_load < load_drop_limit:
                         results.exit_message = 'Load Drop Limit Reached'
                         break
 
                 # Check for lowest eigenvalue less than zero
-                if eigenvalue_as_limit:
-                    if results.lowest_eigenvalue[-1] < 0:
+                if eigenvalue_limit is not None:
+                    if results.lowest_eigenvalue[-1] < eigenvalue_limit:
                         results.exit_message = 'Eigenvalue Limit Reached'
                         break
 
                 # Check for maximum displacement
-                if deformation_as_limit:
-                    if results.maximum_abs_disp[-1] > maximum_abs_disp_limit_ratio * self.length:
+                if deformation_limit is not None:
+                    if results.maximum_abs_disp[-1] > deformation_limit:
                         results.exit_message = 'Deformation Limit Reached'
                         break
 
-                # Check for strain in extreme compressive fiber
-                if concrete_strain_as_limit:
-                    if results.maximum_concrete_compression_strain[-1] < -0.01:
+                # Check for strain in extreme compressive concrete fiber
+                if concrete_strain_limit is not None:
+                    if results.maximum_concrete_compression_strain[-1] < concrete_strain_limit:
                         results.exit_message = 'Extreme Compressive Fiber Strain Limit Reached'
                         break
-                if steel_strain_as_limit:
-                    if results.maximum_steel_strain[-1] > 0.05:
+
+                # Check for strain in extreme steel fiber
+                if steel_strain_limit is not None:
+                    if results.maximum_steel_strain[-1] > steel_strain_limit:
                         results.exit_message = 'Extreme Steel Fiber Strain Limit Reached'
                         break
 
@@ -291,25 +295,26 @@ class NonSwayColumn2d:
                     return results
                 
                 record()
-                if deformation_as_limit:
-                    if results.maximum_abs_disp[-1] > maximum_abs_disp_limit_ratio * self.length:
+                if deformation_limit is not None:
+                    if results.maximum_abs_disp[-1] > deformation_limit:
                         results.exit_message = 'Deformation Limit Reached In Vertical Loading'
                         return results
 
                 # Check for lowest eigenvalue less than zero
-                if eigenvalue_as_limit:
-                    if results.lowest_eigenvalue[-1] < 0:
+                if eigenvalue_limit is not None:
+                    if results.lowest_eigenvalue[-1] < eigenvalue_limit:
                         results.exit_message = 'Eigenvalue Limit Reached In Vertical Loading'
                         return results
 
-                # Check for strain in extreme compressive fiber
-                if concrete_strain_as_limit:
-                    if results.maximum_concrete_compression_strain[-1] < -0.01:
+                # Check for strain in extreme compressive concrete fiber
+                if concrete_strain_limit is not None:
+                    if results.maximum_concrete_compression_strain[-1] < concrete_strain_limit:
                         results.exit_message = 'Extreme Compressive Fiber Strain Limit Reached In Vertical Loading'
                         return results
 
-                if steel_strain_as_limit:
-                    if results.maximum_steel_strain[-1] > 0.05:
+                # Check for strain in extreme steel fiber
+                if steel_strain_limit is not None:
+                    if results.maximum_steel_strain[-1] > steel_strain_limit:
                         results.exit_message = 'Extreme Steel Fiber Strain Limit Reached In Vertical Loading'
                         return results
 
@@ -322,8 +327,6 @@ class NonSwayColumn2d:
             ops.pattern('Plain', 201, 101)
             ops.load(self.ops_n_elem, 0, 0, self.et)
             ops.load(0, 0, 0, -self.eb)
-
-            # @todo - we may eventually need more sophisticated selection of dof to control
 
             dU = disp_incr_factor
             ops.integrator('DisplacementControl', self.ops_n_elem, 3, dU)
@@ -373,8 +376,10 @@ class NonSwayColumn2d:
                     ops.integrator('DisplacementControl', self.ops_n_elem, 3, dU)
                     ops.algorithm('Newton')
                     ops.test('NormUnbalance', 1e-2, 10)
+
                 else:
                     results.exit_message = 'Analysis Failed'
+                    print('Analysis Failed')
                     break
                 
                 record()
@@ -382,31 +387,34 @@ class NonSwayColumn2d:
                 # Check for drop in applied load (time = the horzontal load factor)
                 current_time = ops.getTime()
                 maximum_time = max(maximum_time, current_time)
-                if load_drop_as_limit:
-                    if current_time < (1 - perc_drop) * maximum_time:
+                load_drop_limit = (1 - perc_drop) * maximum_time
+
+                if load_drop_limit is not None:
+                    if current_time < load_drop_limit:
                         results.exit_message = 'Load Drop Limit Reached'
                         break
                     
                 # Check for lowest eigenvalue less than zero
-                if eigenvalue_as_limit:
-                    if results.lowest_eigenvalue[-1] < 0:
+                if eigenvalue_limit is not None:
+                    if results.lowest_eigenvalue[-1] < eigenvalue_limit:
                         results.exit_message = 'Eigenvalue Limit Reached'
                         break
                 
                 # Check for maximum displacement
-                if deformation_as_limit:
-                    if results.maximum_abs_disp[-1] > maximum_abs_disp_limit_ratio * self.length:
+                if deformation_limit is not None:
+                    if results.maximum_abs_disp[-1] > deformation_limit:
                         results.exit_message = 'Deformation Limit Reached'
                         break
 
                 # Check for strain in extreme compressive fiber
-                if concrete_strain_as_limit:
-                    if results.maximum_concrete_compression_strain[-1] < -0.01:
+                if concrete_strain_limit is not None:
+                    if results.maximum_concrete_compression_strain[-1] < concrete_strain_limit:
                         results.exit_message = 'Extreme Compressive Fiber Strain Limit Reached'
                         break
 
-                if steel_strain_as_limit:
-                    if results.maximum_steel_strain[-1] > 0.05:
+                # Check for strain in extreme steel fiber
+                if steel_strain_limit is not None:
+                    if results.maximum_steel_strain[-1] > steel_strain_limit:
                         results.exit_message = 'Extreme Steel Fiber Strain Limit Reached'
                         break
 
@@ -442,7 +450,7 @@ class NonSwayColumn2d:
                 P.append(iP)
                 M1.append(results.maximum_abs_moment_at_limit_point)
                 M2.append(results.maximum_abs_moment_at_limit_point)
-
+                exit_message.append(results.exit_message)
             else:
                 results = self.run_ops_analysis('nonproportional_limit_point', section_args, section_kwargs, P=iP,
                                                 disp_incr_factor=nonprop_disp_incr_factor)
