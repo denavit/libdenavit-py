@@ -124,7 +124,7 @@ class RC:
             return extreme_strain
 
         if type(self.conc_cross_section).__name__ == 'Circle':
-            extreme_strain = axial_strain - self.conc_cross_section.D/2 * sqrt(curvatureX**2 + curvatureY**2)
+            extreme_strain = axial_strain - self.conc_cross_section.diameter/2 * sqrt(curvatureX**2 + curvatureY**2)
             return extreme_strain
 
         if  type(self.conc_cross_section).__name__ == 'Obround':
