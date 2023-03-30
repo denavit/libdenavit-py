@@ -559,14 +559,21 @@ class NonSwayColumn2d:
         maximum_tensile_steel_strain = []
         for i in range(self.ops_n_elem):
             for j  in range(self.ops_integration_points):
-                axial_strain, curvatureX = ops.eleResponse(i,  # element tag
-                                               'section', j+1, # select integration point
-                                               'deformation')  # response type
+                if self.axis == 'x':
+                    axial_strain, curvatureX = ops.eleResponse(i,  # element tag
+                                                   'section', j+1, # select integration point
+                                                   'deformation')  # response type
+                    curvatureY = 0
+                elif self.axis == 'y':
+                    axial_strain, curvatureY = ops.eleResponse(i,  # element tag
+                                                   'section', j+1, # select integration point
+                                                   'deformation')  # response type
+                    curvatureX = 0
 
                 maximum_concrete_compression_strain.append(self.section.maximum_concrete_compression_strain(
-                                                           axial_strain, curvatureX=curvatureX, curvatureY=0))
-                maximum_tensile_steel_strain.append(self.section.maximum_tensile_steel_strain(axial_strain,
-                                                           curvatureX=curvatureX, curvatureY=0))
+                                                           axial_strain, curvatureX=curvatureX, curvatureY=curvatureY))
+                maximum_tensile_steel_strain.append(self.section.maximum_tensile_steel_strain(
+                                                           axial_strain, curvatureX=curvatureX, curvatureY=curvatureY))
         return min(maximum_concrete_compression_strain), max(maximum_tensile_steel_strain)
 
     def ops_get_maximum_abs_moment(self):
