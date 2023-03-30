@@ -569,6 +569,8 @@ class NonSwayColumn2d:
                                                    'section', j+1, # select integration point
                                                    'deformation')  # response type
                     curvatureX = 0
+                else:
+                    raise ValueError("The axis is not supported.")
 
                 maximum_concrete_compression_strain.append(self.section.maximum_concrete_compression_strain(
                                                            axial_strain, curvatureX=curvatureX, curvatureY=curvatureY))
