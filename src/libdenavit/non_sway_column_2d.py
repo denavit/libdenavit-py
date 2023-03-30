@@ -60,8 +60,8 @@ class NonSwayColumn2d:
         for index in range(self.ops_n_elem):
             ops.element(self.ops_element_type, index, index, index + 1, 100, 1)
 
-    def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=1.0, P=0,
-                         perc_drop=0.05, maximum_abs_disp_limit_ratio=0.1, num_steps_vertical=10, disp_incr_factor=1e-5):
+    def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=1.0, P=0, percent_load_drop_limit=0.05,
+                         maximum_abs_disp_limit_ratio=0.1, num_steps_vertical=10, disp_incr_factor=1e-5):
         """ Run an OpenSees analysis of the column
         
         Parameters
@@ -93,7 +93,6 @@ class NonSwayColumn2d:
         """
 
         eigenvalue_limit = 0
-        load_drop_limit = None # defined later as the maximum load is obtained
         deformation_limit = maximum_abs_disp_limit_ratio * self.length
         concrete_strain_limit = -0.01
         steel_strain_limit = 0.05
@@ -130,7 +129,7 @@ class NonSwayColumn2d:
             elif 'Deformation Limit Reached' in results.exit_message:
                 ind, x = find_limit_point_in_list(results.maximum_abs_disp, deformation_limit)
             elif 'Load Drop Limit Reached' in results.exit_message:
-                ind, x = find_limit_point_in_list(results.applied_axial_load, load_drop_limit)
+                ind, x = find_limit_point_in_list(results.applied_axial_load, (1 - percent_load_drop_limit) * maximum_time)
 
             results.applied_axial_load_at_limit_point = interpolate_list(results.applied_axial_load,ind,x)
             results.applied_moment_top_at_limit_point = interpolate_list(results.applied_moment_top,ind,x)
@@ -223,12 +222,10 @@ class NonSwayColumn2d:
                 record()
 
                 # Check for drop in applied load
-                current_applied_axial_load = results.applied_axial_load[-1]
-                maximum_applied_axial_load = max(maximum_applied_axial_load, current_applied_axial_load)
-                load_drop_limit = (1 - perc_drop) * maximum_applied_axial_load
-
-                if load_drop_limit is not None:
-                    if current_applied_axial_load < load_drop_limit:
+                if percent_load_drop_limit is not None:
+                    current_applied_axial_load = results.applied_axial_load[-1]
+                    maximum_applied_axial_load = max(maximum_applied_axial_load, current_applied_axial_load)
+                    if current_applied_axial_load < (1 - percent_load_drop_limit) * maximum_applied_axial_load:
                         results.exit_message = 'Load Drop Limit Reached'
                         break
 
@@ -385,12 +382,10 @@ class NonSwayColumn2d:
                 record()
 
                 # Check for drop in applied load (time = the horzontal load factor)
-                current_time = ops.getTime()
-                maximum_time = max(maximum_time, current_time)
-                load_drop_limit = (1 - perc_drop) * maximum_time
-
-                if load_drop_limit is not None:
-                    if current_time < load_drop_limit:
+                if percent_load_drop_limit is not None:
+                    current_time = ops.getTime()
+                    maximum_time = max(maximum_time, current_time)
+                    if current_time < (1 - percent_load_drop_limit) * maximum_time:
                         results.exit_message = 'Load Drop Limit Reached'
                         break
                     
