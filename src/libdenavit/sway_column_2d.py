@@ -606,15 +606,15 @@ class SwayColumn2d:
         h = self.section.depth(self.axis)
 
         # Get cross-sectional interaction diagram
-        P_id, M_id, _ = self.section.section_interaction_2d(self.axis, 100, factored=section_factored, only_compressive=True)
-        id2d = InteractionDiagram2d(M_id, P_id, is_closed=False)
+        P_id, M_id, _ = self.section.section_interaction_2d(self.axis, 100, factored=section_factored)
+        id2d = InteractionDiagram2d(M_id, P_id, is_closed=True)
 
         # Run one axial load only analysis to determine maximum axial strength
         if minimum_eccentricity:
-            P_path = np.linspace(0, max(1.001 * min(P_id), -0.999 * Pc_factor * Pc), 1000)
+            P_path = np.linspace(0, max(1.001 * min(P_id), -0.999 * Pc_factor * Pc_s), 1000)
             M2_path = np.zeros_like(P_path)
             for i, P in enumerate(P_path):
-                delta = max(self.Cm / (1 - (-P) / (Pc_factor * Pc)), 1.0)
+                delta = max(self.Cm / (1 - (-P) / (Pc_factor * Pc_s)), 1.0)
                 if self.section.units.lower() == "us":
                     M1_min = -P * (0.6 + 0.03 * h)  # ACI 6.6.4.5.4
                 elif self.section.units.lower() == "si":
@@ -642,19 +642,15 @@ class SwayColumn2d:
 
         # Loop axial linearly spaced axial loads with non-proportional analyses
         for i in range(1, num_points):
-            iP = P_list[0] * (num_points - 1 - i) / (num_points - 1)
+            iP = 0.999*P_list[0] * (num_points - 1 - i) / (num_points - 1)
             iM2 = id2d.find_x_given_y(iP, 'pos')
-            # delta_ns = max(self.Cm / (1 - (iP) / (Pc_factor * Pc)), 1.0)
-            # iM1_ns = iM2 / delta_ns
 
-            delta_s = 1 / (1 - iP / (Pc_factor * Pc_s))
-            # if delta_s < 1:
-            #     delta_s = 1
+            delta_s = 1 / (1 - (-iP) / (Pc_factor * Pc_s))
             iM1_s = iM2 / delta_s
             P_list.append(iP)
             M1_list.append(iM1_s)
             M2_list.append(iM2)
-        results = {'P': P_list, 'M1': M1_list, 'M2': M2_list}
+        results = {'P': list(-1*np.array(P_list)), 'M1': M1_list, 'M2': M2_list}
         return results
 
 
