@@ -481,13 +481,14 @@ class SwayColumn2d:
 
     def run_ops_interaction(self, section_args, section_kwargs, num_points=10, prop_disp_incr_factor=1e-7,
                             nonprop_disp_incr_factor=1e-4, section_load_factor=1e-1):
+        plot_load_deformation = False
+        if plot_load_deformation:
+            fig_at_step, ax_at_step = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [3, 1]})
 
         # Run one axial load only analyis to determine maximum axial strength
         results = self.run_ops_analysis('proportional_limit_point', section_args, section_kwargs, e=0,
                                         disp_incr_factor=prop_disp_incr_factor)
         P = [results.applied_axial_load_at_limit_point]
-        P_applied = results.applied_axial_load
-        print(f'{P= }')
         M1 = [0]
         M2 = [results.maximum_abs_moment_at_limit_point]
         exit_message = [results.exit_message]
@@ -513,18 +514,24 @@ class SwayColumn2d:
                 M2.append(results.maximum_abs_moment_at_limit_point)
                 exit_message.append(results.exit_message)
 
-            plot_at_step = False
-            if plot_at_step:
-                import matplotlib.pyplot as plt
-                plt.figure()
-                plt.title(f'Axial Load = {iP}, column: D= {self.section.depth("x")}, L={self.length}')
-                plt.plot(results.maximum_abs_disp, results.applied_moment_top, '-ro')
-                plt.plot(results.maximum_abs_disp, results.maximum_abs_moment, '-bo')
-                plt.legend(['M1', 'M2'])
+            if plot_load_deformation:
+                print(f'{iP=:,.0f}')
+                if iP==0:
+                    continue
+                ax_at_step[0].plot(results.maximum_abs_disp, np.array(results.applied_horizonal_load) * self.lever_arm, '-o', label=f'{iP:,.0f}', markersize=5)
+                ax_at_step[0].legend()
 
-                plt.figure()
-                plt.plot(results.maximum_abs_disp, results.lowest_eigenvalue)
-                plt.show()
+                ax_at_step[1].plot(results.maximum_abs_disp, results.lowest_eigenvalue, label=f'{iP:,.0f}', markersize=5)
+        if plot_load_deformation:
+            ax_at_step[0].set_xlabel('Displacement (in)')
+            ax_at_step[0].set_ylabel('Applied Moment (kips)')
+
+            ax_at_step[1].set_xlabel('Displacement (in)')
+            ax_at_step[1].set_ylabel('Eigenvalue')
+            ax_at_step[1].set_ylim(-100,)
+
+            fig_at_step.tight_layout()
+            plt.show()
 
         results = {'P': P, 'M1': M1, 'M2': M2, 'exit_message': exit_message}
         return results
