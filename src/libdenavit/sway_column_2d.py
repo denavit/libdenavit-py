@@ -536,20 +536,27 @@ class SwayColumn2d:
         results = {'P': P, 'M1': M1, 'M2': M2, 'exit_message': exit_message}
         return results
 
-    def ops_get_concrete_compression_strain(self):
-        strain = []
+    def ops_get_section_strains(self):
+        maximum_concrete_compression_strain = []
+        maximum_tensile_steel_strain = []
         for i in range(self.ops_n_elem):
-            axial_strain = ops.nodeDisp(i, 2)
-            curvature = ops.nodeDisp(self.ops_mid_node, 3)
-            strain.append(self.section.maximum_concrete_compression_strain(axial_strain, curvature, self.axis))
-        return min(strain)
-    def get_maximum_steel_strain(self):
-        strain = []
-        for i in range(self.ops_n_elem):
-            axial_strain = ops.nodeDisp(i, 2)
-            curvature = ops.nodeDisp(i, 3)
-            strain.append(self.section.maximum_steel_strain(axial_strain, curvature, self.axis))
-        return max(strain)
+            for j  in range(self.ops_integration_points):
+                if self.axis == 'x':
+                    axial_strain, curvatureX = ops.eleResponse(i,  # element tag
+                                                   'section', j+1, # select integration point
+                                                   'deformation')  # response type
+                    curvatureY = 0
+                elif self.axis == 'y':
+                    axial_strain, curvatureY = ops.eleResponse(i,  # element tag
+                                                   'section', j+1, # select integration point
+                                                   'deformation')  # response type
+                    curvatureX = 0
+
+                maximum_concrete_compression_strain.append(self.section.maximum_concrete_compression_strain(
+                                                           axial_strain, curvatureX=curvatureX, curvatureY=curvatureY))
+                maximum_tensile_steel_strain.append(self.section.maximum_tensile_steel_strain(
+                                                           axial_strain, curvatureX=curvatureX, curvatureY=curvatureY))
+        return min(maximum_concrete_compression_strain), max(maximum_tensile_steel_strain)
 
     def ops_get_maximum_abs_moment(self):
         # This code assumed (but does not check) that moment at j-end of 
