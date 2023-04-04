@@ -15,7 +15,7 @@ class CrossSection2d:
         ops.model('basic', '-ndm', 2, '-ndf', 3)
 
         if type(self.section).__name__ == "RC":
-            self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs)
+            self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs, axis=self.axis)
 
         ops.node(1, 0, 0)
         ops.node(2, 0, 0)
@@ -100,17 +100,17 @@ class CrossSection2d:
                 current_applied_axial_load = results.applied_axial_load[-1]
                 maximum_applied_axial_load = max(maximum_applied_axial_load, current_applied_axial_load)
                 if current_applied_axial_load < (1 - perc_drop) * maximum_applied_axial_load:
-                    results.exit_message = 'Load Drop Limit Point is Reached'
+                    results.exit_message = 'Load Drop Limit Reached'
                     break
 
                 # Check for lowest eigenvalue less than zero
                 if results.lowest_eigenvalue[-1] < 0:
-                    results.exit_message = 'Eigen Value Limit Point is Reached'
+                    results.exit_message = 'Eigenvalue Limit Reached'
                     break
 
                 # Check for strain in extreme compressive fiber
                 if results.maximum_concrete_compression_strain[-1] < -0.005:
-                    results.exit_message = 'Extreme Compressive Fiber Limit Point is Reached'
+                    results.exit_message = 'Extreme Compressive Fiber Strain Limit Reached'
                     break
 
             find_limit_point()
@@ -192,15 +192,15 @@ class CrossSection2d:
                 current_time = ops.getTime()
                 maximum_time = max(maximum_time, current_time)
                 if current_time < (1 - perc_drop) * maximum_time:
-                    results.exit_message = 'Load Drop Limit Point is Reached'
+                    results.exit_message = 'Load Drop Limit Reached'
                     break
 
                 # Check for lowest eigenvalue less than zero
                 if results.lowest_eigenvalue[-1] < 0:
-                    results.exit_message = 'Eigen Value Limit Point is Reached'
+                    results.exit_message = 'Eigenvalue Limit Reached'
                     break
                 if results.maximum_concrete_compression_strain[-1] < -0.005:
-                    results.exit_message = 'Extreme Compressive Fiber Limit Point is Reached'
+                    results.exit_message = 'Extreme Compressive Fiber Strain Limit Reached'
                     break
 
             find_limit_point()

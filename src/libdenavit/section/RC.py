@@ -1,4 +1,4 @@
-from math import sqrt, pi, ceil, exp
+from math import sqrt, pi, ceil, exp, sin, tan
 from libdenavit.section import AciStrainCompatibility, FiberSingle, FiberSection, ACI_phi
 from libdenavit.OpenSees import circ_patch_2d, obround_patch_2d, obround_patch_2d_confined
 import matplotlib.pyplot as plt
@@ -130,8 +130,8 @@ class RC:
         if  type(self.conc_cross_section).__name__ == 'Obround':
             extreme_strain = float("inf")
             for i in range(100):
-                x_coord = self.reinforcement[0].a/2 + D/2 * sin(pi/2 * i/100)
-                y_coord = self.reinforcement[0].D/2 - D/2 * sin(pi/2 * i/100)
+                x_coord = self.conc_cross_section.a/2 + self.conc_cross_section.D/2 * sin(pi/2 * i/100)
+                y_coord = self.conc_cross_section.D/2 - self.conc_cross_section.D/2 * sin(pi/2 * i/100)
                 strain = axial_strain - y_coord * abs(curvatureX) - x_coord * abs(curvatureY)
                 if strain < extreme_strain:
                     extreme_strain = strain
@@ -256,10 +256,10 @@ class RC:
         if only_compressive:
             from libdenavit import InteractionDiagram2d
             P = -1 * P
-            P_M_id2d = InteractionDiagram2d(M, P, is_closed=False)
-            P_et_id2d = InteractionDiagram2d(et, P, is_closed=False)
-            M_et_id2d = InteractionDiagram2d(M, et, is_closed=False)
-        
+            P_M_id2d = InteractionDiagram2d(M, P, is_closed=True)
+            P_et_id2d = InteractionDiagram2d(et, P, is_closed=True)
+            M_et_id2d = InteractionDiagram2d(M, et, is_closed=True)
+
             from libdenavit import find_limit_point_in_list
             ind, x = find_limit_point_in_list(P, 0)
             P = np.insert(P, ind+1, 0)

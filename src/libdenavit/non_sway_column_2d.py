@@ -60,8 +60,8 @@ class NonSwayColumn2d:
         for index in range(self.ops_n_elem):
             ops.element(self.ops_element_type, index, index, index + 1, 100, 1)
 
-    def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=1.0, P=0, percent_load_drop_limit=0.05,
-                         maximum_abs_disp_limit_ratio=0.1, num_steps_vertical=10, disp_incr_factor=1e-5):
+    def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=1.0, P=0, num_steps_vertical=10,
+                         disp_incr_factor=1e-5):
         """ Run an OpenSees analysis of the column
         
         Parameters
@@ -92,10 +92,12 @@ class NonSwayColumn2d:
           
         """
 
-        eigenvalue_limit = 0
-        deformation_limit = maximum_abs_disp_limit_ratio * self.length
-        concrete_strain_limit = -0.01
-        steel_strain_limit = 0.05
+        eigenvalue_limit        = 0
+        deformation_limit       = 0.1 * self.length
+        concrete_strain_limit   = -0.01
+        steel_strain_limit      = 0.05
+        percent_load_drop_limit = 0.05
+        print_limit_point   = True
 
         self.build_ops_model(1, section_args, section_kwargs)
         
@@ -112,6 +114,9 @@ class NonSwayColumn2d:
 
         # Define function to find limit point
         def find_limit_point():
+            if print_limit_point:
+                print(results.exit_message)
+                
             if 'Analysis Failed' in results.exit_message:
                 results.applied_axial_load_at_limit_point = np.nan
                 results.applied_moment_top_at_limit_point = np.nan
@@ -421,7 +426,7 @@ class NonSwayColumn2d:
 
     def run_ops_interaction(self, section_args, section_kwargs, num_points=10, prop_disp_incr_factor=1e-6,
                             nonprop_disp_incr_factor=1e-5, section_load_factor=1e-1):
-        plot_load_deformation=False
+        plot_load_deformation = False
         if plot_load_deformation:
             fig_at_step, ax_at_step = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [3, 1]})
 
@@ -531,7 +536,7 @@ class NonSwayColumn2d:
 
         else:
             M1_min = 0
-            buckling_load = -Pc_factor*Pc
+            buckling_load = -Pc_factor * Pc
             if buckling_load < min(P_id):
                 P_list = [min(P_id)]
                 M1_list = [0]
@@ -546,7 +551,7 @@ class NonSwayColumn2d:
             iP = 0.999*P_list[0] * (num_points-i-1) / (num_points-1)
             iM2 = id2d.find_x_given_y(iP, 'pos')
             delta = max(self.Cm / (1 - (-iP) / (Pc_factor * Pc)), 1.0)
-            iM1 = iM2/delta
+            iM1 = iM2 / delta
             P_list.append(iP)
             M1_list.append(iM1)
             M2_list.append(iM2)
