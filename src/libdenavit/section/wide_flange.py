@@ -160,6 +160,21 @@ class WideFlangeMember_AISC2016:
         return self.Mnx(Lb,Cb)
 
     def Mnx(self,Lb,Cb):
+        """Moment strength of member for major-axis bending.
+
+        Parameters
+        ----------
+        Lb : float
+            Unbraced length of the member.
+        Cb : float
+            Lateral-torsional buckling modification factor.
+
+        Notes
+        -----
+        - Not yet implemented for noncompact or slender webs.
+
+        Reference: AISC Specification Chapter F; Sections F1 -- F3
+        """
 
         # Check width-to-thickness ratios
         if self.section.h_over_tw > 3.76*sqrt(self.E/self.Fy) :
@@ -204,6 +219,10 @@ class WideFlangeMember_AISC2016:
         return available_strength(Mn,self.strength_type,0.9,1.67)
     
     def Mny(self):
+        """Moment strength of member for minor-axis bending.
+
+        Reference: AISC Specification Sections F1, F6
+        """
         # Yielding
         Mp = min(self.Fy*self.section.Zy, 1.6*self.Fy*self.section.Sy)
         Mn = Mp
