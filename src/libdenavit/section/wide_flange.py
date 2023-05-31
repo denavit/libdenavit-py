@@ -1,4 +1,5 @@
 import dataclasses
+import warnings
 from math import sqrt,atan,radians,tan,pi
 from ..design import available_strength
 from . import database
@@ -155,7 +156,11 @@ class WideFlangeMember_AISC2016:
         return available_strength(Pn,self.strength_type,0.9,1.67)
       
     def Mn(self,Lb,Cb):
-        
+        warnings.warn("Mn() is deprecated; use Mnx() instead.", stacklevel=2)
+        return self.Mnx(Lb,Cb)
+
+    def Mnx(self,Lb,Cb):
+
         # Check width-to-thickness ratios
         if self.section.h_over_tw > 3.76*sqrt(self.E/self.Fy) :
             raise Exception('Mn not yet implemented for noncompact or slender webs')           
