@@ -198,6 +198,28 @@ class WideFlangeMember_AISC2016:
                 
         return available_strength(Mn,self.strength_type,0.9,1.67)
     
+    def Mny(self):
+        # Yielding
+        Mp = min(self.Fy*self.section.Zy, 1.6*self.Fy*self.section.Sy)
+        Mn = Mp
+
+        # Flange local buckling
+        λ  = self.section.bf_over_2tf
+        λp = 0.38*sqrt(self.E/self.Fy)
+        λr = 1.0*sqrt(self.E/self.Fy)
+
+        if λ <= λp:
+            pass
+        elif λ <= λr:
+            Mn_CFLB = Mp - (Mp-0.7*self.Fy*self.section.Sy)*(λ-λp)/(λr-λp)
+            Mn = min(Mn,Mn_CFLB)
+        else:
+            Fcr = 0.69*self.E/λ**2
+            Mn_CFLB = Fcr*self.section.Sy
+            Mn = min(Mn,Mn_CFLB)
+        
+        return available_strength(Mn,self.strength_type,0.9,1.67)
+
     def Vn(self):
         Aw = self.section.d*self.section.tw
         kv = 5.34 # For webs without transverse stiffeners
