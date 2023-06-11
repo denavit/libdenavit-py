@@ -1,4 +1,5 @@
 import dataclasses
+import warnings
 from math import sqrt,atan,radians,tan,pi
 from ..design import available_strength
 from . import database
@@ -155,7 +156,26 @@ class WideFlangeMember_AISC2016:
         return available_strength(Pn,self.strength_type,0.9,1.67)
       
     def Mn(self,Lb,Cb):
-        
+        warnings.warn("Mn() is deprecated; use Mnx() instead.", stacklevel=2)
+        return self.Mnx(Lb,Cb)
+
+    def Mnx(self,Lb,Cb):
+        """Moment strength of member for major-axis bending.
+
+        Parameters
+        ----------
+        Lb : float
+            Unbraced length of the member.
+        Cb : float
+            Lateral-torsional buckling modification factor.
+
+        Notes
+        -----
+        - Not yet implemented for noncompact or slender webs.
+
+        Reference: AISC Specification Chapter F; Sections F1 -- F3
+        """
+
         # Check width-to-thickness ratios
         if self.section.h_over_tw > 3.76*sqrt(self.E/self.Fy) :
             raise Exception('Mn not yet implemented for noncompact or slender webs')           
@@ -198,6 +218,32 @@ class WideFlangeMember_AISC2016:
                 
         return available_strength(Mn,self.strength_type,0.9,1.67)
     
+    def Mny(self):
+        """Moment strength of member for minor-axis bending.
+
+        Reference: AISC Specification Sections F1, F6
+        """
+        # Yielding
+        Mp = min(self.Fy*self.section.Zy, 1.6*self.Fy*self.section.Sy)
+        Mn = Mp
+
+        # Flange local buckling
+        λ  = self.section.bf_over_2tf
+        λp = 0.38*sqrt(self.E/self.Fy)
+        λr = 1.0*sqrt(self.E/self.Fy)
+
+        if λ <= λp:
+            pass
+        elif λ <= λr:
+            Mn_CFLB = Mp - (Mp-0.7*self.Fy*self.section.Sy)*(λ-λp)/(λr-λp)
+            Mn = min(Mn,Mn_CFLB)
+        else:
+            Fcr = 0.69*self.E/λ**2
+            Mn_CFLB = Fcr*self.section.Sy
+            Mn = min(Mn,Mn_CFLB)
+        
+        return available_strength(Mn,self.strength_type,0.9,1.67)
+
     def Vn(self):
         Aw = self.section.d*self.section.tw
         kv = 5.34 # For webs without transverse stiffeners
