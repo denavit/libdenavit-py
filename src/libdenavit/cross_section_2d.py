@@ -32,14 +32,14 @@ class CrossSection2d:
             raise ValueError(f"ops_element_type {self.ops_element_type} not recognized")
 
     def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=0, P=0, num_steps_vertical=20,
-                         load_incr_factor=1e-5, disp_incr_factor=1e-7):
+                         load_incr_factor=1e-5, disp_incr_factor=1e-7,
+                         eigenvalue_limit = 0,
+                         percent_load_drop_limit = 0.05,
+                         concrete_strain_limit = -0.01,
+                         steel_strain_limit = 0.05,
+                         try_smaller_steps = True,
+                         print_limit_point = True):
 
-        eigenvalue_limit = 0
-        percent_load_drop_limit = 0.05
-        concrete_strain_limit = -0.01
-        steel_strain_limit = 0.05
-        try_smaller_steps = True
-        print_limit_point = True
 
         self.build_ops_model(1, section_args, section_kwargs)
 
@@ -67,6 +67,8 @@ class CrossSection2d:
                 ind, x = find_limit_point_in_list(results.maximum_steel_strain, steel_strain_limit)
             elif 'Load Drop Limit Reached' in results.exit_message:
                 ind, x = find_limit_point_in_list(results.maximum_abs_moment, max(results.maximum_abs_moment))
+            else:
+                raise Exception('Unknown limit point')
 
             results.applied_axial_load_at_limit_point = interpolate_list(results.applied_axial_load,ind,x)
             results.maximum_abs_moment_at_limit_point = interpolate_list(results.maximum_abs_moment,ind,x)
@@ -108,16 +110,10 @@ class CrossSection2d:
                     if ok != 0:
                         ops.integrator('LoadControl', load_incr_factor/10)
                         ok = ops.analyze(1)
-                        if ok == 0:
-                            load_incr_factor = load_incr_factor
-                            print(f'Changed the step size to: {load_incr_factor}')
                 
                     if ok != 0:
                         ops.integrator('LoadControl', load_incr_factor/100)
                         ok = ops.analyze(1)
-                        if ok == 0:
-                            load_incr_factor = load_incr_factor
-                            print(f'Changed the step size to: {load_incr_factor}')
                     
                     if ok != 0:
                         ops.integrator('LoadControl', load_incr_factor/1000)
@@ -152,6 +148,7 @@ class CrossSection2d:
                 if ok == 0:
                     ops.algorithm('Newton')
                     ops.test('NormUnbalance', 1e-3, 10)
+                    ops.integrator('LoadControl', load_incr_factor)
 
                 if ok != 0:
                     results.exit_message = 'Analysis Failed'
@@ -310,6 +307,7 @@ class CrossSection2d:
                 if ok == 0:
                     ops.algorithm('Newton')
                     ops.test('NormUnbalance', 1e-3, 10)
+                    ops.integrator('LoadControl', disp_incr_factor)
 
                 if ok != 0:
                     results.exit_message = 'Analysis Failed'
