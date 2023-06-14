@@ -116,7 +116,8 @@ class SwayColumn2d:
     def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=1.0, P=0, num_steps_vertical=10,
                          disp_incr_factor=0.00005, eigenvalue_limit=0, percent_load_drop_limit = 0.05,
                          concrete_strain_limit=-0.01, steel_strain_limit = 0.05, deformation_limit="default",
-                         print_limit_point=True):
+                         try_smaller_steps=True, print_limit_point=True):
+
         """ Run an OpenSees analysis of the column
         
         Parameters
@@ -239,11 +240,32 @@ class SwayColumn2d:
             maximum_applied_axial_load = 0.
             while True:
                 ok = ops.analyze(1)
+                if try_smaller_steps:
+                    if ok != 0:
+                        dU = self.length * disp_incr_factor/10
+                        ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
+                        ok = ops.analyze(1)
 
-                if ok != 0:
-                    dU = self.length * disp_incr_factor/100
-                    ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
-                    ok = ops.analyze(1)
+                    if ok != 0:
+                        dU = self.length * disp_incr_factor/100
+                        ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
+                        ok = ops.analyze(1)
+
+                    if ok != 0:
+                        dU = self.length * disp_incr_factor/1000
+                        ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
+                        ok = ops.analyze(1)
+                        if ok==0:
+                            disp_incr_factor /= 10
+                            print(f'Changed the step size to: {disp_incr_factor}')
+
+                    if ok != 0:
+                        dU = self.length * disp_incr_factor/10000
+                        ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
+                        ok = ops.analyze(1)
+                        if ok==0:
+                            disp_incr_factor /= 10
+                            print(f'Changed the step size to: {disp_incr_factor}')
 
                 if ok != 0:
                     print('Trying ModifiedNewton')
@@ -321,7 +343,7 @@ class SwayColumn2d:
             ops.constraints('Plain')
             ops.numberer('RCM')
             ops.system('UmfPack')
-            ops.test('NormUnbalance', 1e-2, 10)
+            ops.test('NormUnbalance', 1e-3, 10)
             ops.algorithm('Newton')
             ops.integrator('LoadControl', P / num_steps_vertical)
             ops.analysis('Static')
@@ -381,14 +403,11 @@ class SwayColumn2d:
 
             # region Run lateral load (time = LFH)
             ops.loadConst('-time', 0.0)
-            
             ops.timeSeries('Linear', 101)
             ops.pattern('Plain', 201, 101)
             ops.load(self.ops_n_elem, 1, 0, 0)
-
             dU = self.length * disp_incr_factor
             ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
-
             ops.analysis('Static')
 
             # Define recorder
@@ -412,21 +431,25 @@ class SwayColumn2d:
             maximum_time = 0
             while True:
                 ok = ops.analyze(1)
+                if try_smaller_steps:
+                    if ok != 0:
+                        dU = disp_incr_factor
+                        ops.integrator('DisplacementControl', self.ops_n_elem, 3, dU)
+                        ok = ops.analyze(1)
 
-                if ok != 0:
-                    dU = disp_incr_factor
-                    ops.integrator('DisplacementControl', self.ops_n_elem, 3, dU)
-                    ok = ops.analyze(1)
+                    if ok != 0:
+                        dU = disp_incr_factor/10
+                        ops.integrator('DisplacementControl', self.ops_n_elem, 3, dU)
+                        ok = ops.analyze(1)
 
-                if ok != 0:
-                    dU = self.length * disp_incr_factor/1000
-                    ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
-                    ok = ops.analyze(1)
 
-                if ok != 0:
-                    dU = disp_incr_factor/1000
-                    ops.integrator('DisplacementControl', self.ops_n_elem, 3, dU)
-                    ok = ops.analyze(1)
+                    if ok != 0:
+                        dU = disp_incr_factor/100
+                        ops.integrator('DisplacementControl', self.ops_n_elem, 3, dU)
+                        ok = ops.analyze(1)
+                        if ok == 0:
+                            disp_incr_factor /= 10
+                            print(f'Changed the step size to: {disp_incr_factor}')
 
                 if ok != 0:
                     print('Trying ModifiedNewton')
@@ -448,7 +471,7 @@ class SwayColumn2d:
                     dU = self.length * disp_incr_factor
                     ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
                     ops.algorithm('Newton')
-                    ops.test('NormUnbalance', 1e-2, 10)
+                    ops.test('NormUnbalance', 1e-3, 10)
                 else:
                     results.exit_message = 'Analysis Failed'
                     print('Analysis Failed')

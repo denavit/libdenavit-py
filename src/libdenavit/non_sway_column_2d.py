@@ -64,7 +64,7 @@ class NonSwayColumn2d:
     def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=1.0, P=0, num_steps_vertical=10,
                          disp_incr_factor=1e-5, try_another_P=1, eigenvalue_limit=0, deformation_limit='default',
                          concrete_strain_limit=-0.01, steel_strain_limit= 0.05, percent_load_drop_limit=0.05,
-                         try_smaller_steps = True, print_limit_point=True):
+                         try_smaller_steps=True, print_limit_point=True):
         """ Run an OpenSees analysis of the column
         
         Parameters
@@ -183,15 +183,37 @@ class NonSwayColumn2d:
             maximum_applied_axial_load = 0.
             while True:
                 ok = ops.analyze(1)
+                if try_smaller_steps:
+                    if ok != 0:
+                        if np.sign(self.et) != np.sign(self.eb):
+                            dU = self.length * disp_incr_factor/20
+                            ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
+                        else:
+                            dU = self.length * disp_incr_factor/10
+                            ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+                        ok = ops.analyze(1)
 
-                if ok != 0:
-                    if np.sign(self.et) != np.sign(self.eb):
-                        dU = self.length * disp_incr_factor/200
-                        ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
-                    else:
-                        dU = self.length * disp_incr_factor/100
-                        ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
-                    ok = ops.analyze(1)
+                    if ok != 0:
+                        if np.sign(self.et) != np.sign(self.eb):
+                            dU = self.length * disp_incr_factor/200
+                            ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
+                        else:
+                            dU = self.length * disp_incr_factor/100
+                            ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+                        ok = ops.analyze(1)
+
+                    if ok != 0:
+                        if np.sign(self.et) != np.sign(self.eb):
+                            dU = self.length * disp_incr_factor/2000
+                            ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
+                        else:
+                            dU = self.length * disp_incr_factor/1000
+                            ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+                        ok = ops.analyze(1)
+                        if ok == 0:
+                            disp_incr_factor /= 10
+                            print(f'Changed the step size to: {disp_incr_factor}')
+                    
 
                 if ok != 0:
                     print('Trying ModifiedNewton')
@@ -206,7 +228,7 @@ class NonSwayColumn2d:
                 if ok != 0:
                     print('Trying KrylovNewton and Greater Tolerance')
                     ops.algorithm('KrylovNewton')
-                    ops.test('NormUnbalance', 1e-1, 10)
+                    ops.test('NormUnbalance', 1e-2, 10)
                     ok = ops.analyze(1)
 
                 if ok == 0:
@@ -218,7 +240,7 @@ class NonSwayColumn2d:
                         ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
 
                     ops.algorithm('Newton')
-                    ops.test('NormUnbalance', 1e-2, 10)
+                    ops.test('NormUnbalance', 1e-3, 10)
 
                 else:
                     results.exit_message = 'Analysis Failed'
@@ -270,7 +292,7 @@ class NonSwayColumn2d:
             ops.constraints('Plain')
             ops.numberer('RCM')
             ops.system('UmfPack')
-            ops.test('NormUnbalance', 1e-2, 10)
+            ops.test('NormUnbalance', 1e-3, 10)
             ops.algorithm('Newton')
             ops.integrator('LoadControl', P / num_steps_vertical)
             ops.analysis('Static')
@@ -336,8 +358,12 @@ class NonSwayColumn2d:
             ops.load(self.ops_n_elem, 0, 0, self.et)
             ops.load(0, 0, 0, -self.eb)
 
-            dU = disp_incr_factor
-            ops.integrator('DisplacementControl', self.ops_n_elem, 3, dU)
+            if np.sign(self.et) != np.sign(self.eb):
+                dU = self.length * disp_incr_factor/2
+                ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
+            else:
+                dU = self.length * disp_incr_factor
+                ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
             
             ops.analysis('Static')
             
@@ -364,10 +390,36 @@ class NonSwayColumn2d:
 
             while True:
                 ok = ops.analyze(1)
-
-                if ok != 0:
-                    dU = np.sign(self.et) * disp_incr_factor/100
-                    ops.integrator('DisplacementControl', self.ops_n_elem, 3, dU)
+                if try_smaller_steps:
+                    if ok != 0:
+                        if np.sign(self.et) != np.sign(self.eb):
+                            dU = self.length * disp_incr_factor/20
+                            ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
+                        else:
+                            dU = self.length * disp_incr_factor/10
+                            ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+                            ok = ops.analyze(1)
+                
+                    if ok != 0:
+                        if np.sign(self.et) != np.sign(self.eb):
+                            dU = self.length * disp_incr_factor/200
+                            ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
+                        else:
+                            dU = self.length * disp_incr_factor/100
+                            ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+                        ok = ops.analyze(1)
+                
+                    if ok != 0:
+                        if np.sign(self.et) != np.sign(self.eb):
+                            dU = self.length * disp_incr_factor/2000
+                            ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
+                        else:
+                            dU = self.length * disp_incr_factor/1000
+                            ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+                        ok = ops.analyze(1)
+                        if ok == 0:
+                                disp_incr_factor /= 10
+                                print(f'Changed the step size to: {disp_incr_factor}')
 
                 if ok != 0:
                     print('Trying ModifiedNewton')
@@ -382,14 +434,19 @@ class NonSwayColumn2d:
                 if ok != 0:
                     print('Trying KrylovNewton and Greater Tolerance')
                     ops.algorithm('KrylovNewton')
-                    ops.test('NormUnbalance', 1e-1, 10)
+                    ops.test('NormUnbalance', 1e-2, 10)
                     ok = ops.analyze(1)
                 
                 if ok == 0:
-                    dU = np.sign(self.et) * disp_incr_factor
-                    ops.integrator('DisplacementControl', self.ops_n_elem, 3, dU)
+                    if np.sign(self.et) != np.sign(self.eb):
+                        dU = self.length * disp_incr_factor / 2
+                        ops.integrator('DisplacementControl', 3 * self.ops_n_elem // 4, 1, dU)
+                    else:
+                        dU = self.length * disp_incr_factor
+                        ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+
                     ops.algorithm('Newton')
-                    ops.test('NormUnbalance', 1e-2, 10)
+                    ops.test('NormUnbalance', 1e-3, 10)
 
                 else:
                     results.exit_message = 'Analysis Failed'
