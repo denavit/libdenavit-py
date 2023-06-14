@@ -1,3 +1,4 @@
+import warnings
 from math import inf, pi, sin
 import matplotlib.pyplot as plt
 from libdenavit import find_limit_point_in_list, interpolate_list, InteractionDiagram2d
@@ -103,7 +104,7 @@ class SwayColumn2d:
         ops.geomTransf(self.ops_geom_transf_type, 100)
 
         if type(self.section).__name__ == "RC":
-            self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs)
+            self.section.build_ops_fiber_section(section_id, axis=self.axis, *section_args, **section_kwargs)
         else:
             raise ValueError(f'Unknown cross section type {type(self.section).__name__}')
 
@@ -113,7 +114,9 @@ class SwayColumn2d:
             ops.element(self.ops_element_type, index, index, index + 1, 100, 1)
 
     def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=1.0, P=0, num_steps_vertical=10,
-                         disp_incr_factor=0.00005):
+                         disp_incr_factor=0.00005, eigenvalue_limit=0, percent_load_drop_limit = 0.05,
+                         concrete_strain_limit=-0.01, steel_strain_limit = 0.05, deformation_limit="default",
+                         print_limit_point=True):
         """ Run an OpenSees analysis of the column
         
         Parameters
@@ -140,13 +143,9 @@ class SwayColumn2d:
         - For non-proportional analyses, LFV is increased to P first then held
           constant, then LFH is increased (e is ignored)
         """
-
-        eigenvalue_limit = 0
-        percent_load_drop_limit = 0.05
-        deformation_limit = 0.1 * self.length
-        concrete_strain_limit = -0.01
-        steel_strain_limit = 0.05
-        print_limit_point = True
+        
+        if deformation_limit == "default":
+            deformation_limit = 0.1 * self.length
 
         self.build_ops_model(1, section_args, section_kwargs)
 
@@ -161,6 +160,7 @@ class SwayColumn2d:
         results.moment_at_bottom = []
         results.maximum_concrete_compression_strain = []
         results.maximum_steel_strain = []
+        results.curvature = []
         # endregion
 
         # Define a function to find limit point
@@ -168,22 +168,26 @@ class SwayColumn2d:
             if print_limit_point:
                 print(results.exit_message)
             if 'Analysis Failed' in results.exit_message:
-                results.applied_axial_load_at_limit_point = np.nan
-                results.applied_moment_top_at_limit_point = np.nan
-                results.applied_moment_bot_at_limit_point = np.nan
-                results.maximum_abs_moment_at_limit_point = np.nan
-                results.maximum_abs_disp_at_limit_point   = np.nan
-                return
+                if analysis_type.lower() == 'proportional_limit_point':
+                    ind, x = find_limit_point_in_list(results.applied_axial_load, max(results.applied_axial_load))
+                elif analysis_type.lower() == 'nonproportional_limit_point':
+                    ind, x = find_limit_point_in_list(results.applied_horizonal_load, max(results.applied_horizonal_load))
+                warnings.warn(f'Analysis failed')
             elif 'Eigenvalue Limit' in results.exit_message:
                 ind,x = find_limit_point_in_list(results.lowest_eigenvalue, eigenvalue_limit)
-            elif 'Extreme Compressive Fiber Strain Limit Reached' in results.exit_message:
+            elif 'Extreme Compressive Concrete Fiber Strain Limit Reached' in results.exit_message:
                 ind, x = find_limit_point_in_list(results.maximum_concrete_compression_strain, concrete_strain_limit)
             elif 'Extreme Steel Fiber Strain Limit Reached' in results.exit_message:
                 ind, x = find_limit_point_in_list(results.maximum_steel_strain, steel_strain_limit)
             elif 'Deformation Limit Reached' in results.exit_message:
                 ind, x = find_limit_point_in_list(results.maximum_abs_disp, deformation_limit)
             elif 'Load Drop Limit Reached' in results.exit_message:
-                ind, x = find_limit_point_in_list(results.applied_axial_load, load_drop_limit)
+                if analysis_type.lower() == 'proportional_limit_point':
+                    ind, x = find_limit_point_in_list(results.applied_axial_load, max(results.applied_axial_load))
+                elif analysis_type.lower() == 'nonproportional_limit_point':
+                    ind, x = find_limit_point_in_list(results.applied_horizonal_load, max(results.applied_horizonal_load))
+            else:
+                raise Exception('Unknown limit point')
 
             results.applied_axial_load_at_limit_point = interpolate_list(results.applied_axial_load, ind, x)
             results.applied_horizontal_load_at_limit_point = interpolate_list(results.applied_horizonal_load, ind, x)
@@ -225,6 +229,10 @@ class SwayColumn2d:
                 results.moment_at_bottom.append(ops.eleForce(0, 3))
                 results.maximum_concrete_compression_strain.append(self.ops_get_section_strains()[0])
                 results.maximum_steel_strain.append(self.ops_get_section_strains()[1])
+                if self.axis == 'x':
+                    results.curvature.append(self.ops_get_section_strains()[2])
+                elif self.axis == 'y':
+                    results.curvature.append(self.ops_get_section_strains()[3])
 
             record()
 
@@ -291,7 +299,7 @@ class SwayColumn2d:
                 # Check for strain in extreme compressive concrete fiber
                 if concrete_strain_limit is not None:
                     if results.maximum_concrete_compression_strain[-1] < concrete_strain_limit:
-                        results.exit_message = 'Extreme Compressive Fiber Strain Limit Reached'
+                        results.exit_message = 'Extreme Compressive Concrete Fiber Strain Limit Reached'
                         break
 
                 # Check for strain in extreme steel fiber
@@ -330,6 +338,10 @@ class SwayColumn2d:
                 results.moment_at_bottom.append(ops.eleForce(0, 3))
                 results.maximum_concrete_compression_strain.append(self.ops_get_section_strains()[0])
                 results.maximum_steel_strain.append(self.ops_get_section_strains()[1])
+                if self.axis == 'x':
+                    results.curvature.append(self.ops_get_section_strains()[2])
+                elif self.axis == 'y':
+                    results.curvature.append(self.ops_get_section_strains()[3])
 
             record()
 
@@ -357,7 +369,7 @@ class SwayColumn2d:
                 # Check for strain in extreme compressive concrete fiber
                 if concrete_strain_limit is not None:
                     if results.maximum_concrete_compression_strain[-1] < concrete_strain_limit:
-                        results.exit_message = 'Extreme Compressive Fiber Strain Limit Reached In Vertical Loading'
+                        results.exit_message = 'Extreme Compressive Concrete Fiber Strain Limit Reached In Vertical Loading'
                         return results
 
                 # Check for strain in extreme steel fiber
@@ -390,6 +402,10 @@ class SwayColumn2d:
                 results.moment_at_bottom.append(ops.eleForce(0, 3))
                 results.maximum_concrete_compression_strain.append(self.ops_get_section_strains()[0])
                 results.maximum_steel_strain.append(self.ops_get_section_strains()[1])
+                if self.axis == 'x':
+                    results.curvature.append(self.ops_get_section_strains()[2])
+                elif self.axis == 'y':
+                    results.curvature.append(self.ops_get_section_strains()[3])
 
             record()
 
@@ -464,7 +480,7 @@ class SwayColumn2d:
                 # Check for strain in extreme compressive fiber
                 if concrete_strain_limit is not None:
                     if results.maximum_concrete_compression_strain[-1] < concrete_strain_limit:
-                        results.exit_message = 'Extreme Compressive Fiber Strain Limit Reached'
+                        results.exit_message = 'Extreme Compressive Concrete Fiber Strain Limit Reached'
                         break
 
                 # Check for strain in extreme steel fiber
@@ -487,7 +503,7 @@ class SwayColumn2d:
 
         # Run one axial load only analyis to determine maximum axial strength
         results = self.run_ops_analysis('proportional_limit_point', section_args, section_kwargs, e=0,
-                                        disp_incr_factor=prop_disp_incr_factor)
+                                        disp_incr_factor=prop_disp_incr_factor, deformation_limit=None)
         P = [results.applied_axial_load_at_limit_point]
         M1 = [0]
         M2 = [results.maximum_abs_moment_at_limit_point]
@@ -508,7 +524,7 @@ class SwayColumn2d:
                 exit_message.append(results.exit_message)
             else:
                 results = self.run_ops_analysis('nonproportional_limit_point', section_args, section_kwargs, P=abs(iP),
-                                                disp_incr_factor=nonprop_disp_incr_factor)
+                                                disp_incr_factor=nonprop_disp_incr_factor, deformation_limit=None)
                 P.append(iP)
                 M1.append(abs(results.applied_horizontal_load_at_limit_point * self.lever_arm))
                 M2.append(results.maximum_abs_moment_at_limit_point)
@@ -556,7 +572,7 @@ class SwayColumn2d:
                                                            axial_strain, curvatureX=curvatureX, curvatureY=curvatureY))
                 maximum_tensile_steel_strain.append(self.section.maximum_tensile_steel_strain(
                                                            axial_strain, curvatureX=curvatureX, curvatureY=curvatureY))
-        return min(maximum_concrete_compression_strain), max(maximum_tensile_steel_strain)
+        return min(maximum_concrete_compression_strain), max(maximum_tensile_steel_strain), curvatureX, curvatureY
 
     def ops_get_maximum_abs_moment(self):
         # This code assumed (but does not check) that moment at j-end of 
