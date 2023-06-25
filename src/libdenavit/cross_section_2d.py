@@ -149,8 +149,7 @@ class CrossSection2d:
                     ops.algorithm('Newton')
                     ops.test('NormUnbalance', 1e-3, 10)
                     ops.integrator('LoadControl', load_incr_factor)
-
-                if ok != 0:
+                else:
                     results.exit_message = 'Analysis Failed'
                     break
 
@@ -308,8 +307,7 @@ class CrossSection2d:
                     ops.algorithm('Newton')
                     ops.test('NormUnbalance', 1e-3, 10)
                     ops.integrator('LoadControl', disp_incr_factor)
-
-                if ok != 0:
+                else:
                     results.exit_message = 'Analysis Failed'
                     break
 
