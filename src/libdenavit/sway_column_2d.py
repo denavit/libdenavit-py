@@ -284,6 +284,7 @@ class SwayColumn2d:
                     ok = ops.analyze(1)
 
                 if ok == 0:
+                    # Reset analysis options
                     dU = self.length * disp_incr_factor
                     ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
                     ops.algorithm('Newton')
@@ -468,6 +469,7 @@ class SwayColumn2d:
                     ok = ops.analyze(1)
 
                 if ok == 0:
+                    # Reset analysis options
                     dU = self.length * disp_incr_factor
                     ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
                     ops.algorithm('Newton')

@@ -232,6 +232,7 @@ class NonSwayColumn2d:
                     ok = ops.analyze(1)
 
                 if ok == 0:
+                    # Reset analysis options
                     if np.sign(self.et) != np.sign(self.eb):
                         dU = self.length * disp_incr_factor / 2
                         ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
@@ -438,6 +439,7 @@ class NonSwayColumn2d:
                     ok = ops.analyze(1)
                 
                 if ok == 0:
+                    # Reset analysis options
                     if np.sign(self.et) != np.sign(self.eb):
                         dU = self.length * disp_incr_factor / 2
                         ops.integrator('DisplacementControl', 3 * self.ops_n_elem // 4, 1, dU)

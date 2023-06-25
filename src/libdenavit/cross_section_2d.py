@@ -146,6 +146,7 @@ class CrossSection2d:
                     ok = ops.analyze(1)
 
                 if ok == 0:
+                    # Reset analysis options
                     ops.algorithm('Newton')
                     ops.test('NormUnbalance', 1e-3, 10)
                     ops.integrator('LoadControl', load_incr_factor)
@@ -304,6 +305,7 @@ class CrossSection2d:
                         print('KrylovNewton worked')
 
                 if ok == 0:
+                    # Reset analysis options
                     ops.algorithm('Newton')
                     ops.test('NormUnbalance', 1e-3, 10)
                     ops.integrator('LoadControl', disp_incr_factor)
