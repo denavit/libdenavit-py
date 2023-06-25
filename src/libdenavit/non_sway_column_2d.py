@@ -177,6 +177,8 @@ class NonSwayColumn2d:
                     results.curvature.append(self.ops_get_section_strains()[2])
                 elif self.axis == 'y':
                     results.curvature.append(self.ops_get_section_strains()[3])
+                else:
+                    raise ValueError(f'The value of axis ({self.axis}) is not supported.')
 
             record()
             
