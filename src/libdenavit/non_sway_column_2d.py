@@ -102,16 +102,14 @@ class NonSwayColumn2d:
         
         # Initilize analysis results
         results = AnalysisResults()
-        results.applied_axial_load = []
-        results.applied_moment_top = []
-        results.applied_moment_bot = []
-        results.maximum_abs_moment = []
-        results.maximum_abs_disp   = []
-        results.lowest_eigenvalue  = []
-        results.maximum_concrete_compression_strain = []
-        results.maximum_steel_strain = []
+        attributes = ['applied_axial_load', 'applied_moment_top', 'applied_moment_bot', 'maximum_abs_moment',
+                      'maximum_abs_disp', 'lowest_eigenvalue', 'maximum_concrete_compression_strain',
+                      'maximum_steel_strain', 'curvature']
+
+        for attribute in attributes:
+            setattr(results, attribute, [])
+
         time_domain = []
-        results.curvature = []
 
         # Define function to find limit point
         def find_limit_point():
