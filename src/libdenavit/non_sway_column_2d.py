@@ -62,7 +62,7 @@ class NonSwayColumn2d:
             ops.element(self.ops_element_type, index, index, index + 1, 100, 1)
 
     def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=1.0, P=0, num_steps_vertical=10,
-                         disp_incr_factor=1e-5, try_another_P=1, eigenvalue_limit=0, deformation_limit='default',
+                         disp_incr_factor=1e-5, eigenvalue_limit=0, deformation_limit='default',
                          concrete_strain_limit=-0.01, steel_strain_limit= 0.05, percent_load_drop_limit=0.05,
                          try_smaller_steps=True, print_limit_point=True):
         """ Run an OpenSees analysis of the column
