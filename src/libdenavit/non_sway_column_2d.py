@@ -137,7 +137,33 @@ class NonSwayColumn2d:
             results.applied_moment_bot_at_limit_point = interpolate_list(results.applied_moment_bot,ind,x)
             results.maximum_abs_moment_at_limit_point = interpolate_list(results.maximum_abs_moment,ind,x)
             results.maximum_abs_disp_at_limit_point   = interpolate_list(results.maximum_abs_disp,ind,x)
-        
+
+        def update_dU(disp_incr_factor, div_factor=1):
+            if np.sign(self.et) != np.sign(self.eb):
+                dU = self.length * disp_incr_factor / (2 * div_factor)
+                ops.integrator('DisplacementControl', 3 * self.ops_n_elem // 4, 1, dU)
+            else:
+                dU = self.length * disp_incr_factor / div_factor
+                ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+
+        def try_analysis_options():
+            options = [('ModifiedNewton', 1e-3),
+                       ('KrylovNewton', 1e-3),
+                       ('KrylovNewton', 1e-2)]
+
+            for algorithm, tolerance in options:
+                ops.algorithm(algorithm)
+                ops.test('NormUnbalance', tolerance, 10)
+                ok = ops.analyze(1)
+                if ok == 0:
+                    break
+            return ok
+
+        def reset_analysis_options(disp_incr_factor):
+            update_dU(disp_incr_factor)
+            ops.algorithm('Newton')
+            ops.test('NormUnbalance', 1e-3, 10)
+
         # Run analysis
         if analysis_type.lower() == 'proportional_limit_point':
             # time = LFV
@@ -186,67 +212,23 @@ class NonSwayColumn2d:
             maximum_applied_axial_load = 0.
             while True:
                 ok = ops.analyze(1)
-                if try_smaller_steps:
-                    if ok != 0:
-                        if np.sign(self.et) != np.sign(self.eb):
-                            dU = self.length * disp_incr_factor/20
-                            ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
-                        else:
-                            dU = self.length * disp_incr_factor/10
-                            ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
-                        ok = ops.analyze(1)
 
-                    if ok != 0:
-                        if np.sign(self.et) != np.sign(self.eb):
-                            dU = self.length * disp_incr_factor/200
-                            ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
-                        else:
-                            dU = self.length * disp_incr_factor/100
-                            ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+                if ok != 0 and try_smaller_steps:
+                    for div_factor in [10, 100, 1000]:
+                        update_dU(disp_incr_factor, div_factor)
                         ok = ops.analyze(1)
-
-                    if ok != 0:
-                        if np.sign(self.et) != np.sign(self.eb):
-                            dU = self.length * disp_incr_factor/2000
-                            ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
-                        else:
-                            dU = self.length * disp_incr_factor/1000
-                            ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
-                        ok = ops.analyze(1)
-                        if ok == 0:
+                        if ok == 0 and div_factor == 1000:
                             disp_incr_factor /= 10
-                            print(f'Changed the step size to: {disp_incr_factor}')
-                    
+                            break
+                        elif ok == 0:
+                            break
 
                 if ok != 0:
-                    print('Trying ModifiedNewton')
-                    ops.algorithm('ModifiedNewton')
-                    ok = ops.analyze(1)
-
-                if ok != 0:
-                    print('Trying KrylovNewton')
-                    ops.algorithm('KrylovNewton')
-                    ok = ops.analyze(1)
-
-                if ok != 0:
-                    print('Trying KrylovNewton and Greater Tolerance')
-                    ops.algorithm('KrylovNewton')
-                    ops.test('NormUnbalance', 1e-2, 10)
-                    ok = ops.analyze(1)
+                    ok = try_analysis_options()
 
                 if ok == 0:
-                    # Reset analysis options
-                    if np.sign(self.et) != np.sign(self.eb):
-                        dU = self.length * disp_incr_factor / 2
-                        ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
-                    else:
-                        dU = self.length * disp_incr_factor
-                        ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
-
-                    ops.algorithm('Newton')
-                    ops.test('NormUnbalance', 1e-3, 10)
-
-                else:
+                    reset_analysis_options(disp_incr_factor)
+                elif ok != 0:
                     results.exit_message = 'Analysis Failed'
                     print('Analysis Failed')
                     break
@@ -378,12 +360,12 @@ class NonSwayColumn2d:
             
             # Define recorder
             def record():
-                time_domain.append(ops.getTime())
+                time = ops.getTime()
                 section_strains = self.ops_get_section_strains()
 
                 results.applied_axial_load.append(P)
-                results.applied_moment_top.append(self.et * time_domain[-1])
-                results.applied_moment_bot.append(-self.eb * time_domain[-1])
+                results.applied_moment_top.append(self.et * time)
+                results.applied_moment_bot.append(-self.eb * time)
                 results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
                 results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp())
                 results.lowest_eigenvalue.append(ops.eigen('-fullGenLapack', 1)[0])
@@ -400,70 +382,27 @@ class NonSwayColumn2d:
             record()
             
             maximum_moment = 0
-            original_disp_incr_factor = disp_incr_factor
 
             while True:
                 ok = ops.analyze(1)
-                if try_smaller_steps:
-                    if ok != 0:
-                        if np.sign(self.et) != np.sign(self.eb):
-                            dU = self.length * disp_incr_factor/20
-                            ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
-                        else:
-                            dU = self.length * disp_incr_factor/10
-                            ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
-                            ok = ops.analyze(1)
-                
-                    if ok != 0:
-                        if np.sign(self.et) != np.sign(self.eb):
-                            dU = self.length * disp_incr_factor/200
-                            ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
-                        else:
-                            dU = self.length * disp_incr_factor/100
-                            ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+
+                if ok != 0 and try_smaller_steps:
+                    for div_factor in [10, 100, 1000]:
+                        update_dU(disp_incr_factor, div_factor)
                         ok = ops.analyze(1)
-                
-                    if ok != 0:
-                        if np.sign(self.et) != np.sign(self.eb):
-                            dU = self.length * disp_incr_factor/2000
-                            ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
-                        else:
-                            dU = self.length * disp_incr_factor/1000
-                            ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
-                        ok = ops.analyze(1)
-                        if ok == 0:
-                                disp_incr_factor /= 10
-                                print(f'Changed the step size to: {disp_incr_factor}')
+                        if ok == 0 and div_factor == 1000:
+                            disp_incr_factor /= 10
+                            print(f'Changed the step size to: {disp_incr_factor}')
+                            break
+                        elif ok == 0:
+                            break
 
                 if ok != 0:
-                    print('Trying ModifiedNewton')
-                    ops.algorithm('ModifiedNewton')
-                    ok = ops.analyze(1)
+                    ok = try_analysis_options()
 
-                if ok != 0:
-                    print('Trying KrylovNewton')
-                    ops.algorithm('KrylovNewton')
-                    ok = ops.analyze(1)
-
-                if ok != 0:
-                    print('Trying KrylovNewton and Greater Tolerance')
-                    ops.algorithm('KrylovNewton')
-                    ops.test('NormUnbalance', 1e-2, 10)
-                    ok = ops.analyze(1)
-                
                 if ok == 0:
-                    # Reset analysis options
-                    if np.sign(self.et) != np.sign(self.eb):
-                        dU = self.length * disp_incr_factor / 2
-                        ops.integrator('DisplacementControl', 3 * self.ops_n_elem // 4, 1, dU)
-                    else:
-                        dU = self.length * disp_incr_factor
-                        ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
-
-                    ops.algorithm('Newton')
-                    ops.test('NormUnbalance', 1e-3, 10)
-
-                else:
+                    reset_analysis_options(disp_incr_factor)
+                elif ok != 0:
                     results.exit_message = 'Analysis Failed'
                     print('Analysis Failed')
                     break
