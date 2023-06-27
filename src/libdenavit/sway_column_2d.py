@@ -218,6 +218,8 @@ class SwayColumn2d:
             # Define recorder
             def record():
                 time = ops.getTime()
+                section_strains = self.ops_get_section_strains()
+
                 results.applied_axial_load.append(time)
                 results.applied_horizonal_load.append(time * e / self.lever_arm)
                 results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
@@ -225,12 +227,12 @@ class SwayColumn2d:
                 results.lowest_eigenvalue.append(ops.eigen(1)[0])
                 results.moment_at_top.append(ops.eleForce(self.ops_n_elem - 1, 6))
                 results.moment_at_bottom.append(ops.eleForce(0, 3))
-                results.maximum_concrete_compression_strain.append(self.ops_get_section_strains()[0])
-                results.maximum_steel_strain.append(self.ops_get_section_strains()[1])
+                results.maximum_concrete_compression_strain.append(section_strains[0])
+                results.maximum_steel_strain.append(section_strains[1])
                 if self.axis == 'x':
-                    results.curvature.append(self.ops_get_section_strains()[2])
+                    results.curvature.append(section_strains[2])
                 elif self.axis == 'y':
-                    results.curvature.append(self.ops_get_section_strains()[3])
+                    results.curvature.append(section_strains[3])
 
             record()
 
@@ -349,6 +351,8 @@ class SwayColumn2d:
             # Define recorder
             def record():
                 time = ops.getTime()
+                section_strains = self.ops_get_section_strains()
+
                 results.applied_axial_load.append(time)
                 results.applied_horizonal_load.append(0.)
                 results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
@@ -356,12 +360,12 @@ class SwayColumn2d:
                 results.lowest_eigenvalue.append(ops.eigen(1)[0])
                 results.moment_at_top.append(ops.eleForce(self.ops_n_elem - 1, 6))
                 results.moment_at_bottom.append(ops.eleForce(0, 3))
-                results.maximum_concrete_compression_strain.append(self.ops_get_section_strains()[0])
-                results.maximum_steel_strain.append(self.ops_get_section_strains()[1])
+                results.maximum_concrete_compression_strain.append(section_strains[0])
+                results.maximum_steel_strain.append(section_strains[1])
                 if self.axis == 'x':
-                    results.curvature.append(self.ops_get_section_strains()[2])
+                    results.curvature.append(section_strains[2])
                 elif self.axis == 'y':
-                    results.curvature.append(self.ops_get_section_strains()[3])
+                    results.curvature.append(section_strains[3])
 
             record()
 
@@ -411,18 +415,20 @@ class SwayColumn2d:
             # Define recorder
             def record():
                 results.applied_axial_load.append(P)
+                section_strains = self.ops_get_section_strains()
+
                 results.applied_horizonal_load.append(ops.getTime())
                 results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
                 results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp()[0])
                 results.lowest_eigenvalue.append(ops.eigen(1)[0])
                 results.moment_at_top.append(ops.eleForce(self.ops_n_elem - 1, 6))
                 results.moment_at_bottom.append(ops.eleForce(0, 3))
-                results.maximum_concrete_compression_strain.append(self.ops_get_section_strains()[0])
-                results.maximum_steel_strain.append(self.ops_get_section_strains()[1])
+                results.maximum_concrete_compression_strain.append(section_strains[0])
+                results.maximum_steel_strain.append(section_strains[1])
                 if self.axis == 'x':
-                    results.curvature.append(self.ops_get_section_strains()[2])
+                    results.curvature.append(section_strains[2])
                 elif self.axis == 'y':
-                    results.curvature.append(self.ops_get_section_strains()[3])
+                    results.curvature.append(section_strains[3])
 
             record()
 
