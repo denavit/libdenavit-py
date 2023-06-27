@@ -152,16 +152,13 @@ class SwayColumn2d:
 
         # region Initialize analysis results
         results = AnalysisResults()
-        results.applied_axial_load = []
-        results.applied_horizonal_load = []
-        results.maximum_abs_moment = []
-        results.maximum_abs_disp = []
-        results.lowest_eigenvalue = []
-        results.moment_at_top = []
-        results.moment_at_bottom = []
-        results.maximum_concrete_compression_strain = []
-        results.maximum_steel_strain = []
-        results.curvature = []
+        result_variables = [
+            "applied_axial_load", "applied_horizonal_load", "maximum_abs_moment", "maximum_abs_disp",
+            "lowest_eigenvalue", "moment_at_top", "moment_at_bottom", "maximum_concrete_compression_strain",
+            "maximum_steel_strain", "curvature"
+        ]
+        for variable in result_variables:
+            setattr(results, variable, [])
         # endregion
 
         # Define a function to find limit point
