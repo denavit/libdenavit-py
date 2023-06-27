@@ -32,7 +32,7 @@ class CrossSection2d:
             raise ValueError(f"ops_element_type {self.ops_element_type} not recognized")
 
     def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=0, P=0, num_steps_vertical=20,
-                         load_incr_factor=1e-5, disp_incr_factor=1e-7,
+                         load_incr_factor=1e-3, disp_incr_factor=1e-7,
                          eigenvalue_limit = 0,
                          percent_load_drop_limit = 0.05,
                          concrete_strain_limit = -0.01,
@@ -42,7 +42,7 @@ class CrossSection2d:
 
 
         self.build_ops_model(1, section_args, section_kwargs)
-
+        load_incr = self.section.p0 * load_incr_factor
         # Initialize analysis results
         results = AnalysisResults()
         results.applied_axial_load = []
@@ -79,7 +79,7 @@ class CrossSection2d:
             ops.timeSeries('Linear', 1)
             ops.pattern('Plain', 1, 1)
             ops.load(2, -1, 0, e)
-            ops.integrator('LoadControl', load_incr_factor)
+            ops.integrator('LoadControl', load_incr)
             ops.system('SparseGeneral', '-piv')
             ops.test('NormUnbalance', 1e-3, 10)
             ops.numberer('Plain')
@@ -108,26 +108,26 @@ class CrossSection2d:
                 ok = ops.analyze(1)
                 if try_smaller_steps:
                     if ok != 0:
-                        ops.integrator('LoadControl', load_incr_factor/10)
+                        ops.integrator('LoadControl', load_incr/10)
                         ok = ops.analyze(1)
                 
                     if ok != 0:
-                        ops.integrator('LoadControl', load_incr_factor/100)
+                        ops.integrator('LoadControl', load_incr/100)
                         ok = ops.analyze(1)
                     
                     if ok != 0:
-                        ops.integrator('LoadControl', load_incr_factor/1000)
+                        ops.integrator('LoadControl', load_incr/1000)
                         ok = ops.analyze(1)
                         if ok == 0:
-                            load_incr_factor = load_incr_factor/10
-                            print(f'Changed the step size to: {load_incr_factor}')
+                            load_incr = load_incr/10
+                            print(f'Changed the step size to: {load_incr}')
                     
                     if ok != 0:
-                        ops.integrator('LoadControl', load_incr_factor/10000)
+                        ops.integrator('LoadControl', load_incr/10000)
                         ok = ops.analyze(1)
                         if ok == 0:
-                            load_incr_factor = load_incr_factor/10
-                            print(f'Changed the step size to: {load_incr_factor}')
+                            load_incr = load_incr/10
+                            print(f'Changed the step size to: {load_incr}')
 
                 if ok != 0:
                     print('Trying ModifiedNewton')
@@ -149,7 +149,7 @@ class CrossSection2d:
                     # Reset analysis options
                     ops.algorithm('Newton')
                     ops.test('NormUnbalance', 1e-3, 10)
-                    ops.integrator('LoadControl', load_incr_factor)
+                    ops.integrator('LoadControl', load_incr)
                 else:
                     results.exit_message = 'Analysis Failed'
                     break
