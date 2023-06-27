@@ -163,18 +163,21 @@ class NonSwayColumn2d:
             # Define recorder
             def record():
                 time = ops.getTime()
+                section_strains = self.ops_get_section_strains()
+
                 results.applied_axial_load.append(time)
                 results.applied_moment_top.append(self.et * e * time)
                 results.applied_moment_bot.append(-self.eb * e * time)
                 results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
                 results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp())
                 results.lowest_eigenvalue.append(ops.eigen('-fullGenLapack', 1)[0])
-                results.maximum_concrete_compression_strain.append(self.ops_get_section_strains()[0])
-                results.maximum_steel_strain.append(self.ops_get_section_strains()[1])
+                results.maximum_concrete_compression_strain.append(section_strains[0])
+                results.maximum_steel_strain.append(section_strains[1])
+
                 if self.axis == 'x':
-                    results.curvature.append(self.ops_get_section_strains()[2])
+                    results.curvature.append(section_strains[2])
                 elif self.axis == 'y':
-                    results.curvature.append(self.ops_get_section_strains()[3])
+                    results.curvature.append(section_strains[3])
                 else:
                     raise ValueError(f'The value of axis ({self.axis}) is not supported.')
 
@@ -301,18 +304,23 @@ class NonSwayColumn2d:
             # Define recorder
             def record():
                 time = ops.getTime()
+                section_strains = self.ops_get_section_strains()
+
                 results.applied_axial_load.append(time)
                 results.applied_moment_top.append(0)
                 results.applied_moment_bot.append(0)
                 results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
                 results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp())
                 results.lowest_eigenvalue.append(ops.eigen('-fullGenLapack', 1)[0])
-                results.maximum_concrete_compression_strain.append(self.ops_get_section_strains()[0])
-                results.maximum_steel_strain.append(self.ops_get_section_strains()[1])
+                results.maximum_concrete_compression_strain.append(section_strains[0])
+                results.maximum_steel_strain.append(section_strains[1])
+
                 if self.axis == 'x':
-                    results.curvature.append(self.ops_get_section_strains()[2])
+                    results.curvature.append(section_strains[2])
                 elif self.axis == 'y':
-                    results.curvature.append(self.ops_get_section_strains()[3])
+                    results.curvature.append(section_strains[3])
+                else:
+                    raise ValueError(f'The value of axis ({self.axis}) is not supported.')
 
             
             record()
@@ -371,18 +379,23 @@ class NonSwayColumn2d:
             # Define recorder
             def record():
                 time_domain.append(ops.getTime())
+                section_strains = self.ops_get_section_strains()
+
                 results.applied_axial_load.append(P)
                 results.applied_moment_top.append(self.et * time_domain[-1])
                 results.applied_moment_bot.append(-self.eb * time_domain[-1])
                 results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
                 results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp())
                 results.lowest_eigenvalue.append(ops.eigen('-fullGenLapack', 1)[0])
-                results.maximum_concrete_compression_strain.append(self.ops_get_section_strains()[0])
-                results.maximum_steel_strain.append(self.ops_get_section_strains()[1])
+                results.maximum_concrete_compression_strain.append(section_strains[0])
+                results.maximum_steel_strain.append(section_strains[1])
+
                 if self.axis == 'x':
-                    results.curvature.append(self.ops_get_section_strains()[2])
+                    results.curvature.append(section_strains[2])
                 elif self.axis == 'y':
-                    results.curvature.append(self.ops_get_section_strains()[3])
+                    results.curvature.append(section_strains[3])
+                else:
+                    raise ValueError(f'The value of axis ({self.axis}) is not supported.')
 
             record()
             
