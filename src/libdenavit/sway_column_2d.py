@@ -735,7 +735,7 @@ class SwayColumn2d:
         return {"P": np.array(P_list), "M1": np.array(M1_list), "EI_ops": np.array(EI_list_ops), "EIgross": EIgross}
 
 
-    def calculated_EI_design(self, P_list, M1_list, section_factored, Pc_factor=1):
+    def calculated_EI_design(self, P_list, M1_list, section_factored=False, Pc_factor=1):
         P_list = np.array(P_list)
         M1_list = np.array(M1_list)
         EIgross = self.section.EIgross(self.axis)
@@ -745,7 +745,7 @@ class SwayColumn2d:
 
         EI_list_AASHTO = []
         for P, M1 in zip(P_list, M1_list):
-            if P < min(P_design) or P == max(P_design):
+            if P < min(P_CS) or P == max(P_CS):
                 EI_list_AASHTO.append(float("nan"))
                 continue
             try:
