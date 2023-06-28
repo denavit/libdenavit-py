@@ -702,56 +702,16 @@ class SwayColumn2d:
 
         return K
 
-    def calculated_EI(self, P_list, M1_list, M2_list=None, P_CS=None, M_CS=None, section_factored=True, Pc_factor=0.75,
-                      EI_type='a'):
+    def calculated_EI_ops(self, P_list, M1_list, M2_list, Pc_factor=1):
         P_list = np.array(P_list)
         M1_list = np.array(M1_list)
         M2_list = np.array(M2_list)
         EIgross = self.section.EIgross(self.axis)
 
-        if (M_CS is None) or (P_CS is None):
-            P_CS, M_CS, _ = self.section.section_interaction_2d(self.axis, 100, factored=section_factored, only_compressive=True)
-        id2d_AASHTO = InteractionDiagram2d(M_CS, P_CS, is_closed=False)
         id2d_ops = InteractionDiagram2d(M2_list, P_list, is_closed=False)
 
-        beta_dns = 1
-        EIeff = self.section.EIeff(self.axis, EI_type, beta_dns)
-
-        # region AASHTO
-        EI_list_AASHTO = []
-        for P, M1 in zip(P_list, M1_list):
-            if P < min(P_CS) or P == max(P_CS):
-                EI_list_AASHTO.append(float("nan"))
-                continue
-
-            try:
-                M2 = id2d_AASHTO.find_x_given_y(P, 'pos')
-            except:
-                EI_list_AASHTO.append(float("nan"))
-                continue
-
-            if M1 >= M2:
-                EI_list_AASHTO.append(float("nan"))
-                continue
-
-
-            delta_s = M2 / M1
-            Pc = (P) / (Pc_factor * (1-1/delta_s))
-            if self._K is None:
-                k = self.effective_length_factor(EIeff)
-            else:
-                k = self._K
-            EI = Pc * (k * self.length / pi) ** 2
-            EI_list_AASHTO.append(EI)
-        # endregion
-
-        # region OPS
         EI_list_ops = []
         for P, M1 in zip(P_list, M1_list):
-            if P < min(M2_list) or P == max(M2_list):
-                EI_list_ops.append(float("nan"))
-                continue
-
             try:
                 M2 = id2d_ops.find_x_given_y(P, 'pos')
             except:
@@ -771,5 +731,41 @@ class SwayColumn2d:
                 k = self._K
             EI = Pc * (k * self.length / pi) ** 2
             EI_list_ops.append(EI)
-        
-        return {"P":np.array(P_list), "EI_AASHTO":np.array(EI_list_AASHTO), "EI_ops":np.array(EI_list_ops), "EIgross":EIgross}
+
+        return {"P": np.array(P_list), "M1": np.array(M1_list), "EI_ops": np.array(EI_list_ops), "EIgross": EIgross}
+
+
+    def calculated_EI_design(self, P_list, M1_list, section_factored, Pc_factor=1):
+        P_list = np.array(P_list)
+        M1_list = np.array(M1_list)
+        EIgross = self.section.EIgross(self.axis)
+        P_CS, M_CS, _ = self.section.section_interaction_2d(self.axis, 100, factored=section_factored,
+                                                            only_compressive=True)
+        id2d_design = InteractionDiagram2d(M_CS, P_CS, is_closed=False)
+
+        EI_list_AASHTO = []
+        for P, M1 in zip(P_list, M1_list):
+            if P < min(P_design) or P == max(P_design):
+                EI_list_AASHTO.append(float("nan"))
+                continue
+            try:
+                M2 = id2d_AASHTO.find_x_given_y(P, 'pos')
+            except:
+                EI_list_AASHTO.append(float("nan"))
+                continue
+
+            if M1 > M2:
+                EI_list_AASHTO.append(float("nan"))
+                continue
+
+            delta_s = M2 / M1
+            Pc = (P) / (Pc_factor * (1-1/delta_s))
+            if self._K is None:
+                k = self.effective_length_factor(EIeff)
+            else:
+                k = self._K
+            EI = Pc * (k * self.length / pi) ** 2
+            EI_list_AASHTO.append(EI)
+
+        return {"P": np.array(P_list), "M1": np.array(M1_list), "EI_AASHTO": np.array(EI_list_AASHTO),
+                "EIgross": EIgross}
