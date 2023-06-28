@@ -275,9 +275,16 @@ class SwayColumn2d:
                             break
                         elif ok == 0:
                             break
+                        else:
+                            ok = try_analysis_options()
+                            if ok == 0 and div_factor == 1000:
+                                disp_incr_factor /= 10
+                                break
+                            elif ok == 0:
+                                break
 
-                if ok != 0:
-                    try_analysis_options()
+                if ok != 0 and not try_smaller_steps:
+                    ok = try_analysis_options()
 
                 if ok == 0:
                     reset_analysis_options(disp_incr_factor)
@@ -439,9 +446,16 @@ class SwayColumn2d:
                                 break
                             elif ok == 0:
                                 break
+                            else:
+                                ok = try_analysis_options()
+                                if ok == 0 and div_factor == 1000:
+                                    disp_incr_factor /= 10
+                                    break
+                                elif ok == 0:
+                                    break
 
-                if ok != 0:
-                    try_analysis_options()
+                if ok != 0 and not try_smaller_steps:
+                    ok = try_analysis_options()
 
                 if ok == 0:
                     reset_analysis_options(disp_incr_factor)

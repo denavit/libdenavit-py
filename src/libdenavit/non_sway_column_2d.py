@@ -222,8 +222,15 @@ class NonSwayColumn2d:
                             break
                         elif ok == 0:
                             break
+                        else:
+                            ok = try_analysis_options()
+                            if ok == 0 and div_factor == 1000:
+                                disp_incr_factor /= 10
+                                break
+                            elif ok == 0:
+                                break
 
-                if ok != 0:
+                if ok != 0 and not try_smaller_steps:
                     ok = try_analysis_options()
 
                 if ok == 0:
@@ -392,12 +399,18 @@ class NonSwayColumn2d:
                         ok = ops.analyze(1)
                         if ok == 0 and div_factor == 1000:
                             disp_incr_factor /= 10
-                            print(f'Changed the step size to: {disp_incr_factor}')
                             break
                         elif ok == 0:
                             break
+                        else:
+                            ok = try_analysis_options()
+                            if ok == 0 and div_factor == 1000:
+                                disp_incr_factor /= 10
+                                break
+                            elif ok == 0:
+                                break
 
-                if ok != 0:
+                if ok != 0 and not try_smaller_steps:
                     ok = try_analysis_options()
 
                 if ok == 0:
