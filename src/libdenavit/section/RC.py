@@ -179,14 +179,15 @@ class RC:
     def EIgross(self, axis):
         return self.Ec * self.Ic(axis) + self.Es * self.Isr(axis)
     
-    def EIeff(self, axis, EI_type, beta = 0.0):
-        if EI_type == "a": 
-            # ACI 318-19, Section 6.6.4.4.4
-            return (0.2 * self.Ec * self.Ig(axis) + self.Es * self.Isr(axis)) / (1 + beta)
+    def EIeff(self, axis, EI_type, betadns=0.0, P=None, M=None):
+        if EI_type == "ACI-a":
+            # ACI 318-19, Section 6.6.4.4.4a
+            return 0.4 * self.Ec * self.Ig(axis) / (1 + betadns)
 
-        if EI_type == "b":
-            # ACI 318-19, Section 6.6.4.4.4
-            return 0.4 * self.Ec * self.Ig(axis) / (1 + beta)
+        if EI_type == "ACI-b":
+            # ACI 318-19, Section 6.6.4.4.4b
+            return (0.2 * self.Ec * self.Ig(axis) + self.Es * self.Isr(axis)) / (1 + betadns)
+
 
         if EI_type == "gross":
             return self.EIgross(axis)
