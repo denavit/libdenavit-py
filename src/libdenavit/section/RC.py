@@ -162,8 +162,15 @@ class RC:
 
     @property
     def p0(self):
+        # Nominal axial strength of section
         p0 = 0.85 * self.fc * (self.Ag - self.Asr) + self.fy * self.Asr
         return p0
+
+    @property
+    def p0g(self):
+        # Nominal axial strength of gross concrete section
+        p0g = 0.85 * self.fc * self.Ag
+        return p0g
 
     @property
     def pnco(self):
