@@ -188,6 +188,75 @@ class RC:
             # ACI 318-19, Section 6.6.4.4.4b
             return (0.2 * self.Ec * self.Ig(axis) + self.Es * self.Isr(axis)) / (1 + betadns)
 
+        if EI_type == "JF-a":
+            # Jenkins and Frosch, 2011 - Eq.10.1
+            if P is None or M is None:
+                raise ValueError("P and M must be defined for EI_type = 'JF-a'")
+            if type(P) != type(M) or len(P) != len(M):
+                raise ValueError("P and M must be of the same type and size")
+            EI = []
+            if type(P) == list or type(P) == np.ndarray:
+                for P, M in zip(P, M):
+                    ecc_ratio = abs(M) / abs(P) / self.depth(axis)
+                    if ecc_ratio <= 0.1:
+                        EI_jenkins = (1.05 - 0.6 * abs(P) / self.p0) * (1 + 3 * (self.Asr / self.Ag - 0.01)) *\
+                                     self.Ec * self.Ig(axis) / (1 + betadns)
+                        min_EI = 0.3 * self.Ec * self.Ig(axis) / (1 + betadns)
+                        EI.append(max(EI_jenkins, min_EI))
+                    else:
+                        EI_jenkins = (1.05 - 0.6 * abs(P) / self.p0) * (1 + 3 * (self.Asr / self.Ag - 0.01)) * (
+                                1.2 - 2 * ecc_ratio) * self.Ec * self.Ig(axis) / (1 + betadns)
+                        min_EI = 0.3 * self.Ec * self.Ig(axis) / (1 + betadns)
+                        EI.append(max(EI_jenkins, min_EI))
+                return EI
+
+            elif type(P) == float:
+                ecc_ratio = abs(M) / abs(P) / self.depth(axis)
+                if ecc_ratio <= 0.1:
+                    EI_jenkins = (1.05 - 0.6 * abs(P) / self.p0) * (1 + 3 * (self.Asr / self.Ag - 0.01)) * \
+                                 self.Ec * self.Ig(axis) / (1 + betadns)
+                    min_EI = 0.3 * self.Ec * self.Ig(axis) / (1 + betadns)
+                    EI = max(EI_jenkins, min_EI)
+                else:
+                    EI_jenkins = (1.05 - 0.6 * abs(P) / self.p0) * (1 + 3 * (self.Asr / self.Ag - 0.01)) * (
+                            1.2 - 2 * ecc_ratio) * self.Ec * self.Ig(axis) / (1 + betadns)
+                    min_EI = 0.3 * self.Ec * self.Ig(axis) / (1 + betadns)
+                    EI = max(EI_jenkins, min_EI)
+                return EI
+
+        if EI_type == "JF-b":
+            # Jenkins and Frosch, 2011 - Eq.10.2
+            if P is None or M is None:
+                raise ValueError("P and M must be defined for EI_type = 'JF-b'")
+            if type(P) != type(M) or len(P) != len(M):
+                raise ValueError("P and M must be of the same type and size")
+            EI = []
+            if type(P) == list or type(P) == np.ndarray:
+                for P, M in zip(P, M):
+                    ecc_ratio = M / P / self.depth(axis)
+                    if ecc_ratio <= 0.1:
+                        EI_jenkins = (1.0 - 0.5 * P / self.p0) * self.Ec * self.Ig(axis) / (1 + betadns)
+                        min_EI = 0.4 * self.Ec * self.Ig(axis) / (1 + betadns)
+                        EI.append(max(EI_jenkins, min_EI))
+                    else:
+                        EI_jenkins = (1.0 - 0.5 * P / self.p0) * self.Ec * self.Ig(axis) * (
+                            1.2 - 2 * ecc_ratio) / (1 + betadns)
+                        min_EI = 0.4 * self.Ec * self.Ig(axis) / (1 + betadns)
+                        EI.append(max(EI_jenkins, min_EI))
+                return EI
+
+            elif type(P) == float:
+                ecc_ratio = M / P / self.depth(axis)
+                if ecc_ratio <= 0.1:
+                    EI_jenkins = (1.0 - 0.5 * P / self.p0) * self.Ec * self.Ig(axis) / (1 + betadns)
+                    min_EI = 0.4 * self.Ec * self.Ig(axis) / (1 + betadns)
+                    EI = max(EI_jenkins, min_EI)
+                else:
+                    EI_jenkins = (1.0 - 0.5 * P / self.p0) * self.Ec * self.Ig(axis) * (
+                            1.2 - 2 * ecc_ratio) / (1 + betadns)
+                    min_EI = 0.4 * self.Ec * self.Ig(axis) / (1 + betadns)
+                    EI = max(EI_jenkins, min_EI)
+                return EI
 
         if EI_type == "gross":
             return self.EIgross(axis)
