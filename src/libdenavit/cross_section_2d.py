@@ -7,15 +7,11 @@ import numpy as np
 class CrossSection2d:
     def __init__(self, section, axis=None):
         self.section = section
-        self.ops_element_type = "zeroLengthSection"
         self.axis = axis
 
     def build_ops_model(self, section_id, section_args, section_kwargs):
         ops.wipe()
         ops.model('basic', '-ndm', 2, '-ndf', 3)
-
-        if type(self.section).__name__ == "RC":
-            self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs, axis=self.axis)
 
         ops.node(1, 0, 0)
         ops.node(2, 0, 0)
@@ -25,11 +21,12 @@ class CrossSection2d:
 
         ops.mass(2, 1, 1, 1)
 
-        if self.ops_element_type == "zeroLengthSection":
-            # tag ndI ndJ  secTag
-            ops.element(self.ops_element_type, 1, 1, 2, section_id)
+        if type(self.section).__name__ == "RC":
+            self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs, axis=self.axis)
         else:
-            raise ValueError(f"ops_element_type {self.ops_element_type} not recognized")
+            raise ValueError(f'Unknown cross section type {type(self.section).__name__}')
+
+        ops.element('zeroLengthSection', 1, 1, 2, section_id)
 
     def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=0, P=0, num_steps_vertical=20,
                          load_incr_factor=1e-3, disp_incr_factor=1e-7,
