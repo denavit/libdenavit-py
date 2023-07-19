@@ -417,8 +417,8 @@ class CrossSection2d:
             P.append(iP)
             M.append(max(results.maximum_abs_moment))
         print("Non-proportional analysis is completed.")
-        return {'P': P, "M": M}
 
+        return {'P': P, "M1": M, 'M2': M}
 
     def run_AASHTO_interaction(self, section_factored=True):
         P, M, et = self.section.section_interaction_2d(self.axis, 100, factored=section_factored)
