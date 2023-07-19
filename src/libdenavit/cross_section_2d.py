@@ -4,8 +4,10 @@ from libdenavit.OpenSees import AnalysisResults
 import openseespy.opensees as ops
 import numpy as np
 
+
 class CrossSection2d:
     def __init__(self, section, axis=None):
+        # Physical parameters
         self.section = section
         self.axis = axis
 
@@ -30,13 +32,39 @@ class CrossSection2d:
 
     def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=0, P=0, num_steps_vertical=20,
                          load_incr_factor=1e-3, disp_incr_factor=1e-7,
-                         eigenvalue_limit = 0,
-                         percent_load_drop_limit = 0.05,
-                         concrete_strain_limit = -0.01,
-                         steel_strain_limit = 0.05,
-                         try_smaller_steps = True,
-                         print_limit_point = True):
+                         eigenvalue_limit=0,
+                         percent_load_drop_limit=0.05,
+                         concrete_strain_limit=-0.01,
+                         steel_strain_limit=0.05,
+                         try_smaller_steps=True,
+                         print_limit_point=True):
+        """
+        Run an OpenSees analysis of the section.
 
+        Parameters
+        ----------
+        analysis_type : str
+            The type of analysis to run, options are
+                - 'proportional_limit_point'
+                - 'nonproportional_limit_point'
+                - 'proportional_target_force' (not yet implemented)
+                - 'nonproportional_target_force' (not yet implemented)
+                - 'proportional_target_disp' (not yet implemented)
+                - 'nonproportional_target_disp' (not yet implemented)
+        section_args : list or tuple
+            Non-keyworded arguments for the section's build_ops_fiber_section.
+        section_kwargs : dict
+            Keyworded arguments for the section's build_ops_fiber_section.
+
+        Loading Notes
+        -------------
+        - The axial load applied to the section is P = LFV.
+        - The moment applied to the section is M = LFH.
+        - For proportional analyses, LFV and LFH are increased simultaneously
+          with a ratio of e (P is ignored).
+        - For non-proportional analyses, LFV is increased to P first then held
+          constant, then LFH is increased (e is ignored).
+        """
 
         self.build_ops_model(1, section_args, section_kwargs)
 
@@ -57,7 +85,7 @@ class CrossSection2d:
             if 'Analysis Failed' in results.exit_message:
                 ind, x = find_limit_point_in_list(results.maximum_abs_moment, max(results.maximum_abs_moment))
             elif 'Eigenvalue Limit' in results.exit_message:
-                ind,x = find_limit_point_in_list(results.lowest_eigenvalue, eigenvalue_limit)
+                ind, x = find_limit_point_in_list(results.lowest_eigenvalue, eigenvalue_limit)
             elif 'Extreme Compressive Concrete Fiber Strain Limit Reached' in results.exit_message:
                 ind, x = find_limit_point_in_list(results.maximum_concrete_compression_strain, concrete_strain_limit)
             elif 'Extreme Steel Fiber Strain Limit Reached' in results.exit_message:
@@ -67,8 +95,8 @@ class CrossSection2d:
             else:
                 raise Exception('Unknown limit point')
 
-            results.applied_axial_load_at_limit_point = interpolate_list(results.applied_axial_load,ind,x)
-            results.maximum_abs_moment_at_limit_point = interpolate_list(results.maximum_abs_moment,ind,x)
+            results.applied_axial_load_at_limit_point = interpolate_list(results.applied_axial_load, ind, x)
+            results.maximum_abs_moment_at_limit_point = interpolate_list(results.maximum_abs_moment, ind, x)
 
         # Run analysis
         if analysis_type.lower() == 'proportional_limit_point':
@@ -109,18 +137,18 @@ class CrossSection2d:
                     if ok != 0:
                         ops.integrator('LoadControl', basic_load_increment / 10)
                         ok = ops.analyze(1)
-                
+
                     if ok != 0:
                         ops.integrator('LoadControl', basic_load_increment / 100)
                         ok = ops.analyze(1)
-                    
+
                     if ok != 0:
                         ops.integrator('LoadControl', basic_load_increment / 1000)
                         ok = ops.analyze(1)
                         if ok == 0:
-                    
                             basic_load_increment = basic_load_increment / 10
                             print(f'Changed the step size to: {basic_load_increment}')
+
                     if ok != 0:
                         ops.integrator('LoadControl', basic_load_increment / 10000)
                         ok = ops.analyze(1)
@@ -256,30 +284,30 @@ class CrossSection2d:
                 ok = ops.analyze(1)
                 if try_smaller_steps:
                     if ok != 0:
-                        print(f'Trying the step size of: {disp_incr_factor/10}')
-                        ops.integrator('DisplacementControl', 1, 3, disp_incr_factor/10)
+                        print(f'Trying the step size of: {disp_incr_factor / 10}')
+                        ops.integrator('DisplacementControl', 1, 3, disp_incr_factor / 10)
                         ok = ops.analyze(1)
-                    
+
                     if ok != 0:
-                        print(f'Trying the step size of: {disp_incr_factor/100}')
-                        ops.integrator('DisplacementControl', 1, 3, disp_incr_factor/100)
+                        print(f'Trying the step size of: {disp_incr_factor / 100}')
+                        ops.integrator('DisplacementControl', 1, 3, disp_incr_factor / 100)
                         ok = ops.analyze(1)
-                    
+
                     if ok != 0:
-                        print(f'Trying the step size of: {disp_incr_factor/1000}')
-                        ops.integrator('DisplacementControl', 1, 3, disp_incr_factor/1000)
+                        print(f'Trying the step size of: {disp_incr_factor / 1000}')
+                        ops.integrator('DisplacementControl', 1, 3, disp_incr_factor / 1000)
                         ok = ops.analyze(1)
                         if ok == 0:
-                            disp_incr_factor = disp_incr_factor/10
+                            disp_incr_factor = disp_incr_factor / 10
                             print(f'Changed the step size to: {disp_incr_factor}')
-                    
+
                     if ok != 0:
-                        print(f'Trying the step size of: {disp_incr_factor/10000}')
-                        ops.integrator('DisplacementControl', 1, 3, disp_incr_factor/10000)
+                        print(f'Trying the step size of: {disp_incr_factor / 10000}')
+                        ops.integrator('DisplacementControl', 1, 3, disp_incr_factor / 10000)
                         ok = ops.analyze(1)
                         if ok == 0:
-                            disp_incr_factor = disp_incr_factor/10
-                            print(f'Changed the step size to: {disp_incr_factor/10}')
+                            disp_incr_factor = disp_incr_factor / 10
+                            print(f'Changed the step size to: {disp_incr_factor / 10}')
 
                 if ok != 0:
                     print('Trying ModifiedNewton')
