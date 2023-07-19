@@ -117,14 +117,22 @@ class CrossSection2d:
             def record():
                 time = ops.getTime()
                 results.applied_axial_load.append(time)
-                results.maximum_abs_moment.append(0)
+                results.maximum_abs_moment.append(abs(ops.eleForce(1, 3)))
                 results.lowest_eigenvalue.append(ops.eigen("-fullGenLapack", 1)[0])
                 axial_strain = ops.nodeDisp(2, 1)
-                curvatureX = ops.nodeDisp(2, 3)
+                curvature = ops.nodeDisp(2, 3)
+                if self.axis == 'x':
+                    curvatureX = ops.nodeDisp(2, 3)
+                    curvatureY = 0
+                elif self.axis == 'y':
+                    curvatureX = 0
+                    curvatureY = ops.nodeDisp(2, 3)
+                else:
+                    raise ValueError(f'axis {self.axis} not supported')
                 results.maximum_concrete_compression_strain.append(
-                    self.section.maximum_concrete_compression_strain(axial_strain, curvatureX=curvatureX))
+                    self.section.maximum_concrete_compression_strain(axial_strain, curvatureX, curvatureY))
                 results.maximum_steel_strain.append(
-                    self.section.maximum_tensile_steel_strain(axial_strain, curvatureX=curvatureX))
+                    self.section.maximum_tensile_steel_strain(axial_strain, curvatureX, curvatureY))
 
             record()
 
@@ -227,14 +235,22 @@ class CrossSection2d:
             def record():
                 time = ops.getTime()
                 results.applied_axial_load.append(time)
-                results.maximum_abs_moment.append(0)
+                results.maximum_abs_moment.append(abs(ops.eleForce(1, 3)))
                 results.lowest_eigenvalue.append(ops.eigen("-fullGenLapack", 1)[0])
                 axial_strain = ops.nodeDisp(2, 1)
-                curvatureX = ops.nodeDisp(2, 3)
+                curvature = ops.nodeDisp(2, 3)
+                if self.axis == 'x':
+                    curvatureX = ops.nodeDisp(2, 3)
+                    curvatureY = 0
+                elif self.axis == 'y':
+                    curvatureX = 0
+                    curvatureY = ops.nodeDisp(2, 3)
+                else:
+                    raise ValueError(f'axis {self.axis} not supported')
                 results.maximum_concrete_compression_strain.append(
-                    self.section.maximum_concrete_compression_strain(axial_strain, curvatureX=curvatureX))
+                    self.section.maximum_concrete_compression_strain(axial_strain, curvatureX, curvatureY))
                 results.maximum_steel_strain.append(
-                    self.section.maximum_tensile_steel_strain(axial_strain, curvatureX=curvatureX))
+                    self.section.maximum_tensile_steel_strain(axial_strain, curvatureX, curvatureY))
             # endregion
 
             record()
@@ -266,11 +282,18 @@ class CrossSection2d:
                 results.maximum_abs_moment.append(abs(ops.eleForce(1, 3)))
                 results.lowest_eigenvalue.append(ops.eigen("-fullGenLapack", 1)[0])
                 axial_strain = ops.nodeDisp(2, 1)
-                curvatureX = ops.nodeDisp(2, 3)
+                if self.axis == 'x':
+                    curvatureX = ops.nodeDisp(2, 3)
+                    curvatureY = 0
+                elif self.axis == 'y':
+                    curvatureX = 0
+                    curvatureY = ops.nodeDisp(2, 3)
+                else:
+                    raise ValueError(f'axis {self.axis} not supported')
                 results.maximum_concrete_compression_strain.append(
-                    self.section.maximum_concrete_compression_strain(axial_strain, curvatureX))
+                    self.section.maximum_concrete_compression_strain(axial_strain, curvatureX, curvatureY))
                 results.maximum_steel_strain.append(
-                    self.section.maximum_tensile_steel_strain(axial_strain, curvatureX))
+                    self.section.maximum_tensile_steel_strain(axial_strain, curvatureX, curvatureY))
 
             # endregion
 
