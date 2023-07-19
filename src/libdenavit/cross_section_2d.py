@@ -271,7 +271,8 @@ class CrossSection2d:
             ops.timeSeries('Linear', 101)
             ops.pattern('Plain', 201, 101)
             ops.load(2, 0, 0, 1)
-            ops.integrator('DisplacementControl', 2, 3, disp_incr_factor)
+            curvature_incr = disp_incr_factor / self.section.depth(axis)
+            ops.integrator('DisplacementControl', 2, 3, curvature_incr)
             ops.analysis('Static')
 
             # region Define recorder
@@ -305,30 +306,30 @@ class CrossSection2d:
                 ok = ops.analyze(1)
                 if try_smaller_steps:
                     if ok != 0:
-                        print(f'Trying the step size of: {disp_incr_factor / 10}')
-                        ops.integrator('DisplacementControl', 1, 3, disp_incr_factor / 10)
+                        print(f'Trying the step size of: {curvature_incr / 10}')
+                        ops.integrator('DisplacementControl', 1, 3, curvature_incr / 10)
                         ok = ops.analyze(1)
 
                     if ok != 0:
-                        print(f'Trying the step size of: {disp_incr_factor / 100}')
-                        ops.integrator('DisplacementControl', 1, 3, disp_incr_factor / 100)
+                        print(f'Trying the step size of: {curvature_incr / 100}')
+                        ops.integrator('DisplacementControl', 1, 3, curvature_incr / 100)
                         ok = ops.analyze(1)
 
                     if ok != 0:
-                        print(f'Trying the step size of: {disp_incr_factor / 1000}')
-                        ops.integrator('DisplacementControl', 1, 3, disp_incr_factor / 1000)
+                        print(f'Trying the step size of: {curvature_incr / 1000}')
+                        ops.integrator('DisplacementControl', 1, 3, curvature_incr / 1000)
                         ok = ops.analyze(1)
                         if ok == 0:
-                            disp_incr_factor = disp_incr_factor / 10
-                            print(f'Changed the step size to: {disp_incr_factor}')
+                            curvature_incr = curvature_incr / 10
+                            print(f'Changed the step size to: {curvature_incr}')
 
                     if ok != 0:
-                        print(f'Trying the step size of: {disp_incr_factor / 10000}')
-                        ops.integrator('DisplacementControl', 1, 3, disp_incr_factor / 10000)
+                        print(f'Trying the step size of: {curvature_incr / 10000}')
+                        ops.integrator('DisplacementControl', 1, 3, curvature_incr / 10000)
                         ok = ops.analyze(1)
                         if ok == 0:
-                            disp_incr_factor = disp_incr_factor / 10
-                            print(f'Changed the step size to: {disp_incr_factor / 10}')
+                            curvature_incr = curvature_incr / 10
+                            print(f'Changed the step size to: {curvature_incr / 10}')
 
                 if ok != 0:
                     print('Trying ModifiedNewton')
@@ -356,7 +357,7 @@ class CrossSection2d:
                     # Reset analysis options
                     ops.algorithm('Newton')
                     ops.test('NormUnbalance', 1e-3, 10)
-                    ops.integrator('DisplacementControl', 2, 3, disp_incr_factor)
+                    ops.integrator('DisplacementControl', 2, 3, curvature_incr)
                 else:
                     results.exit_message = 'Analysis Failed'
                     break
