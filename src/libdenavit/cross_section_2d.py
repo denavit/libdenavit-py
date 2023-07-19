@@ -356,7 +356,7 @@ class CrossSection2d:
                     # Reset analysis options
                     ops.algorithm('Newton')
                     ops.test('NormUnbalance', 1e-3, 10)
-                    ops.integrator('LoadControl', disp_incr_factor)
+                    ops.integrator('DisplacementControl', 2, 3, disp_incr_factor)
                 else:
                     results.exit_message = 'Analysis Failed'
                     break
@@ -413,7 +413,7 @@ class CrossSection2d:
         for i in range(1, num_points):
             iP = P[0] * (num_points - 1 - i) / (num_points - 1)
             results = self.run_ops_analysis('nonproportional_limit_point', section_args, section_kwargs, P=iP,
-                                            load_incr_factor=nonprop_load_incr_factor)
+                                            disp_incr_factor=nonprop_disp_incr_factor)
             P.append(iP)
             M.append(max(results.maximum_abs_moment))
         print("Non-proportional analysis is completed.")
