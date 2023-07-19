@@ -70,12 +70,10 @@ class CrossSection2d:
 
         # Initialize analysis results
         results = AnalysisResults()
-        results.applied_axial_load = []
-        results.maximum_abs_moment = []
-        results.lowest_eigenvalue = []
-        results.extreme_comp_strain = []
-        results.maximum_concrete_compression_strain = []
-        results.maximum_steel_strain = []
+        attributes = ['applied_axial_load', 'maximum_abs_moment', 'lowest_eigenvalue',
+                      'extreme_comp_strain', 'maximum_concrete_compression_strain', 'maximum_steel_strain']
+        for attr in attributes:
+            setattr(results, attr, [])
 
         # Define function to find limit point
         def find_limit_point():
