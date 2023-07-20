@@ -397,8 +397,8 @@ class CrossSection2d:
         else:
             raise ValueError(f'Analysis type {analysis_type} not implemented')
 
-    def run_ops_interaction(self, section_args, section_kwargs, num_points=10, prop_load_incr_factor=1e-2,
-                            nonprop_load_incr_factor=1e-2):
+    def run_ops_interaction(self, section_args, section_kwargs, num_points=10, 
+                            prop_load_incr_factor=1e-3, nonprop_disp_incr_factor=1e-4):
 
         # Run one axial load only analysis to determine maximum axial strength
         print("Running cross-section axial only analysis...")
