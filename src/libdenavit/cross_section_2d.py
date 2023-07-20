@@ -6,6 +6,7 @@ import numpy as np
 
 
 class CrossSection2d:
+    print_ops_status = False
     def __init__(self, section, axis=None):
         # Physical parameters
         self.section = section
@@ -36,8 +37,7 @@ class CrossSection2d:
                          percent_load_drop_limit=0.05,
                          concrete_strain_limit=-0.01,
                          steel_strain_limit=0.05,
-                         try_smaller_steps=True,
-                         print_limit_point=True):
+                         try_smaller_steps=True):
         """
         Run an OpenSees analysis of the section.
 
@@ -77,7 +77,7 @@ class CrossSection2d:
 
         # Define function to find limit point
         def find_limit_point():
-            if print_limit_point:
+            if CrossSection2d.print_ops_status:
                 print(results.exit_message)
 
             if 'Analysis Failed' in results.exit_message:
@@ -153,27 +153,32 @@ class CrossSection2d:
                         ok = ops.analyze(1)
                         if ok == 0:
                             basic_load_increment = basic_load_increment / 10
-                            print(f'Changed the step size to: {basic_load_increment}')
+                            if CrossSection2d.print_ops_status:
+                            	print(f'Changed the step size to: {basic_load_increment}')
 
                     if ok != 0:
                         ops.integrator('LoadControl', basic_load_increment / 10000)
                         ok = ops.analyze(1)
                         if ok == 0:
                             basic_load_increment = basic_load_increment / 10
-                            print(f'Changed the step size to: {basic_load_increment}')
+                            if CrossSection2d.print_ops_status:
+                            	print(f'Changed the step size to: {basic_load_increment}')
 
                 if ok != 0:
-                    print('Trying ModifiedNewton')
+                    if CrossSection2d.print_ops_status:
+                    	print('Trying ModifiedNewton')
                     ops.algorithm('ModifiedNewton')
                     ok = ops.analyze(1)
 
                 if ok != 0:
-                    print('Trying KrylovNewton')
+                    if CrossSection2d.print_ops_status:
+                        print('Trying KrylovNewton')
                     ops.algorithm('KrylovNewton')
                     ok = ops.analyze(1)
 
                 if ok != 0:
-                    print('Trying KrylovNewton and Greater Tolerance')
+                    if CrossSection2d.print_ops_status:
+                        print('Trying KrylovNewton and Greater Tolerance')
                     ops.algorithm('KrylovNewton')
                     ops.test('NormUnbalance', 1e-2, 10)
                     ok = ops.analyze(1)
@@ -307,52 +312,64 @@ class CrossSection2d:
                 ok = ops.analyze(1)
                 if try_smaller_steps:
                     if ok != 0:
-                        print(f'Trying the step size of: {basic_curvature_incr / 10}')
+                        if CrossSection2d.print_ops_status:
+                        	print(f'Trying the step size of: {basic_curvature_incr / 10}')
                         ops.integrator('DisplacementControl', 1, 3, basic_curvature_incr / 10)
                         ok = ops.analyze(1)
 
                     if ok != 0:
-                        print(f'Trying the step size of: {basic_curvature_incr / 100}')
+                        if CrossSection2d.print_ops_status:
+                        	print(f'Trying the step size of: {basic_curvature_incr / 100}')
                         ops.integrator('DisplacementControl', 1, 3, basic_curvature_incr / 100)
                         ok = ops.analyze(1)
 
                     if ok != 0:
-                        print(f'Trying the step size of: {basic_curvature_incr / 1000}')
+                        if CrossSection2d.print_ops_status:
+                        	print(f'Trying the step size of: {basic_curvature_incr / 1000}')
                         ops.integrator('DisplacementControl', 1, 3, basic_curvature_incr / 1000)
                         ok = ops.analyze(1)
                         if ok == 0:
                             basic_curvature_incr = basic_curvature_incr / 10
-                            print(f'Changed the step size to: {basic_curvature_incr}')
+                            if CrossSection2d.print_ops_status:
+                            	print(f'Changed the step size to: {basic_curvature_incr}')
 
                     if ok != 0:
-                        print(f'Trying the step size of: {basic_curvature_incr / 10000}')
+                        if CrossSection2d.print_ops_status:
+                            print(f'Trying the step size of: {basic_curvature_incr / 10000}')
                         ops.integrator('DisplacementControl', 1, 3, basic_curvature_incr / 10000)
                         ok = ops.analyze(1)
                         if ok == 0:
                             basic_curvature_incr = basic_curvature_incr / 10
-                            print(f'Changed the step size to: {basic_curvature_incr / 10}')
+                            if CrossSection2d.print_ops_status:
+                            	print(f'Changed the step size to: {basic_curvature_incr / 10}')
 
                 if ok != 0:
-                    print('Trying ModifiedNewton')
+                    if CrossSection2d.print_ops_status:
+                    	print('Trying ModifiedNewton')
                     ops.algorithm('ModifiedNewton')
                     ok = ops.analyze(1)
                     if ok == 0:
-                        print('ModifiedNewton worked')
+                        if CrossSection2d.print_ops_status:
+                            print('ModifiedNewton worked')
 
                 if ok != 0:
-                    print('Trying KrylovNewton')
+                    if CrossSection2d.print_ops_status:
+                        print('Trying KrylovNewton')
                     ops.algorithm('KrylovNewton')
                     ok = ops.analyze(1)
                     if ok == 0:
-                        print('KrylovNewton worked')
+                        if CrossSection2d.print_ops_status:
+                            print('KrylovNewton worked')
 
                 if ok != 0:
-                    print('Trying KrylovNewton and Greater Tolerance')
+                    if CrossSection2d.print_ops_status:
+                        print('Trying KrylovNewton and Greater Tolerance')
                     ops.algorithm('KrylovNewton')
                     ops.test('NormUnbalance', 1e-4, 10)
                     ok = ops.analyze(1)
                     if ok == 0:
-                        print('KrylovNewton worked')
+                        if CrossSection2d.print_ops_status:
+                            print('KrylovNewton worked')
 
                 if ok == 0:
                     # Reset analysis options
@@ -401,24 +418,28 @@ class CrossSection2d:
                             prop_load_incr_factor=1e-3, nonprop_disp_incr_factor=1e-4):
 
         # Run one axial load only analysis to determine maximum axial strength
-        print("Running cross-section axial only analysis...")
+        if CrossSection2d.print_ops_status:
+            print("Running cross-section axial only analysis...")
         results = self.run_ops_analysis('proportional_limit_point', section_args, section_kwargs,
                                         load_incr_factor=prop_load_incr_factor)
-        print("Axial only analysis is completed.")
+        if CrossSection2d.print_ops_status:
+            print("Axial only analysis is completed.")
         P = [max(results.applied_axial_load)]
         M = [0]
         if P in [None, [None]]:
             raise ValueError('Analysis failed at axial only loading')
 
         # Loop axial linearly spaced axial loads with non-proportional analyses
-        print("Running cross-section non-proportional analysis...")
+        if CrossSection2d.print_ops_status:
+            print("Running cross-section non-proportional analysis...")
         for i in range(1, num_points):
             iP = P[0] * (num_points - 1 - i) / (num_points - 1)
             results = self.run_ops_analysis('nonproportional_limit_point', section_args, section_kwargs, P=iP,
                                             disp_incr_factor=nonprop_disp_incr_factor)
             P.append(iP)
             M.append(max(results.maximum_abs_moment))
-        print("Non-proportional analysis is completed.")
+        if CrossSection2d.print_ops_status:
+            print("Non-proportional analysis is completed.")
 
         return {'P': P, "M1": M, 'M2': M}
 
