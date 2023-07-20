@@ -441,8 +441,8 @@ class CrossSection2d:
         if CrossSection2d.print_ops_status:
             print("Non-proportional analysis is completed.")
 
-        return {'P': P, "M1": M, 'M2': M}
+        return {'P': np.array(P), "M1": np.array(M), 'M2': np.array(M)}
 
     def run_AASHTO_interaction(self, section_factored=True):
         P, M, et = self.section.section_interaction_2d(self.axis, 100, factored=section_factored)
-        return {'P': P, 'M1': M, 'M2': M}
+        return {'P': np.array(P), 'M1': np.array(M), 'M2': np.array(M)}
