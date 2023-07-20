@@ -392,7 +392,7 @@ class CrossSection2d:
 
                 # Check for lowest eigenvalue less than zero
                 if eigenvalue_limit is not None:
-                    if results.lowest_eigenvalue[-1] < 0:
+                    if results.lowest_eigenvalue[-1] < eigenvalue_limit:
                         results.exit_message = 'Eigenvalue Limit Reached'
                         break
 
