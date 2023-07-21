@@ -55,6 +55,43 @@ class CrossSection2d:
             Non-keyworded arguments for the section's build_ops_fiber_section.
         section_kwargs : dict
             Keyworded arguments for the section's build_ops_fiber_section.
+        e : float, optional
+        Eccentricity ratio for load application in proportional analyses. For proportional
+        analyses, the axial load and moment are increased simultaneously with a ratio of e.
+        Default is 0.
+
+        P : float, optional
+            Axial load applied to the section in non-proportional analyses. For non-proportional
+            analyses, axial load is increased to P first then held constant. Default is 0.
+
+        num_steps_vertical : int, optional
+            Number of steps in the vertical loading path. Default is 20.
+
+        load_incr_factor : float, optional
+            Factor by which the load is incremented in each step. Default is 1e-3.
+
+        disp_incr_factor : float, optional
+            Factor by which the displacement is incremented in each step. Default is 1e-7.
+
+        eigenvalue_limit : float, optional
+            Eigenvalue limit for convergence. If the largest eigenvalue (indicating instability)
+            exceeds this value, the analysis will stop. Default is 0.
+
+        percent_load_drop_limit : float, optional
+            Percentage of load drop to tolerate before halting the analysis. If the load drops by
+            more than this percentage from one step to the next, the analysis will stop. Default is 0.05.
+
+        concrete_strain_limit : float, optional
+            Strain limit in the concrete. The analysis will stop if the concrete strain
+            exceeds this limit. Default is -0.01.
+
+        steel_strain_limit : float, optional
+            Strain limit in the steel. The analysis will stop if the steel strain exceeds this
+            limit. Default is 0.05.
+
+        try_smaller_steps : bool, optional
+            If set to True, the function will attempt smaller step sizes if the analysis
+            does not converge. Default is True.
 
         Loading Notes
         -------------
