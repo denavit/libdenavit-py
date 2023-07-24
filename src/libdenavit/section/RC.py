@@ -195,6 +195,38 @@ class RC:
             # ACI 318-19, Section 6.6.4.4.4b
             return (0.2 * self.Ec * self.Ig(axis) + self.Es * self.Isr(axis)) / (1 + betadns)
 
+        if EI_type == "ACI-c":
+            # ACI 318-19, Section 6.6.4.4.4c
+            if P is None or M is None:
+                raise ValueError("P and M must be defined for EI_type = 'ACI-c'")
+            EI = []
+            max_EI = 0.875 * self.Ec * self.Ig(axis)
+            min_EI = 0.35 * self.Ec * self.Ig(axis)
+            if isinstance(P, (list, np.ndarray)):
+                if type(P) != type(M) or len(P) != len(M):
+                    raise ValueError("P and M must be of the same type and size")
+                for P, M in zip(P, M):
+                        EI_ACI = (0.8+25*self.Asr/self.Ag)*(1-M/P/self.depth(axis)-0.5*P/self.p0)*self.Ec*self.Ig(axis)
+                        if EI_ACI > max_EI:
+                            EI.append(max_EI)
+                        elif EI_ACI < min_EI:
+                            EI.append(min_EI)
+                        else:
+                            EI.append(EI_ACI)
+                return EI
+
+            elif isinstance(P, float):
+                EI_ACI = (0.8 + 25 * self.Asr / self.Ag) * (
+                            1 - M / P / self.depth(axis) - 0.5 * P / self.p0) * self.Ec * self.Ig(axis)
+                if EI_ACI > max_EI:
+                    EI = max_EI
+                elif EI_ACI < min_EI:
+                    EI = min_EI
+                else:
+                    EI = EI_ACI
+                return EI
+
+
         if EI_type == "JF-a":
             # Jenkins and Frosch, 2011 - Eq.10.1
             if P is None or M is None:
