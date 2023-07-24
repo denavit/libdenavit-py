@@ -231,10 +231,10 @@ class RC:
             # Jenkins and Frosch, 2011 - Eq.10.1
             if P is None or M is None:
                 raise ValueError("P and M must be defined for EI_type = 'JF-a'")
-            if type(P) != type(M) or len(P) != len(M):
-                raise ValueError("P and M must be of the same type and size")
             EI = []
-            if type(P) == list or type(P) == np.ndarray:
+            if isinstance(P, (list, np.ndarray)):
+                if type(P) != type(M) or len(P) != len(M):
+                    raise ValueError("P and M must be of the same type and size")
                 for P, M in zip(P, M):
                     ecc_ratio = abs(M) / abs(P) / self.depth(axis)
                     if ecc_ratio <= 0.1:
@@ -249,8 +249,11 @@ class RC:
                         EI.append(max(EI_jenkins, min_EI))
                 return EI
 
-            elif type(P) == float:
-                ecc_ratio = abs(M) / abs(P) / self.depth(axis)
+            elif isinstance(P, float):
+                try:
+                    ecc_ratio = abs(M) / abs(P) / self.depth(axis)
+                except ZeroDivisionError:
+                    return np.nan
                 if ecc_ratio <= 0.1:
                     EI_jenkins = (1.05 - 0.6 * abs(P) / self.p0) * (1 + 3 * (self.Asr / self.Ag - 0.01)) * \
                                  self.Ec * self.Ig(axis) / (1 + betadns)
@@ -300,7 +303,7 @@ class RC:
         if EI_type == "gross":
             return self.EIgross(axis)
 
-        raise ValueError(f'Unknown EI_type (EI_type)')
+        raise ValueError(f'Unknown EI_type {EI_type}')
 
     def phi(self, et):
         f = ACI_phi(self.transverse_reinf_type, et, self.fy / self.Es)
@@ -368,7 +371,9 @@ class RC:
             P_M_id2d = InteractionDiagram2d(M, P, is_closed=True)
             P_et_id2d = InteractionDiagram2d(et, P, is_closed=True)
             M_et_id2d = InteractionDiagram2d(M, et, is_closed=True)
-
+            P = P[:-1]
+            M = M[:-1]
+            et = et[:-1]
             from libdenavit import find_limit_point_in_list
             ind, x = find_limit_point_in_list(P, 0)
             P = np.insert(P, ind+1, 0)
