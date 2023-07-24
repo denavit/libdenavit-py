@@ -557,7 +557,7 @@ class SwayColumn2d:
             fig_at_step.tight_layout()
             plt.show()
 
-        results = {'P': P, 'M1': M1, 'M2': M2, 'exit_message': exit_message}
+        results = {'P': np.array(P), 'M1': np.array(M1), 'M2': np.array(M2), 'exit_message': exit_message}
         return results
 
     def ops_get_section_strains(self):
@@ -683,8 +683,7 @@ class SwayColumn2d:
             P_list.append(iP)
             M1_list.append(iM1_s)
             M2_list.append(iM2)
-        results = {'P': list(-1*np.array(P_list)), 'M1': M1_list, 'M2': M2_list}
-        return results
+        return {'P': -1*np.array(P_list), 'M1': np.array(M1_list), 'M2': np.array(M2_list)}
 
 
     def effective_length_factor(self, EI):
