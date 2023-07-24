@@ -620,15 +620,14 @@ class SwayColumn2d:
         #   M2 to mean internal second-order moment
         # this notation is different from what is used in AASHTO.
 
-        # Parameters
-        EIeff = self.section.EIeff(self.axis, EI_type, beta_dns)
-        k = self.effective_length_factor(EIeff)
-        Pc = pi ** 2 * EIeff / (k * self.length) ** 2
-        h = self.section.depth(self.axis)
-
         # Get cross-sectional interaction diagram
         P_id, M_id, _ = self.section.section_interaction_2d(self.axis, 100, factored=section_factored)
         id2d = InteractionDiagram2d(M_id, P_id, is_closed=True)
+
+        EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=max(abs(P_id)), M=0)
+        k = self.effective_length_factor(EIeff)
+        Pc = [pi ** 2 * EIeff / (k * self.length) ** 2]
+        h = self.section.depth(self.axis)
 
         # Run one axial load only analysis to determine maximum axial strength
         if minimum_eccentricity:
@@ -651,12 +650,21 @@ class SwayColumn2d:
             M2_list = [iM2]
 
         else:
-            buckling_load = -Pc_factor * Pc
+            buckling_load = -Pc_factor * Pc[-1]
             if buckling_load < min(P_id):
                 P_list = [min(P_id)]
                 M1_list = [0]
                 M2_list = [0]
             else:
+                def f(x):
+                    EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=abs(Pc[-1]), M=0)
+                    Pc.append(pi ** 2 * EIeff / (k * self.length) ** 2)
+                    return abs(Pc[-2]) - abs(Pc[-1])
+
+                from scipy.optimize import newton
+                buckling_load = -Pc_factor * \
+                                newton(f, 0.0, maxiter=1000, tol=Pc[-1] / 100, disp=False, full_output=True)[0]
+
                 P_list = [buckling_load]
                 M1_list = [0]
                 M2_list = [id2d.find_x_given_y(buckling_load, 'pos')]
@@ -666,8 +674,12 @@ class SwayColumn2d:
             iP = 0.999*P_list[0] * (num_points - 1 - i) / (num_points - 1)
             iM2 = id2d.find_x_given_y(iP, 'pos')
 
-            delta_s = 1 / (1 - (-iP) / (Pc_factor * Pc))
-            iM1_s = iM2 / delta_s
+            EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=abs(iP), M=abs(iM2))
+            k = self.effective_length_factor(EIeff)
+            Pc = pi ** 2 * EIeff / (k * self.length) ** 2
+
+            delta = 1 / (1 - (-iP) / (Pc_factor * Pc))
+            iM1_s = iM2 / delta
             P_list.append(iP)
             M1_list.append(iM1_s)
             M2_list.append(iM2)
