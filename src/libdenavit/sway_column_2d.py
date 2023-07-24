@@ -116,7 +116,7 @@ class SwayColumn2d:
     def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=1.0, P=0, num_steps_vertical=10,
                          disp_incr_factor=0.00005, eigenvalue_limit=0, percent_load_drop_limit = 0.05,
                          concrete_strain_limit=-0.01, steel_strain_limit = 0.05, deformation_limit="default",
-                         try_smaller_steps=True, print_limit_point=True):
+                         try_smaller_steps=True):
 
         """ Run an OpenSees analysis of the column
         
@@ -163,8 +163,6 @@ class SwayColumn2d:
 
         # Define a function to find limit point
         def find_limit_point():
-            if print_limit_point:
-                print(results.exit_message)
             if 'Analysis Failed' in results.exit_message:
                 if analysis_type.lower() == 'proportional_limit_point':
                     ind, x = find_limit_point_in_list(results.applied_axial_load, max(results.applied_axial_load))
@@ -291,7 +289,7 @@ class SwayColumn2d:
 
                 elif ok != 0:
                     results.exit_message = 'Analysis Failed'
-                    print('Analysis Failed')
+                    warnings.warn('Analysis Failed')
                     break
 
                 record()
@@ -374,7 +372,7 @@ class SwayColumn2d:
 
                 if ok != 0:
                     results.exit_message = 'Analysis Failed In Vertical Loading'
-                    print('Analysis Failed In Vertical Loading')
+                    warnings.warn('Analysis Failed In Vertical Loading')
                     return results
 
                 record()
@@ -462,7 +460,7 @@ class SwayColumn2d:
 
                 elif ok != 0:
                     results.exit_message = 'Analysis Failed'
-                    print('Analysis Failed')
+                    warnings.warn('Analysis Failed')
                     break
 
                 record()
@@ -542,7 +540,6 @@ class SwayColumn2d:
                 exit_message.append(results.exit_message)
 
             if plot_load_deformation:
-                print(f'{iP=:,.0f}')
                 if iP==0:
                     continue
                 ax_at_step[0].plot(results.maximum_abs_disp, np.array(results.applied_horizonal_load) * self.lever_arm, '-o', label=f'{iP:,.0f}', markersize=5)
@@ -655,8 +652,6 @@ class SwayColumn2d:
 
         else:
             buckling_load = -Pc_factor * Pc
-            print(f'{buckling_load=:,.0f} kips')
-            print(f'{min(P_id)=:,.0f} kips')
             if buckling_load < min(P_id):
                 P_list = [min(P_id)]
                 M1_list = [0]

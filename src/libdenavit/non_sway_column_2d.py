@@ -64,7 +64,7 @@ class NonSwayColumn2d:
     def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=1.0, P=0, num_steps_vertical=10,
                          disp_incr_factor=1e-5, eigenvalue_limit=0, deformation_limit='default',
                          concrete_strain_limit=-0.01, steel_strain_limit= 0.05, percent_load_drop_limit=0.05,
-                         try_smaller_steps=True, print_limit_point=True):
+                         try_smaller_steps=True):
         """ Run an OpenSees analysis of the column
         
         Parameters
@@ -113,9 +113,6 @@ class NonSwayColumn2d:
 
         # Define function to find limit point
         def find_limit_point():
-            if print_limit_point:
-                print(results.exit_message)
-                
             if 'Analysis Failed' in results.exit_message:
                 ind, x = find_limit_point_in_list(results.applied_moment_top, max(results.applied_moment_top))
                 warnings.warn(f'Analysis failed')
@@ -237,7 +234,7 @@ class NonSwayColumn2d:
                     reset_analysis_options(disp_incr_factor)
                 elif ok != 0:
                     results.exit_message = 'Analysis Failed'
-                    print('Analysis Failed')
+                    warnings.warn('Analysis Failed')
                     break
 
                 record()
@@ -319,7 +316,7 @@ class NonSwayColumn2d:
                 
                 if ok != 0:
                     results.exit_message = 'Analysis Failed In Vertical Loading'
-                    print('Analysis Failed In Vertical Loading')
+                    warnings.warn('Analysis Failed In Vertical Loading')
                     return results
                 
                 record()
@@ -417,7 +414,7 @@ class NonSwayColumn2d:
                     reset_analysis_options(disp_incr_factor)
                 elif ok != 0:
                     results.exit_message = 'Analysis Failed'
-                    print('Analysis Failed')
+                    warnings.warn('Analysis Failed')
                     break
                 
                 record()
