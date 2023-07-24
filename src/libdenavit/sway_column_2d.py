@@ -8,8 +8,7 @@ import openseespy.opensees as ops
 import numpy as np
 
 
-class SwayColumn2d:
-    _K = None
+class SwayColumn2d:   
     def __init__(self, section, length, k_bot, k_top, gamma, dxo=0.0, Dxo=0.0, n_elem=6, axis=None):
         # Physical parameters
         # Note that the rotational spring stiffnesses (k_top and b_bot) 
@@ -25,7 +24,8 @@ class SwayColumn2d:
 
         # General options
         self.include_initial_geometric_imperfections = True
-
+        self.effective_length_factor_override = None
+        
         # OpenSees analysis options
         self.ops_n_elem = n_elem
         self.ops_element_type = "mixedBeamColumn"
@@ -625,11 +625,8 @@ class SwayColumn2d:
 
         # Parameters
         EIeff = self.section.EIeff(self.axis, EI_type, beta_dns)
-        if self._K is None:
-            k_s = self.effective_length_factor(EIeff)
-        else:
-            k_s = self._K
-        Pc_s = pi ** 2 * EIeff / (k_s * self.length) ** 2
+        k = self.effective_length_factor(EIeff)
+        Pc = pi ** 2 * EIeff / (k * self.length) ** 2
         h = self.section.depth(self.axis)
 
         # Get cross-sectional interaction diagram
@@ -638,10 +635,10 @@ class SwayColumn2d:
 
         # Run one axial load only analysis to determine maximum axial strength
         if minimum_eccentricity:
-            P_path = np.linspace(0, max(1.001 * min(P_id), -0.999 * Pc_factor * Pc_s), 1000)
+            P_path = np.linspace(0, max(1.001 * min(P_id), -0.999 * Pc_factor * Pc), 1000)
             M2_path = np.zeros_like(P_path)
             for i, P in enumerate(P_path):
-                delta = max(self.Cm / (1 - (-P) / (Pc_factor * Pc_s)), 1.0)
+                delta = max(self.Cm / (1 - (-P) / (Pc_factor * Pc)), 1.0)
                 if self.section.units.lower() == "us":
                     M1_min = -P * (0.6 + 0.03 * h)  # ACI 6.6.4.5.4
                 elif self.section.units.lower() == "si":
@@ -657,7 +654,7 @@ class SwayColumn2d:
             M2_list = [iM2]
 
         else:
-            buckling_load = -Pc_factor * Pc_s
+            buckling_load = -Pc_factor * Pc
             print(f'{buckling_load=:,.0f} kips')
             print(f'{min(P_id)=:,.0f} kips')
             if buckling_load < min(P_id):
@@ -674,7 +671,7 @@ class SwayColumn2d:
             iP = 0.999*P_list[0] * (num_points - 1 - i) / (num_points - 1)
             iM2 = id2d.find_x_given_y(iP, 'pos')
 
-            delta_s = 1 / (1 - (-iP) / (Pc_factor * Pc_s))
+            delta_s = 1 / (1 - (-iP) / (Pc_factor * Pc))
             iM1_s = iM2 / delta_s
             P_list.append(iP)
             M1_list.append(iM1_s)
@@ -684,6 +681,9 @@ class SwayColumn2d:
 
 
     def effective_length_factor(self, EI):
+        if self.effective_length_factor_override is not None:
+            return self.effective_length_factor_override
+    
         if self.k_bot == 0:
             G_bot = inf
         elif self.k_bot == inf:
@@ -724,11 +724,7 @@ class SwayColumn2d:
 
             delta_s = M2 / M1
             Pc = (P) / (Pc_factor * (1 - 1 / delta_s))
-
-            if self._K is None:
-                k = self.effective_length_factor(EIeff)
-            else:
-                k = self._K
+            k = self.effective_length_factor(EIeff)
             EI = Pc * (k * self.length / pi) ** 2
             EI_list_ops.append(EI)
 
@@ -760,10 +756,7 @@ class SwayColumn2d:
 
             delta_s = M2 / M1
             Pc = (P) / (Pc_factor * (1-1/delta_s))
-            if self._K is None:
-                k = self.effective_length_factor(EIeff)
-            else:
-                k = self._K
+            k = self.effective_length_factor(EIeff)
             EI = Pc * (k * self.length / pi) ** 2
             EI_list_AASHTO.append(EI)
 
