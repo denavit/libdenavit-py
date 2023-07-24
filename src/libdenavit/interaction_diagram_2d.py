@@ -23,8 +23,10 @@ def cart2pol(x, y):
 
 
 class InteractionDiagram2d():
-
     def __init__(self, idx: list, idy: list, is_closed=False):
+        idx = idx.tolist() if isinstance(idx, np.ndarray) else idx
+        idy = idy.tolist() if isinstance(idy, np.ndarray) else idy
+
         _, q = cart2pol(idx, idy)
         q = [i%(2*np.pi) for i in q]
         ind = np.argsort(q)
