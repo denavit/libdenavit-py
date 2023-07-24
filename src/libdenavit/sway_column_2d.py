@@ -729,8 +729,8 @@ class SwayColumn2d:
                 EI_list_ops.append(float("nan"))
                 continue
 
-            delta_s = M2 / M1
-            Pc = (P) / (Pc_factor * (1 - 1 / delta_s))
+            delta = M2 / M1
+            Pc = (P) / (Pc_factor * (1 - 1 / delta))
             k = self.effective_length_factor(EIeff)
             EI = Pc * (k * self.length / pi) ** 2
             EI_list_ops.append(EI)
@@ -761,8 +761,8 @@ class SwayColumn2d:
                 EI_list_AASHTO.append(float("nan"))
                 continue
 
-            delta_s = M2 / M1
-            Pc = (P) / (Pc_factor * (1-1/delta_s))
+            delta = M2 / M1
+            Pc = (P) / (Pc_factor * (1-1/delta))
             k = self.effective_length_factor(EIeff)
             EI = Pc * (k * self.length / pi) ** 2
             EI_list_AASHTO.append(EI)
