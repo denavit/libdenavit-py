@@ -525,7 +525,8 @@ class NonSwayColumn2d:
 
         return {'P': list(np.array(P)), 'M1': M1, 'M2': M2}
 
-    def run_AASHTO_interaction(self, EI_type, num_points=10, section_factored=True, Pc_factor=0.75, beta_dns=0, minimum_eccentricity=False):
+    def run_AASHTO_interaction(self, EI_type, num_points=10, section_factored=True, Pc_factor=0.75, beta_dns=0,
+                               minimum_eccentricity=False):
     
         # beta_dns is the ratio of the maximum factored sustained axial load divided by
         # the total factored axial load associated with the same load combination
@@ -536,22 +537,22 @@ class NonSwayColumn2d:
         #   M2 to mean internal second-order moment
         # this notation is differnt than what is used in AASHTO.
         
-        # Parameters
-        k = 1  # Effective length factor (always one for this non-sway column)
-        EIeff = self.section.EIeff(self.axis, EI_type, beta_dns)
-        Pc = pi**2 * EIeff / (k * self.length)**2
-        h = self.section.depth(self.axis)
-        
         # Get cross-sectional interaction diagram
         P_id, M_id, _ = self.section.section_interaction_2d(self.axis, 100, factored=section_factored)
         id2d = InteractionDiagram2d(M_id, P_id, is_closed=True)
 
+        k = 1  # Effective length factor (always one for this non-sway column)
+        EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=max(abs(P_id)), M=0)
+
+        Pc = [pi ** 2 * EIeff / (k * self.length) ** 2]
+        h = self.section.depth(self.axis)
+
         # Run one axial load only analysis to determine maximum axial strength
         if minimum_eccentricity:
-            P_path  = np.linspace(0, max(1.001*min(P_id),-0.999*Pc_factor*Pc), 1000)
+            P_path  = np.linspace(0, max(1.001*min(P_id),-0.999*Pc_factor*Pc[-1]), 1000)
             M2_path = np.zeros_like(P_path)
             for i,P in enumerate(P_path):
-                delta = max(self.Cm/(1 - (-P)/(Pc_factor*Pc)), 1.0)
+                delta = max(self.Cm/(1 - (-P)/(Pc_factor*Pc[-1])), 1.0)
                 if self.section.units.lower() == "us":
                     M1_min = -P*(0.6 + 0.03 * h)  # ACI 6.6.4.5.4
                 elif self.section.units.lower() == "si":
@@ -567,21 +568,39 @@ class NonSwayColumn2d:
             M2_list = [iM2]
 
         else:
-            M1_min = 0
-            buckling_load = -Pc_factor * Pc
+            buckling_load = -Pc_factor * Pc[-1]
             if buckling_load < min(P_id):
                 P_list = [min(P_id)]
                 M1_list = [0]
                 M2_list = [0]
             else:
-                P_list  = [buckling_load]
-                M1_list = [0]
-                M2_list = [id2d.find_x_given_y(buckling_load, 'pos')]            
+                if EI_type in ['ACI-a', 'ACI-b']:
+                    P_list = [buckling_load]
+                    M1_list = [0]
+                    M2_list = [id2d.find_x_given_y(buckling_load, 'pos')]
+                if EI_type in ['JF-a', 'JF-b', 'ACI-c']:
+                    def f(x):
+                        EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=abs(Pc[-1]), M=0)
+                        Pc.append(pi ** 2 * EIeff / (k * self.length) ** 2)
+                        return abs(Pc[-2]) - abs(Pc[-1])
+
+                    from scipy.optimize import newton
+                    buckling_load = -Pc_factor * \
+                                    newton(f, 0.0, maxiter=1000, tol=Pc[-1]/10, disp=False, full_output=True)[0]
+
+                    P_list  = [buckling_load]
+                    M1_list = [0]
+                    M2_list = [id2d.find_x_given_y(buckling_load, 'pos')]
 
         # Loop axial linearly spaced axial loads witn non-proportional analyses
         for i in range(1,num_points):
             iP = 0.999*P_list[0] * (num_points-i-1) / (num_points-1)
             iM2 = id2d.find_x_given_y(iP, 'pos')
+
+            k = 1  # Effective length factor (always one for this non-sway column)
+            EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=abs(iP), M=abs(iM2))
+            Pc = pi ** 2 * EIeff / (k * self.length) ** 2
+
             delta = max(self.Cm / (1 - (-iP) / (Pc_factor * Pc)), 1.0)
             iM1 = iM2 / delta
             P_list.append(iP)
