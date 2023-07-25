@@ -226,15 +226,14 @@ class RC:
                     EI = EI_ACI
                 return EI
 
-
         if EI_type == "JF-a":
             # Jenkins and Frosch, 2011 - Eq.10.1
+            EI = []
             if P is None or M is None:
                 raise ValueError("P and M must be defined for EI_type = 'JF-a'")
-            EI = []
-            if isinstance(P, (list, np.ndarray)):
-                if type(P) != type(M) or len(P) != len(M):
-                    raise ValueError("P and M must be of the same type and size")
+            elif isinstance(P, (list, np.ndarray)) and isinstance(M, (list, np.ndarray)):
+                if len(P) != len(M):
+                    raise ValueError("P and M must be of the same size")
                 for P, M in zip(P, M):
                     ecc_ratio = abs(M) / abs(P) / self.depth(axis)
                     if ecc_ratio <= 0.1:
@@ -249,7 +248,7 @@ class RC:
                         EI.append(max(EI_jenkins, min_EI))
                 return EI
 
-            elif isinstance(P, float):
+            elif isinstance(P, (float, np.float64, int)) and isinstance(M, (float, np.float64, int)):
                 try:
                     ecc_ratio = abs(M) / abs(P) / self.depth(axis)
                 except ZeroDivisionError:
@@ -266,14 +265,18 @@ class RC:
                     EI = max(EI_jenkins, min_EI)
                 return EI
 
+            else:
+                raise ValueError("P and M types or sizes are not as expected")
+
         if EI_type == "JF-b":
             # Jenkins and Frosch, 2011 - Eq.10.2
+            EI = []
             if P is None or M is None:
                 raise ValueError("P and M must be defined for EI_type = 'JF-b'")
-            if type(P) != type(M) or len(P) != len(M):
-                raise ValueError("P and M must be of the same type and size")
-            EI = []
-            if type(P) == list or type(P) == np.ndarray:
+
+            elif isinstance(P, (list, np.ndarray)) and isinstance(M, (list, np.ndarray)):
+                if len(P) != len(M):
+                    raise ValueError("P and M must be of the same size")
                 for P, M in zip(P, M):
                     ecc_ratio = M / P / self.depth(axis)
                     if ecc_ratio <= 0.1:
@@ -287,8 +290,11 @@ class RC:
                         EI.append(max(EI_jenkins, min_EI))
                 return EI
 
-            elif type(P) == float:
-                ecc_ratio = M / P / self.depth(axis)
+            elif isinstance(P, (float, np.float64, int)) and isinstance(M, (float, np.float64, int)):
+                try:
+                    ecc_ratio = abs(M) / abs(P) / self.depth(axis)
+                except ZeroDivisionError:
+                    return np.nan
                 if ecc_ratio <= 0.1:
                     EI_jenkins = (1.0 - 0.5 * P / self.p0) * self.Ec * self.Ig(axis) / (1 + betadns)
                     min_EI = 0.4 * self.Ec * self.Ig(axis) / (1 + betadns)
@@ -299,6 +305,9 @@ class RC:
                     min_EI = 0.4 * self.Ec * self.Ig(axis) / (1 + betadns)
                     EI = max(EI_jenkins, min_EI)
                 return EI
+
+            else:
+                raise ValueError("P and M types or sizes are not as expected")
 
         if EI_type == "gross":
             return self.EIgross(axis)
