@@ -37,7 +37,11 @@ class Obround(GeometricShape):
             return self.D + self.a
         else:
             raise ValueError(f'Unknown axis: {axis}')
-        
+
+    @property
+    def perimeter(self):
+        p = 2 * (np.pi * self.D/2 + self.a)
+        return p
     @property
     def A(self):
         a = (np.pi / 4) * self.D ** 2 + self.D*self.a

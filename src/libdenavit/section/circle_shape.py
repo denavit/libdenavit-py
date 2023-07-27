@@ -26,7 +26,12 @@ class Circle(GeometricShape):
     
     def depth(self, axis):
         return self.diameter
-        
+
+    @property
+    def perimeter(self):
+        p = np.pi * self.diameter
+        return p
+
     @property
     def A(self):
         a = (np.pi / 4) * self.diameter ** 2

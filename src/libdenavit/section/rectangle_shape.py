@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from libdenavit.design import available_strength
 
+
 @dataclass
 class Rectangle(GeometricShape):
     """
@@ -46,6 +47,11 @@ class Rectangle(GeometricShape):
     def A(self):
         a = self.H * self.B - (4 - pi) * self.rc ** 2
         return a
+
+    @property
+    def perimeter(self):
+        p = 2 * (self.H + self.B) + 2 * (pi * self.rc - 4 * self.rc)
+        return p
 
     @property
     def J(self):
