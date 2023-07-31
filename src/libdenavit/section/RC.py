@@ -603,12 +603,12 @@ class RC:
                         nfd = nfx
 
                     for index, value in enumerate(rebar_coords):
-                        ops.fiber(value, 0, i.Ab, steel_material_id)
+                        ops.fiber(float(value), 0, i.Ab, steel_material_id)
                         if confinement:
                             negative_area_material_id = core_concrete_material_id
                         else:
                             negative_area_material_id = concrete_material_id
-                        ops.fiber(value, 0, -i.Ab, negative_area_material_id)
+                        ops.fiber(float(value), 0, -i.Ab, negative_area_material_id)
 
                 cdb = (H - self.reinforcement[0].By) / 2 - self.reinforcement[0].db / 2
                 if self.dbt is not None:
