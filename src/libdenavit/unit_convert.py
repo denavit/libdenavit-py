@@ -88,7 +88,14 @@ units_for_pint = {
     'cbft': ureg.ft**3,    # cubic foot
     'cbyd': ureg.yard**3,  # cubic yard
     'cbm' : ureg.meter**3, # cubic meter
-    'cbmm': ureg.mmeter**3 # cubic millimeter
+    'cbmm': ureg.mmeter**3, # cubic millimeter
+
+    ## Area
+    'in^2': ureg.inch ** 2,  # square inch
+    'ft^2': ureg.ft ** 2,  # square foot
+    'yd^2': ureg.yard ** 2,  # square yard
+    'm^2' : ureg.meter ** 2,  # square meter
+    'mm^2': ureg.mmeter ** 2,  # square millimeter
 }
 
 
@@ -118,6 +125,8 @@ def unit_convert(old_value: Union[float, int], old_unit: str, new_unit: str) -> 
         Angle Units: rad, deg
 
         Volume Units: cbin, cbft, cbyd, cbm, cbmm
+
+        Area Units: in^2, ft^2, yd^2, m^2, mm^2
     """
 
     old_unit = old_unit.strip()
