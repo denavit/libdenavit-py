@@ -1,10 +1,9 @@
-from math import sqrt, pi, ceil, exp, sin, tan
-from libdenavit.section import AciStrainCompatibility, FiberSingle, FiberSection, ACI_phi
-from libdenavit.OpenSees import circ_patch_2d, obround_patch_2d, obround_patch_2d_confined
+from math import sqrt, pi, ceil, exp, sin
 import matplotlib.pyplot as plt
 import numpy as np
 import openseespy.opensees as ops
-from libdenavit import find_limit_point_in_list, interpolate_list
+from libdenavit.OpenSees import circ_patch_2d, obround_patch_2d, obround_patch_2d_confined
+from libdenavit.section import AciStrainCompatibility, FiberSection, ACI_phi
 
 
 class RC:
