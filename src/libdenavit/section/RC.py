@@ -451,6 +451,8 @@ class RC:
             ops.uniaxialMaterial("ReinforcingSteel", steel_material_id, self.fy, self.fy * 1.5, self.Es, self.Es / 2,
                                  0.002, 0.008)
 
+        elif steel_mat_type == "Elastic":
+            ops.uniaxialMaterial("Elastic", steel_material_id, self.Es)
         else:
             raise ValueError(f"Steel material {steel_mat_type} not supported")
         # endregion
