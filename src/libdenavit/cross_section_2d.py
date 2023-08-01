@@ -286,11 +286,11 @@ class CrossSection2d:
                 axial_strain = ops.nodeDisp(2, 1)
                 curvature = ops.nodeDisp(2, 3)
                 if self.axis == 'x':
-                    curvatureX = ops.nodeDisp(2, 3)
+                    curvatureX = curvature
                     curvatureY = 0
                 elif self.axis == 'y':
                     curvatureX = 0
-                    curvatureY = ops.nodeDisp(2, 3)
+                    curvatureY = curvature
                 else:
                     raise ValueError(f'axis {self.axis} not supported')
                 results.maximum_concrete_compression_strain.append(
@@ -328,12 +328,13 @@ class CrossSection2d:
                 results.maximum_abs_moment.append(abs(ops.eleForce(1, 3)))
                 results.lowest_eigenvalue.append(ops.eigen("-fullGenLapack", 1)[0])
                 axial_strain = ops.nodeDisp(2, 1)
+                curvature = ops.nodeDisp(2, 3)
                 if self.axis == 'x':
-                    curvatureX = ops.nodeDisp(2, 3)
+                    curvatureX = curvature
                     curvatureY = 0
                 elif self.axis == 'y':
                     curvatureX = 0
-                    curvatureY = ops.nodeDisp(2, 3)
+                    curvatureY = curvature
                 else:
                     raise ValueError(f'axis {self.axis} not supported')
                 results.maximum_concrete_compression_strain.append(
