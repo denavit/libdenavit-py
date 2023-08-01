@@ -17,10 +17,12 @@ class CrossSection2d:
         ops.model('basic', '-ndm', 2, '-ndf', 3)
 
         ops.node(1, 0, 0)
-        ops.node(2, 0, 0)
+        node1_fixity = section_kwargs.get('node1_fixity', (1, 1, 1))
+        ops.fix(1, *node1_fixity)
 
-        ops.fix(1, 1, 1, 1)
-        ops.fix(2, 0, 1, 0)
+        ops.node(2, 0, 0)
+        node2_fixity = section_kwargs.get('node2_fixity', (0, 1, 0))
+        ops.fix(2, *node2_fixity)
 
         ops.mass(2, 1, 1, 1)
 
