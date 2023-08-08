@@ -53,43 +53,51 @@ class CrossSection2d:
                 - 'nonproportional_target_force' (not yet implemented)
                 - 'proportional_target_disp' (not yet implemented)
                 - 'nonproportional_target_disp' (not yet implemented)
+
         section_args : list or tuple
             Non-keyworded arguments for the section's build_ops_fiber_section.
+
         section_kwargs : dict
             Keyworded arguments for the section's build_ops_fiber_section.
+
         e : float, optional
-        Eccentricity ratio for load application in proportional analyses. For proportional
-        analyses, the axial load and moment are increased simultaneously with a ratio of e.
-        Default is 0.
+            Eccentricity for load application in proportional analyses. For proportional
+            analyses, the axial load and moment are increased simultaneously with a ratio of e.
+            Default is 0.
 
         P : float, optional
             Axial load applied to the section in non-proportional analyses. For non-proportional
             analyses, axial load is increased to P first then held constant. Default is 0.
 
         num_steps_vertical : int, optional
-            Number of steps in the vertical loading path. Default is 20.
+            Number of steps in the vertical loading path in non-proportional analyses. Default is 20.
 
         load_incr_factor : float, optional
-            Factor by which the load is incremented in each step. Default is 1e-3.
+            Factor that defines the basic load increment in proportional analyses. The basic load
+            increment is load_incr_factor times the cross-sectional axial compression strength. 
+            Default is 1e-3.
 
         disp_incr_factor : float, optional
-            Factor by which the displacement is incremented in each step. Default is 1e-7.
+            Factor that defines the basic curavture increment in non-proportional analyses. The
+            basic curvature increment is disp_incr_factor divided by the section depth. 
+            Default is 1e-7.
 
         eigenvalue_limit : float, optional
-            Eigenvalue limit for convergence. If the largest eigenvalue (indicating instability)
-            exceeds this value, the analysis will stop. Default is 0.
+            Eigenvalue limit for stopping the analysis. If the lowest eigenvalue is less than this 
+            value, the analysis will stop. Default is 0. If None, check will not be performed.
 
         percent_load_drop_limit : float, optional
             Percentage of load drop to tolerate before halting the analysis. If the load drops by
-            more than this percentage from one step to the next, the analysis will stop. Default is 0.05.
+            more than this percentage from the maximum, the analysis will stop. Default is 0.05 (i.e., 5% drop).
+            If None, check will not be performed.
 
         concrete_strain_limit : float, optional
-            Strain limit in the concrete. The analysis will stop if the concrete strain
-            exceeds this limit. Default is -0.01.
+            Concrete strain limit for stopping the analysis. The analysis will stop if the concrete compressive 
+            strain exceeds this limit. Default is -0.01. If None, check will not be performed.
 
         steel_strain_limit : float, optional
-            Strain limit in the steel. The analysis will stop if the steel strain exceeds this
-            limit. Default is 0.05.
+            Strain strain limit for stopping the analysis. The analysis will stop if the steel tensile strain 
+            exceeds this limit. Default is 0.05. If None, check will not be performed.
 
         try_smaller_steps : bool, optional
             If set to True, the function will attempt smaller step sizes if the analysis
