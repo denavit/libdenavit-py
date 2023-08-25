@@ -83,9 +83,11 @@ class NonSwayColumn2d:
             y = index / self.ops_n_elem * self.length
             ops.node(index, x, y)
             ops.mass(index, 1, 1, 1)
-        
-        ops.fix(0, 1, 1, 0)
-        ops.fix(self.ops_n_elem, 1, 0, 0)
+
+        start_node_fixity = kwargs.get('start_node_fixity', (1, 1, 0))
+        ops.fix(0, *start_node_fixity)
+        end_node_fixity = kwargs.get('end_node_fixity', (1, 0, 0))
+        ops.fix(self.ops_n_elem, *end_node_fixity)
         
         ops.geomTransf(self.ops_geom_transf_type, 100)
         
