@@ -714,21 +714,16 @@ class NonSwayColumn2d:
                                                            axial_strain, curvatureX=curvatureX, curvatureY=curvatureY))
         return min(maximum_concrete_compression_strain), max(maximum_tensile_steel_strain), curvatureX, curvatureY
 
-    def ops_get_maximum_abs_moment(self):
+
+    def ops_get_maximum_abs_moment(self) -> float:
         # This code assumed (but does not check) that moment at j-end of 
         # one element equals the moment at the i-end of the next element.
-        moment = [abs(ops.eleForce(0, 3))]
-        for i in range(self.ops_n_elem):
-            moment.append(abs(ops.eleForce(i, 6)))
-        
-        return max(moment)
-    
-    def ops_get_maximum_abs_disp(self):
-        disp = []
-        for i in range(self.ops_n_elem + 1):
-            disp.append(abs(ops.nodeDisp(i, 1)))
-        
-        return max(disp)
+        return max(abs(ops.eleForce(i, 6)) for i in range(self.ops_n_elem))
+
+
+    def ops_get_maximum_abs_disp(self) -> float:
+        return max(abs(ops.nodeDisp(i, 1)) for i in range(self.ops_n_elem))
+
 
     @property
     def Cm(self):
