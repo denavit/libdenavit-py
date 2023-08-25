@@ -7,6 +7,7 @@ import numpy as np
 
 class CrossSection2d:
     print_ops_status = False
+
     def __init__(self, section, axis=None):
         # Physical parameters
         self.section = section
@@ -201,7 +202,7 @@ class CrossSection2d:
                         if ok == 0:
                             basic_load_increment = basic_load_increment / 10
                             if CrossSection2d.print_ops_status:
-                            	print(f'Changed the step size to: {basic_load_increment}')
+                                print(f'Changed the step size to: {basic_load_increment}')
 
                     if ok != 0:
                         ops.integrator('LoadControl', basic_load_increment / 10000)
@@ -209,11 +210,11 @@ class CrossSection2d:
                         if ok == 0:
                             basic_load_increment = basic_load_increment / 10
                             if CrossSection2d.print_ops_status:
-                            	print(f'Changed the step size to: {basic_load_increment}')
+                                print(f'Changed the step size to: {basic_load_increment}')
 
                 if ok != 0:
                     if CrossSection2d.print_ops_status:
-                    	print('Trying ModifiedNewton')
+                        print('Trying ModifiedNewton')
                     ops.algorithm('ModifiedNewton')
                     ok = ops.analyze(1)
 
@@ -361,25 +362,25 @@ class CrossSection2d:
                 if try_smaller_steps:
                     if ok != 0:
                         if CrossSection2d.print_ops_status:
-                        	print(f'Trying the step size of: {basic_curvature_incr / 10}')
+                            print(f'Trying the step size of: {basic_curvature_incr / 10}')
                         ops.integrator('DisplacementControl', 1, 3, basic_curvature_incr / 10)
                         ok = ops.analyze(1)
 
                     if ok != 0:
                         if CrossSection2d.print_ops_status:
-                        	print(f'Trying the step size of: {basic_curvature_incr / 100}')
+                            print(f'Trying the step size of: {basic_curvature_incr / 100}')
                         ops.integrator('DisplacementControl', 1, 3, basic_curvature_incr / 100)
                         ok = ops.analyze(1)
 
                     if ok != 0:
                         if CrossSection2d.print_ops_status:
-                        	print(f'Trying the step size of: {basic_curvature_incr / 1000}')
+                            print(f'Trying the step size of: {basic_curvature_incr / 1000}')
                         ops.integrator('DisplacementControl', 1, 3, basic_curvature_incr / 1000)
                         ok = ops.analyze(1)
                         if ok == 0:
                             basic_curvature_incr = basic_curvature_incr / 10
                             if CrossSection2d.print_ops_status:
-                            	print(f'Changed the step size to: {basic_curvature_incr}')
+                                print(f'Changed the step size to: {basic_curvature_incr}')
 
                     if ok != 0:
                         if CrossSection2d.print_ops_status:
@@ -389,11 +390,11 @@ class CrossSection2d:
                         if ok == 0:
                             basic_curvature_incr = basic_curvature_incr / 10
                             if CrossSection2d.print_ops_status:
-                            	print(f'Changed the step size to: {basic_curvature_incr / 10}')
+                                print(f'Changed the step size to: {basic_curvature_incr / 10}')
 
                 if ok != 0:
                     if CrossSection2d.print_ops_status:
-                    	print('Trying ModifiedNewton')
+                        print('Trying ModifiedNewton')
                     ops.algorithm('ModifiedNewton')
                     ok = ops.analyze(1)
                     if ok == 0:
@@ -462,7 +463,7 @@ class CrossSection2d:
         else:
             raise ValueError(f'Analysis type {analysis_type} not implemented')
 
-    def run_ops_interaction(self, section_args, section_kwargs, num_points=10, 
+    def run_ops_interaction(self, section_args, section_kwargs, num_points=10,
                             prop_load_incr_factor=1e-3, nonprop_disp_incr_factor=1e-4):
 
         # Run one axial load only analysis to determine maximum axial strength
