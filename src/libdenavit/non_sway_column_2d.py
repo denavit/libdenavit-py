@@ -9,7 +9,7 @@ from scipy.optimize import fsolve
 
 
 class NonSwayColumn2d:
-    def __init__(self, section, length, et, eb, dxo=0.0, n_elem=6, axis=None):
+    def __init__(self, section, length, et, eb, **kwargs):
         """
             Represents a non-sway 2D column
 
@@ -36,17 +36,16 @@ class NonSwayColumn2d:
         self.length = length
         self.et = et
         self.eb = eb
-        self.dxo = dxo
-        self.axis = axis
-        
-        # General options
         self.include_initial_geometric_imperfections = True
+        self.dxo = kwargs.get('dxo', 0.0)
+        self.axis = kwargs.get('axis', None)
         
         # OpenSees analysis options
-        self.ops_n_elem = n_elem
-        self.ops_element_type = "mixedBeamColumn"
-        self.ops_geom_transf_type = "Corotational"
-        self.ops_integration_points = 3
+        self.ops_n_elem = kwargs.get('n_elem', 6)
+        self.ops_element_type = kwargs.get('element_type', 'mixedBeamColumn')
+        self.ops_geom_transf_type = kwargs.get('ops_geom_transf_type', 'Corotational')
+        self.ops_integration_points = kwargs.get('ops_integration_points', 3)
+
     
     @property
     def ops_mid_node(self):
@@ -56,6 +55,7 @@ class NonSwayColumn2d:
             raise ValueError(f'Number of elements should be even {self.ops_n_elem = }')
     
     def build_ops_model(self, section_id, section_args, section_kwargs):
+    def build_ops_model(self, *section_args, **kwargs):
         """
            Build the OpenSees finite element model for the non-sway 2D column.
 
@@ -90,7 +90,7 @@ class NonSwayColumn2d:
         ops.geomTransf(self.ops_geom_transf_type, 100)
         
         if type(self.section).__name__ == "RC":
-            self.section.build_ops_fiber_section(section_id, axis=self.axis, *section_args, **section_kwargs)
+            self.section.build_ops_fiber_section(*section_args, **kwargs, axis=self.axis)
         else:
             raise ValueError(f'Unknown cross section type {type(self.section).__name__}')
 
@@ -99,10 +99,8 @@ class NonSwayColumn2d:
         for index in range(self.ops_n_elem):
             ops.element(self.ops_element_type, index, index, index + 1, 100, 1)
 
-    def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=1.0, P=0, num_steps_vertical=10,
-                         disp_incr_factor=1e-5, eigenvalue_limit=0, deformation_limit='default',
-                         concrete_strain_limit=-0.01, steel_strain_limit= 0.05, percent_load_drop_limit=0.05,
-                         try_smaller_steps=True):
+
+    def run_ops_analysis(self, analysis_type, *section_args, **kwargs):
         """ Run an OpenSees analysis of the column
         
         Parameters
@@ -132,10 +130,21 @@ class NonSwayColumn2d:
           constant, then LFH is increased (e is ignored)
         """
 
+        e = kwargs.get('e', 1.0)
+        P = kwargs.get('P', 0)
+        num_steps_vertical = kwargs.get('num_steps_vertical', 10)
+        disp_incr_factor = kwargs.get('disp_incr_factor', 1e-5)
+        eigenvalue_limit = kwargs.get('eigenvalue_limit', 0)
+        deformation_limit = kwargs.get('deformation_limit', 'default')
+        concrete_strain_limit = kwargs.get('concrete_strain_limit', -0.01)
+        steel_strain_limit = kwargs.get('steel_strain_limit', 0.05)
+        percent_load_drop_limit = kwargs.get('percent_load_drop_limit', 0.05)
+        try_smaller_steps = kwargs.get('try_smaller_steps', True)
+
         if deformation_limit == 'default':
             deformation_limit = 0.1 * self.length/2
 
-        self.build_ops_model(1, section_args, section_kwargs)
+        self.build_ops_model(*section_args, **kwargs)
         
         # Initialize analysis results
         results = AnalysisResults()
@@ -494,8 +503,12 @@ class NonSwayColumn2d:
         else:
             raise ValueError(f'Analysis type {analysis_type} not implemented')
 
-    def run_ops_interaction(self, section_args, section_kwargs, num_points=10, prop_disp_incr_factor=1e-6,
-                            nonprop_disp_incr_factor=1e-5, section_load_factor=1e-1):
+    def run_ops_interaction(self, *section_args, **kwargs):
+        num_points = kwargs.get('num_points', 10)
+        prop_disp_incr_factor = kwargs.get('prop_disp_incr_factor', 1e-6)
+        nonprop_disp_incr_factor = kwargs.get('nonprop_disp_incr_factor', 1e-5)
+        section_load_factor = kwargs.get('section_load_factor', 1e-1)
+
         plot_load_deformation = False
         if plot_load_deformation:
             fig_at_step, ax_at_step = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [3, 1]})
@@ -549,16 +562,12 @@ class NonSwayColumn2d:
 
         return {'P': np.array(P), 'M1': np.array(M1), 'M2': np.array(M2), 'exit_message': exit_message}
 
-    def run_ops_interaction_proportional(self, section_args, section_kwargs, e_list, **kwargs):
-        P  = []
-        M1 = []
-        M2 = []
-        
-        for e in e_list:
-            results = self.run_ops_analysis('proportional_limit_point', section_args, section_kwargs, e=e, **kwargs)
-            P.append(results.applied_axial_load_at_limit_point)
-            M1.append(results.applied_moment_top_at_limit_point)
-            M2.append(results.maximum_abs_moment_at_limit_point)
+    def run_ops_interaction_proportional(self, e_list, *section_args, **kwargs):
+        results = [self.run_ops_analysis('proportional_limit_point', *section_args, e=e, **kwargs) for e
+                   in e_list]
+        P = [result.applied_axial_load_at_limit_point for result in results]
+        M1 = [result.applied_moment_top_at_limit_point for result in results]
+        M2 = [result.maximum_abs_moment_at_limit_point for result in results]
 
         return {'P': np.array(P), 'M1': np.array(M1), 'M2': np.array(M2)}
 
