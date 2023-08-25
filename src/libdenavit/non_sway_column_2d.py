@@ -49,11 +49,10 @@ class NonSwayColumn2d:
     @property
     def ops_mid_node(self):
         if self.ops_n_elem % 2 == 0:
-            return self.ops_n_elem / 2
-        else:
-            raise ValueError(f'Number of elements should be even {self.ops_n_elem = }')
-    
-    def build_ops_model(self, section_id, section_args, section_kwargs):
+            return self.ops_n_elem // 2
+        raise ValueError(f'Number of elements should be even {self.ops_n_elem = }')
+
+
     def build_ops_model(self, *section_args, **kwargs):
         """
            Build the OpenSees finite element model for the non-sway 2D column.
