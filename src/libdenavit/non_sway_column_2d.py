@@ -157,8 +157,6 @@ class NonSwayColumn2d:
         for attribute in attributes:
             setattr(results, attribute, [])
 
-        time_domain = []
-
         # Define function to find limit point
         def find_limit_point():
             if 'Analysis Failed' in results.exit_message:
@@ -695,16 +693,15 @@ class NonSwayColumn2d:
         maximum_tensile_steel_strain = []
         for i in range(self.ops_n_elem):
             for j  in range(self.ops_integration_points):
+                axial_strain, curvatureX, curvatureY = 0, 0, 0
                 if self.axis == 'x':
                     axial_strain, curvatureX = ops.eleResponse(i,  # element tag
                                                    'section', j+1, # select integration point
                                                    'deformation')  # response type
-                    curvatureY = 0
                 elif self.axis == 'y':
                     axial_strain, curvatureY = ops.eleResponse(i,  # element tag
                                                    'section', j+1, # select integration point
                                                    'deformation')  # response type
-                    curvatureX = 0
                 else:
                     raise ValueError("The axis is not supported.")
 
@@ -726,9 +723,11 @@ class NonSwayColumn2d:
 
 
     @property
-    def Cm(self):
-        Cm = 0.6 + 0.4 * min([self.et, self.eb], key=abs) / max([self.et, self.eb], key=abs)
-        return Cm
+    def Cm(self) -> float:
+        return 0.6 + 0.4 * min(self.et, self.eb, key=abs) / max(self.et, self.eb, key=abs)
+
+
+    def calculated_EI_ops(self, P_list, M1_list, M2_list, Pc_factor=1) -> dict:
         """
             Back-calculate the effective flexural stiffness (EI) based on OpenSees results.
 
@@ -747,7 +746,6 @@ class NonSwayColumn2d:
                 - 'EIgross': Gross flexural stiffness of the section
         """
 
-    def calculated_EI_ops(self, P_list, M1_list, M2_list, Pc_factor=1):
         P_list = np.array(P_list)
         M1_list = np.array(M1_list)
         M2_list = np.array(M2_list)
@@ -775,7 +773,8 @@ class NonSwayColumn2d:
 
         return {"P":np.array(P_list), "M1":np.array(M1_list),"EI_ops":np.array(EI_list_ops), "EIgross":EIgross}
 
-    def calculated_EI_design(self, P_list, M1_list, section_factored=False, Pc_factor=1):
+
+    def calculated_EI_design(self, P_list, M1_list, section_factored=False, Pc_factor=1) -> dict: 
         """
             Back-calculate the effective flexural stiffness (EI) based on OpenSees and AASHTO values.
 
