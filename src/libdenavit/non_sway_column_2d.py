@@ -36,7 +36,6 @@ class NonSwayColumn2d:
         self.length = length
         self.et = et
         self.eb = eb
-        self.include_initial_geometric_imperfections = True
         self.dxo = kwargs.get('dxo', 0.0)
         self.axis = kwargs.get('axis', None)
         
@@ -76,10 +75,12 @@ class NonSwayColumn2d:
         ops.model('basic', '-ndm', 2, '-ndf', 3)
         
         for index in range(self.ops_n_elem + 1):
-            if self.include_initial_geometric_imperfections:
+            if isinstance(self.dxo, (int, float)):
                 x = sin(index / self.ops_n_elem * pi) * self.dxo
-            else:
+            elif self.dxo == None:
                 x = 0.
+            else:
+                raise ValueError(f'Unknown value of dxo ({self.dxo})')
             y = index / self.ops_n_elem * self.length
             ops.node(index, x, y)
             ops.mass(index, 1, 1, 1)
