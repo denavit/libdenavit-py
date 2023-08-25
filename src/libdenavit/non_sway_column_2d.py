@@ -10,6 +10,27 @@ from scipy.optimize import fsolve
 
 class NonSwayColumn2d:
     def __init__(self, section, length, et, eb, dxo=0.0, n_elem=6, axis=None):
+        """
+            Represents a non-sway 2D column
+
+            This class defines a non-sway column element with physical parameters such as section properties,
+            length, and material properties. It also allows customization of analysis options.
+
+            Parameters:
+                section: The section object representing the cross-sectional properties.
+                length: The length of the entire column.
+                et: The eccentricity at the top of the column.
+                eb: The eccentricity at the bottom of the column.
+                **kwargs: Additional keyword arguments for customization.
+                          dxo (float or None, optional): Initial geometric imperfection.
+                                                         Default is 0.0. If None, then no imperfection is included.
+                          axis (str, optional): Axis. Default is None.
+                          n_elem (int, optional): Number of elements for OpenSees analysis. Default is 6.
+                          element_type (str, optional): Type of OpenSees element. Default is 'mixedBeamColumn'.
+                          ops_geom_transf_type (str, optional): OpenSees geometric transformation type. Default is 'Corotational'.
+                          ops_integration_points (int, optional): Number of integration points for OpenSees analysis. Default is 3.
+        """
+
         # Physical parameters
         self.section = section
         self.length = length
@@ -35,6 +56,22 @@ class NonSwayColumn2d:
             raise ValueError(f'Number of elements should be even {self.ops_n_elem = }')
     
     def build_ops_model(self, section_id, section_args, section_kwargs):
+        """
+           Build the OpenSees finite element model for the non-sway 2D column.
+
+           This method constructs the finite element model in OpenSees for the non-sway 2D column element.
+
+           Parameters:
+               *section_args: Arguments required for building the section using OpenSees.
+                             (For RC section the args are: section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx)
+               **kwargs: Additional keyword arguments.
+                         start_node_fixity (tuple, optional): Fixity conditions at the start node. Default is (1, 1, 0).
+                         end_node_fixity (tuple, optional): Fixity conditions at the end node. Default is (1, 0, 0).
+
+           Returns:
+               None
+       """
+
         ops.wipe()
         ops.model('basic', '-ndm', 2, '-ndf', 3)
         
@@ -78,9 +115,9 @@ class NonSwayColumn2d:
                 - 'nonproportional_target_force' (not yet implemented)
                 - 'proportional_target_disp' (not yet implemented)
                 - 'nonproportional_target_disp' (not yet implemented)
-        section_args : list
+        *section_args :
             Non-keyworded arguments for the section's build_ops_fiber_section
-        section_kwargs : dict
+        **kwargs :
             Keyworded arguments for the section's build_ops_fiber_section
         
         Loading Notes
@@ -93,7 +130,6 @@ class NonSwayColumn2d:
           with a ratio of LFH/LFV = e (P is ignored)
         - For non-proportional analyses, LFV is increased to P first then held
           constant, then LFH is increased (e is ignored)
-          
         """
 
         if deformation_limit == 'default':
@@ -101,7 +137,7 @@ class NonSwayColumn2d:
 
         self.build_ops_model(1, section_args, section_kwargs)
         
-        # Initilize analysis results
+        # Initialize analysis results
         results = AnalysisResults()
         attributes = ['applied_axial_load', 'applied_moment_top', 'applied_moment_bot', 'maximum_abs_moment',
                       'maximum_abs_disp', 'lowest_eigenvalue', 'maximum_concrete_compression_strain',
@@ -528,15 +564,30 @@ class NonSwayColumn2d:
 
     def run_AASHTO_interaction(self, EI_type, num_points=10, section_factored=True, Pc_factor=0.75, beta_dns=0,
                                minimum_eccentricity=False):
-    
-        # beta_dns is the ratio of the maximum factored sustained axial load divided by
-        # the total factored axial load associated with the same load combination
-        # default is zero (i.e., short term loading)
-        
-        # Note that this function uses 
-        #   M1 to mean applied first-order moment 
-        #   M2 to mean internal second-order moment
-        # this notation is differnt than what is used in AASHTO.
+        """
+        Perform AASHTO LRFD-based interaction analysis for the column.
+
+            Parameters:
+                EI_type (str): The type of effective flexural stiffness of member to use in the analysis.
+                num_points (int, optional): The number of points to use in the interaction diagram. Default is 10.
+                section_factored (bool, optional): Whether to use factored section properties. Default is True.
+                Pc_factor (float, optional): The factor to use in calculating the buckling load. Default is 0.75.
+                beta_dns (float, optional): The ratio of the maximum factored sustained axial load to the total factored axial load
+                                        for the same load combination. Default is 0 (short-term loading).
+                minimum_eccentricity (bool, optional): Whether to consider minimum eccentricity in the analysis. Default is False.
+
+            Note:
+              This function uses the notation:
+                - M1 to represent the applied first-order moment.
+                - M2 to represent the internal second-order moment.
+                - This notation differs from the notation used in AASHTO.
+
+            Returns:
+            dict: A dictionary containing interaction diagram data:
+                - 'P': Array of axial loads
+                - 'M1': Array of applied first-order moments
+                - 'M2': Array of internal second-order moments
+        """
         
         # Get cross-sectional interaction diagram
         P_id, M_id, _ = self.section.section_interaction_2d(self.axis, 100, factored=section_factored,
@@ -672,6 +723,23 @@ class NonSwayColumn2d:
     def Cm(self):
         Cm = 0.6 + 0.4 * min([self.et, self.eb], key=abs) / max([self.et, self.eb], key=abs)
         return Cm
+        """
+            Back-calculate the effective flexural stiffness (EI) based on OpenSees results.
+
+            Parameters:
+                P_list (array-like): Array of axial loads.
+                M1_list (array-like): Array of applied first-order moments.
+                M2_list (array-like): Array of internal second-order moments.
+                Pc_factor (float, optional): The factor to use in calculating the critical buckling load.
+                                            Default is 1.
+
+            Returns:
+            dict: A dictionary containing back-calculated EI values for operational load conditions:
+                - 'P': Array of axial loads
+                - 'M1': Array of applied first-order moments
+                - 'EI_ops': Array of back-calculated effective flexural stiffness values
+                - 'EIgross': Gross flexural stiffness of the section
+        """
 
     def calculated_EI_ops(self, P_list, M1_list, M2_list, Pc_factor=1):
         P_list = np.array(P_list)
@@ -702,6 +770,23 @@ class NonSwayColumn2d:
         return {"P":np.array(P_list), "M1":np.array(M1_list),"EI_ops":np.array(EI_list_ops), "EIgross":EIgross}
 
     def calculated_EI_design(self, P_list, M1_list, section_factored=False, Pc_factor=1):
+        """
+            Back-calculate the effective flexural stiffness (EI) based on OpenSees and AASHTO values.
+
+            Parameters:
+                P_list (array-like): Array of axial loads.
+                M1_list (array-like): Array of applied first-order moments.
+                Pc_factor (float, optional): The factor to use in calculating the critical buckling load.
+                                            Default is 1.
+
+            Returns:
+            dict: A dictionary containing back-calculated EI values for operational load conditions:
+                - 'P': Array of axial loads
+                - 'M1': Array of applied first-order moments
+                - 'EI_AASHTO': Array of back-calculated effective flexural stiffness values
+                - 'EIgross': Gross flexural stiffness of the section
+        """
+
         P_list = np.array(P_list)
         M1_list = np.array(M1_list)
         EIgross = self.section.EIgross(self.axis)
