@@ -140,20 +140,16 @@ class SwayColumn2d:
         - For non-proportional analyses, LFV is increased to P first then held
           constant, then LFH is increased (e is ignored)
         """
-
-        defaults = {'e': 1.0,
-                    'P': 0,
-                    'num_steps_vertical': 10,
-                    'disp_incr_factor': 5e-05,
-                    'eigenvalue_limit': 0,
-                    'percent_load_drop_limit': 0.05,
-                    'concrete_strain_limit': -0.01,
-                    'steel_strain_limit': 0.05,
-                    'deformation_limit': "default",
-                    'try_smaller_steps': True
-                    }
-        for key, value in defaults.items():
-            vars()[key] = kwargs.get(key, value)
+        e = kwargs.get('e', 1.0)
+        P = kwargs.get('P', 0)
+        num_steps_vertical = kwargs.get('num_steps_vertical', 10)
+        disp_incr_factor = kwargs.get('disp_incr_factor', 5e-05)
+        eigenvalue_limit = kwargs.get('eigenvalue_limit', 0)
+        percent_load_drop_limit = kwargs.get('percent_load_drop_limit', 0.05)
+        concrete_strain_limit = kwargs.get('concrete_strain_limit', -0.01)
+        steel_strain_limit = kwargs.get('steel_strain_limit', 0.05)
+        deformation_limit = kwargs.get('deformation_limit', "default")
+        try_smaller_steps = kwargs.get('try_smaller_steps', True)
 
         if deformation_limit == "default":
             deformation_limit = 0.1 * self.length
@@ -516,13 +512,10 @@ class SwayColumn2d:
 
 
     def run_ops_interaction(self, *section_args, **kwargs):
-        defaults = {'num_points': 10,
-                    'prop_disp_incr_factor': 1e-7,
-                    'nonprop_disp_incr_factor': 1e-4,
-                    'section_load_factor': 1e-1,
-                    }
-        for key, value in defaults.items():
-            vars()[key] = kwargs.get(key, value)
+        num_points = kwargs.get('num_points', 10)
+        prop_disp_incr_factor = kwargs.get('prop_disp_incr_factor', 1e-7)
+        nonprop_disp_incr_factor = kwargs.get('nonprop_disp_incr_factor', 1e-4)
+        section_load_factor = kwargs.get('section_load_factor', 1e-1)
 
         plot_load_deformation = False
         if plot_load_deformation:
@@ -636,14 +629,10 @@ class SwayColumn2d:
         #   M1 to mean applied first-order moment
         #   M2 to mean internal second-order moment
         # this notation is different from what is used in AASHTO.
-
-        defaults = {'num_points':10,
-                    'section_factored':True,
-                    'Pc_factor':0.75,
-                    'beta_dns':0,
-                    'minimum_eccentricity':False}
-        for key, value in defaults.items():
-            vars()[key] = kwargs.get(key, value)
+        num_points = kwargs.get('num_points', 10)
+        section_factored = kwargs.get('section_factored', True)
+        Pc_factor = kwargs.get('Pc_factor', 0.75)
+        beta_dns = kwargs.get('beta_dns', 0)
         # Get cross-sectional interaction diagram
         P_id, M_id, _ = self.section.section_interaction_2d(self.axis, 100, factored=section_factored)
         id2d = InteractionDiagram2d(M_id, P_id, is_closed=True)
