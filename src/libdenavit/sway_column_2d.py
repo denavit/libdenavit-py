@@ -9,28 +9,27 @@ import numpy as np
 
 
 class SwayColumn2d:   
-    def __init__(self, section, length, k_bot, k_top, gamma, dxo=0.0, Dxo=0.0, n_elem=6, axis=None):
+    def __init__(self, section, length, k_bot, k_top, gamma, **kwargs):
         # Physical parameters
         # Note that the rotational spring stiffnesses (k_top and b_bot) 
         # can be defined from G using k = (6*EI_col)/(G*L)
         self.section = section
         self.length = length
-        self.dxo = dxo
-        self.Dxo = Dxo
         self.k_top = k_top
         self.k_bot = k_bot
         self.gamma = gamma
-        self.axis = axis
+        defaults = {'dxo': 0.0,
+                    'Dxo': 0.0,
+                    'n_elem': 6,
+                    'axis': 'x',
+                    'effective_length_factor_override': None,
+                    'ops_element_type': "mixedBeamColumn",
+                    'ops_geom_transf_type': "Corotational",
+                    'ops_integration_points': 3
+                    }
+        for key, value in defaults.items():
+            setattr(self, key, kwargs.get(key, value))
 
-        # General options
-        self.include_initial_geometric_imperfections = True
-        self.effective_length_factor_override = None
-        
-        # OpenSees analysis options
-        self.ops_n_elem = n_elem
-        self.ops_element_type = "mixedBeamColumn"
-        self.ops_geom_transf_type = "Corotational"
-        self.ops_integration_points = 3
 
     @property
     def lever_arm(self):
@@ -43,7 +42,7 @@ class SwayColumn2d:
         else:
             raise ValueError(f'lever_arm not implemented for k_bot = {self.k_bot} and k_top = {self.k_top}')
 
-    def build_ops_model(self, section_id, section_args, section_kwargs):
+    def build_ops_model(self, *section_args, **kwargs):
         ops.wipe()
         ops.model('basic', '-ndm', 2, '-ndf', 3)
         
@@ -104,7 +103,7 @@ class SwayColumn2d:
         ops.geomTransf(self.ops_geom_transf_type, 100)
 
         if type(self.section).__name__ == "RC":
-            self.section.build_ops_fiber_section(section_id, axis=self.axis, *section_args, **section_kwargs)
+            self.section.build_ops_fiber_section(*section_args, **kwargs)
         else:
             raise ValueError(f'Unknown cross section type {type(self.section).__name__}')
 
@@ -113,11 +112,8 @@ class SwayColumn2d:
         for index in range(self.ops_n_elem):
             ops.element(self.ops_element_type, index, index, index + 1, 100, 1)
 
-    def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=1.0, P=0, num_steps_vertical=10,
-                         disp_incr_factor=0.00005, eigenvalue_limit=0, percent_load_drop_limit = 0.05,
-                         concrete_strain_limit=-0.01, steel_strain_limit = 0.05, deformation_limit="default",
-                         try_smaller_steps=True):
 
+    def run_ops_analysis(self, analysis_type, *section_args, **kwargs):
         """ Run an OpenSees analysis of the column
         
         Parameters
@@ -144,11 +140,25 @@ class SwayColumn2d:
         - For non-proportional analyses, LFV is increased to P first then held
           constant, then LFH is increased (e is ignored)
         """
-        
+
+        defaults = {'e': 1.0,
+                    'P': 0,
+                    'num_steps_vertical': 10,
+                    'disp_incr_factor': 5e-05,
+                    'eigenvalue_limit': 0,
+                    'percent_load_drop_limit': 0.05,
+                    'concrete_strain_limit': -0.01,
+                    'steel_strain_limit': 0.05,
+                    'deformation_limit': "default",
+                    'try_smaller_steps': True
+                    }
+        for key, value in defaults.items():
+            vars()[key] = kwargs.get(key, value)
+
         if deformation_limit == "default":
             deformation_limit = 0.1 * self.length
 
-        self.build_ops_model(1, section_args, section_kwargs)
+        self.build_ops_model(*section_args, **kwargs)
 
         # region Initialize analysis results
         results = AnalysisResults()
@@ -504,8 +514,16 @@ class SwayColumn2d:
         else:
             raise ValueError(f'Analysis type {analysis_type} not implemented')
 
-    def run_ops_interaction(self, section_args, section_kwargs, num_points=10, prop_disp_incr_factor=1e-7,
-                            nonprop_disp_incr_factor=1e-4, section_load_factor=1e-1):
+
+    def run_ops_interaction(self, *section_args, **kwargs):
+        defaults = {'num_points': 10,
+                    'prop_disp_incr_factor': 1e-7,
+                    'nonprop_disp_incr_factor': 1e-4,
+                    'section_load_factor': 1e-1,
+                    }
+        for key, value in defaults.items():
+            vars()[key] = kwargs.get(key, value)
+
         plot_load_deformation = False
         if plot_load_deformation:
             fig_at_step, ax_at_step = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [3, 1]})
@@ -608,9 +626,8 @@ class SwayColumn2d:
             raise ValueError('Cm not implemented for unequal top and bottom stiffness')
         return Cm
 
-    def run_AASHTO_interaction(self, EI_type, num_points=10, section_factored=True, Pc_factor=0.75, beta_dns=0,
-                               minimum_eccentricity=False):
 
+    def run_AASHTO_interaction(self, EI_type, **kwargs):
         # beta_dns is the ratio of the maximum factored sustained axial load divided by
         # the total factored axial load associated with the same load combination
         # default is zero (i.e., short term loading)
@@ -620,6 +637,13 @@ class SwayColumn2d:
         #   M2 to mean internal second-order moment
         # this notation is different from what is used in AASHTO.
 
+        defaults = {'num_points':10,
+                    'section_factored':True,
+                    'Pc_factor':0.75,
+                    'beta_dns':0,
+                    'minimum_eccentricity':False}
+        for key, value in defaults.items():
+            vars()[key] = kwargs.get(key, value)
         # Get cross-sectional interaction diagram
         P_id, M_id, _ = self.section.section_interaction_2d(self.axis, 100, factored=section_factored)
         id2d = InteractionDiagram2d(M_id, P_id, is_closed=True)

@@ -36,14 +36,15 @@ class NonSwayColumn2d:
         self.length = length
         self.et = et
         self.eb = eb
-        self.dxo = kwargs.get('dxo', 0.0)
-        self.axis = kwargs.get('axis', None)
-        
-        # OpenSees analysis options
-        self.ops_n_elem = kwargs.get('n_elem', 6)
-        self.ops_element_type = kwargs.get('element_type', 'mixedBeamColumn')
-        self.ops_geom_transf_type = kwargs.get('ops_geom_transf_type', 'Corotational')
-        self.ops_integration_points = kwargs.get('ops_integration_points', 3)
+        defaults = {'dxo': 0.0,
+                    'axis': None,
+                    'n_elem': 6,
+                    'element_type': 'mixedBeamColumn',
+                    'ops_geom_transf_type': 'Corotational',
+                    'ops_integration_points': 3
+                    }
+        for key, value in defaults.items():
+            setattr(self, key, kwargs.get(key, value))
 
     
     @property
@@ -133,15 +134,19 @@ class NonSwayColumn2d:
         """
 
         e = kwargs.get('e', 1.0)
-        P = kwargs.get('P', 0)
-        num_steps_vertical = kwargs.get('num_steps_vertical', 10)
-        disp_incr_factor = kwargs.get('disp_incr_factor', 1e-5)
-        eigenvalue_limit = kwargs.get('eigenvalue_limit', 0)
-        deformation_limit = kwargs.get('deformation_limit', 'default')
-        concrete_strain_limit = kwargs.get('concrete_strain_limit', -0.01)
-        steel_strain_limit = kwargs.get('steel_strain_limit', 0.05)
-        percent_load_drop_limit = kwargs.get('percent_load_drop_limit', 0.05)
-        try_smaller_steps = kwargs.get('try_smaller_steps', True)
+        defaults = {'e': 1.0,
+            'P': 0,
+            'num_steps_vertical': 10,
+            'disp_incr_factor': 1e-5,
+            'eigenvalue_limit': 0,
+            'deformation_limit': 'default',
+            'concrete_strain_limit': -0.01,
+            'steel_strain_limit': 0.05,
+            'percent_load_drop_limit': 0.05,
+            'try_smaller_steps': True
+                    }
+        for key, value in defaults.items():
+            vars()[key] = kwargs.get(key, value)
 
         if deformation_limit == 'default':
             deformation_limit = 0.1 * self.length/2
@@ -504,10 +509,12 @@ class NonSwayColumn2d:
             raise ValueError(f'Analysis type {analysis_type} not implemented')
 
     def run_ops_interaction(self, *section_args, **kwargs):
-        num_points = kwargs.get('num_points', 10)
-        prop_disp_incr_factor = kwargs.get('prop_disp_incr_factor', 1e-6)
-        nonprop_disp_incr_factor = kwargs.get('nonprop_disp_incr_factor', 1e-5)
-        section_load_factor = kwargs.get('section_load_factor', 1e-1)
+        defaults = {'num_points': 10,
+                    'prop_disp_incr_factor': 1e-6,
+                    'section_load_factor': 1e-1
+                    }
+        for key, value in defaults.items():
+            vars()[key] = kwargs.get(key, value)
 
         plot_load_deformation = False
         if plot_load_deformation:
@@ -571,8 +578,8 @@ class NonSwayColumn2d:
 
         return {'P': np.array(P), 'M1': np.array(M1), 'M2': np.array(M2)}
 
-    def run_AASHTO_interaction(self, EI_type, num_points=10, section_factored=True, Pc_factor=0.75, beta_dns=0,
-                               minimum_eccentricity=False):
+
+    def run_AASHTO_interaction(self, EI_type, **kwargs):
         """
         Perform AASHTO LRFD-based interaction analysis for the column.
 
@@ -597,7 +604,13 @@ class NonSwayColumn2d:
                 - 'M1': Array of applied first-order moments
                 - 'M2': Array of internal second-order moments
         """
-        
+        defaults = {'num_points': 10,
+                    'section_factored': True,
+                    'Pc_factor': 0.75,
+                    'beta_dns': 0,
+                    'minimum_eccentricity': False}
+        for key, value in defaults.items():
+            vars()[key] = kwargs.get(key, value)
         # Get cross-sectional interaction diagram
         P_id, M_id, _ = self.section.section_interaction_2d(self.axis, 100, factored=section_factored,
                                                             only_compressive=True)
