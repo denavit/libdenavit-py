@@ -721,7 +721,26 @@ class SwayColumn2d:
 
         return K
 
-    def calculated_EI_ops(self, P_list, M1_list, M2_list, Pc_factor=1):
+
+    def calculated_EI_ops(self, P_list, M1_list, M2_list, Pc_factor=1) -> dict:
+        """
+            Back-calculate the effective flexural stiffness (EI) based on OpenSees results.
+
+            Parameters:
+                P_list (array-like): Array of axial loads.
+                M1_list (array-like): Array of applied first-order moments.
+                M2_list (array-like): Array of internal second-order moments.
+                Pc_factor (float, optional): The factor to use in calculating the critical buckling load.
+                                            Default is 1.
+
+            Returns:
+            dict: A dictionary containing back-calculated EI values for operational load conditions:
+                - 'P': Array of axial loads
+                - 'M1': Array of applied first-order moments
+                - 'EI_ops': Array of back-calculated effective flexural stiffness values
+                - 'EIgross': Gross flexural stiffness of the section
+        """
+
         P_list = np.array(P_list)
         M1_list = np.array(M1_list)
         M2_list = np.array(M2_list)
@@ -750,7 +769,23 @@ class SwayColumn2d:
         return {"P": np.array(P_list), "M1": np.array(M1_list), "EI_ops": np.array(EI_list_ops), "EIgross": EIgross}
 
 
-    def calculated_EI_design(self, P_list, M1_list, section_factored=False, Pc_factor=1):
+    def calculated_EI_design(self, P_list, M1_list, section_factored=False, Pc_factor=1) -> dict:
+        """
+            Back-calculate the effective flexural stiffness (EI) based on OpenSees and AASHTO values.
+
+            Parameters:
+                P_list (array-like): Array of axial loads.
+                M1_list (array-like): Array of applied first-order moments.
+                Pc_factor (float, optional): The factor to use in calculating the critical buckling load.
+                                            Default is 1.
+
+            Returns:
+            dict: A dictionary containing back-calculated EI values for operational load conditions:
+                - 'P': Array of axial loads
+                - 'M1': Array of applied first-order moments
+                - 'EI_AASHTO': Array of back-calculated effective flexural stiffness values
+                - 'EIgross': Gross flexural stiffness of the section
+        """
         P_list = np.array(P_list)
         M1_list = np.array(M1_list)
         EIgross = self.section.EIgross(self.axis)
