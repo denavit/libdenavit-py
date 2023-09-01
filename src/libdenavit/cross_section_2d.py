@@ -13,7 +13,7 @@ class CrossSection2d:
         self.section = section
         self.axis = axis
 
-    def build_ops_model(self, section_id, section_args, section_kwargs):
+    def build_ops_model(self, *section_args, **section_kwargs):
         ops.wipe()
         ops.model('basic', '-ndm', 2, '-ndf', 3)
 
@@ -28,19 +28,13 @@ class CrossSection2d:
         ops.mass(2, 1, 1, 1)
 
         if type(self.section).__name__ == "RC":
-            self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs, axis=self.axis)
+            self.section.build_ops_fiber_section(*section_args, **section_kwargs, axis=self.axis)
         else:
             raise ValueError(f'Unknown cross section type {type(self.section).__name__}')
 
-        ops.element('zeroLengthSection', 1, 1, 2, section_id)
+        ops.element('zeroLengthSection', 1, 1, 2, section_args[0])
 
-    def run_ops_analysis(self, analysis_type, section_args, section_kwargs, e=0, P=0, num_steps_vertical=20,
-                         load_incr_factor=1e-3, disp_incr_factor=1e-7,
-                         eigenvalue_limit=0,
-                         percent_load_drop_limit=0.05,
-                         concrete_strain_limit=-0.01,
-                         steel_strain_limit=0.05,
-                         try_smaller_steps=True):
+    def run_ops_analysis(self, analysis_type, *section_args, **kwargs):
         """
         Run an OpenSees analysis of the section.
 
@@ -113,8 +107,18 @@ class CrossSection2d:
         - For non-proportional analyses, LFV is increased to P first then held
           constant, then LFH is increased (e is ignored).
         """
+        e = kwargs.get('e', 0)
+        P = kwargs.get('P', 0)
+        num_steps_vertical = kwargs.get('num_steps_vertical', 20)
+        load_incr_factor = kwargs.get('load_incr_factor', 1e-3)
+        disp_incr_factor = kwargs.get('disp_incr_factor', 1e-5)
+        eigenvalue_limit = kwargs.get('eigenvalue_limit', 0)
+        percent_load_drop_limit = kwargs.get('percent_load_drop_limit', 0.05)
+        concrete_strain_limit = kwargs.get('concrete_strain_limit', -0.01)
+        steel_strain_limit = kwargs.get('steel_strain_limit', 0.05)
+        try_smaller_steps = kwargs.get('try_smaller_steps', True)
 
-        self.build_ops_model(1, section_args, section_kwargs)
+        self.build_ops_model(*section_args)
 
         # Initialize analysis results
         results = AnalysisResults()
