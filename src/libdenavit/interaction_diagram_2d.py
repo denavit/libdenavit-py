@@ -153,19 +153,24 @@ class InteractionDiagram2d():
         return Y
 
 
-    def plot(self, *args):
-        if  len(args) == 0:
-            plt.plot(self.idx, self.idy, '-o')
+    def plot(self, *args, **kwargs):
+        if len(args) == 0 and len(kwargs) == 0:
+            args = ['-o']
+
+        if self.is_closed:
+            plt.plot(self.idx+[self.idx[0]], self.idy+[self.idy[0]], *args, **kwargs)
         else:
-            plt.plot(self.idx, self.idy, *args)
+            plt.plot(self.idx, self.idy, *args, **kwargs)
 
 
 if __name__ == "__main__":
 
-    a1 = [0.9, 1.0, 0.8, 0.0]
+    # Interaction Diagram 1
+    a1 = [0.9, 1.1, 0.8, 0.0]
     b1 = [0.0, 0.4, 0.9, 1.0]
     c1 = InteractionDiagram2d(a1, b1)
 
+    # Interaction Diagram 2
     a2 = [0.8, 1.0, 0.8, 0.0]
     b2 = [0.0, 0.4, 1.0, 1.1]
     c2 = InteractionDiagram2d(a2, b2)
@@ -184,10 +189,12 @@ if __name__ == "__main__":
     print("Find Y given X: \n",
           c1.find_y_given_x(0.9, '+'))
 
+    c1.plot('-r', label='Interaction Diagram 1')
     plt.plot(distance*np.cos(angles), distance*np.sin(angles), 'bo', label='Angle Points')
-    plt.plot(a1, b1, '-r', label='Interaction Diagram 1')
-    plt.plot(a2, b2, '-g', label='Interaction Diagram 2')
-    plt.plot(*c1.find_intersection(a2, b2), "ro")
+
+    c2.plot('-g', label='Interaction Diagram 2')
+    plt.plot(*c1.find_intersection(a2, b2), "k*", label='Intersection Point')
+
     plt.legend()
 
     plt.show()
