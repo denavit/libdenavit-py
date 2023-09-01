@@ -43,12 +43,13 @@ def plot_deformed_2d(scale_factor=1.0,show_undeformed=True,axis_equal=False):
     (node_coords,node_disp) = get_node_coords_and_disp()
     element_nodes = get_element_nodes()
     fig = plt.figure()
-    for i in element_nodes:
-        coordi = node_coords[element_nodes[i][0]]
-        coordj = node_coords[element_nodes[i][1]]
-        xplt = [coordi[0],coordj[0]]
-        yplt = [coordi[1],coordj[1]]
-        plt.plot(xplt,yplt,'o-',color='lightgrey')
+    if show_undeformed:
+        for i in element_nodes:
+            coordi = node_coords[element_nodes[i][0]]
+            coordj = node_coords[element_nodes[i][1]]
+            xplt = [coordi[0],coordj[0]]
+            yplt = [coordi[1],coordj[1]]
+            plt.plot(xplt,yplt,'-',color='lightgrey')
     for i in element_nodes:
         coordi = node_coords[element_nodes[i][0]]
         coordj = node_coords[element_nodes[i][1]]
