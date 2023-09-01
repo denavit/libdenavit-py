@@ -571,6 +571,7 @@ class SwayColumn2d:
         results = {'P': np.array(P), 'M1': np.array(M1), 'M2': np.array(M2), 'exit_message': exit_message}
         return results
 
+
     def ops_get_section_strains(self):
         maximum_concrete_compression_strain = []
         maximum_tensile_steel_strain = []
@@ -593,6 +594,7 @@ class SwayColumn2d:
                                                            axial_strain, curvatureX=curvatureX, curvatureY=curvatureY))
         return min(maximum_concrete_compression_strain), max(maximum_tensile_steel_strain), curvatureX, curvatureY
 
+
     def ops_get_maximum_abs_moment(self):
         # This code assumed (but does not check) that moment at j-end of 
         # one element equals the moment at the i-end of the next element.
@@ -602,12 +604,14 @@ class SwayColumn2d:
 
         return max(moment)
 
+
     def ops_get_maximum_abs_disp(self):
         disp = []
         for i in range(self.ops_n_elem + 1):
             disp.append(abs(ops.nodeDisp(i, 1)))
             max_disp = max(disp)
         return max_disp, disp.index(max_disp)
+
 
     @property
     def Cm(self):
