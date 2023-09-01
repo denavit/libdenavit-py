@@ -52,10 +52,11 @@ class SwayColumn2d:
 
         # Defining nodes
         for index in range(self.ops_n_elem + 1):
-            if self.include_initial_geometric_imperfections:
+            if isinstance(self.dxo, (int, float)) and isinstance(self.Dxo, (int, float)):
                 x = sin(index / self.ops_n_elem * pi) * self.dxo + index / self.ops_n_elem * self.Dxo
             else:
-                x = 0.
+                raise ValueError(f'Unknown value of dxo ({self.dxo}) or Dxo ({self.Dxo})')
+
             y = index / self.ops_n_elem * self.length
             ops.node(index, x, y)
             ops.mass(index, 1, 1, 1)
@@ -522,7 +523,7 @@ class SwayColumn2d:
             fig_at_step, ax_at_step = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [3, 1]})
 
         # Run one axial load only analyis to determine maximum axial strength
-        results = self.run_ops_analysis('proportional_limit_point', section_args, section_kwargs, e=0,
+        results = self.run_ops_analysis('proportional_limit_point', *section_args, e=0,
                                         disp_incr_factor=prop_disp_incr_factor, deformation_limit=None)
         P = [results.applied_axial_load_at_limit_point]
         M1 = [0]
@@ -536,14 +537,14 @@ class SwayColumn2d:
             iP = P[0] * (num_points - 1 - i) / (num_points - 1)
             if iP == 0:
                 cross_section = CrossSection2d(self.section, self.axis)
-                results = cross_section.run_ops_analysis('nonproportional_limit_point', section_args, section_kwargs,
+                results = cross_section.run_ops_analysis('nonproportional_limit_point',*section_args,
                                                          P=0, load_incr_factor=section_load_factor)
                 P.append(iP)
                 M1.append(results.maximum_abs_moment_at_limit_point)
                 M2.append(results.maximum_abs_moment_at_limit_point)
                 exit_message.append(results.exit_message)
             else:
-                results = self.run_ops_analysis('nonproportional_limit_point', section_args, section_kwargs, P=abs(iP),
+                results = self.run_ops_analysis('nonproportional_limit_point', *section_args, P=abs(iP),
                                                 disp_incr_factor=nonprop_disp_incr_factor, deformation_limit=None)
                 P.append(iP)
                 M1.append(abs(results.applied_horizontal_load_at_limit_point * self.lever_arm))
