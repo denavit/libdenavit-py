@@ -13,16 +13,31 @@ class CrossSection2d:
         self.section = section
         self.axis = axis
 
-    def build_ops_model(self, *section_args, **section_kwargs):
+    def build_ops_model(self, section_args, section_kwargs, **kwargs):
+        """
+           Build the OpenSees finite element model for the 2d cross section.
+
+           Parameters:
+               section_args: Positional arguments for building the section using OpenSees via section.build_ops_fiber_section().
+                             (For RC sections the args are: section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx)
+               section_kwargs: Keword arguments for building the section using OpenSees via section.build_ops_fiber_section().
+                               (For RC sections, no kwargs are necessary).
+               **kwargs: Additional keyword arguments.
+                         start_node_fixity (tuple, optional): Fixity conditions at the start node. Default is (1, 1, 0).
+                         end_node_fixity (tuple, optional): Fixity conditions at the end node. Default is (1, 0, 0).
+
+           Returns:
+               None
+       """
         ops.wipe()
         ops.model('basic', '-ndm', 2, '-ndf', 3)
 
         ops.node(1, 0, 0)
-        node1_fixity = section_kwargs.get('node1_fixity', (1, 1, 1))
+        node1_fixity = kwargs.get('node1_fixity', (1, 1, 1))
         ops.fix(1, *node1_fixity)
 
         ops.node(2, 0, 0)
-        node2_fixity = section_kwargs.get('node2_fixity', (0, 1, 0))
+        node2_fixity = kwargs.get('node2_fixity', (0, 1, 0))
         ops.fix(2, *node2_fixity)
 
         ops.mass(2, 1, 1, 1)
@@ -34,7 +49,7 @@ class CrossSection2d:
 
         ops.element('zeroLengthSection', 1, 1, 2, section_args[0])
 
-    def run_ops_analysis(self, analysis_type, *section_args, **kwargs):
+    def run_ops_analysis(self, analysis_type, **kwargs):
         """
         Run an OpenSees analysis of the section.
 
@@ -107,6 +122,10 @@ class CrossSection2d:
         - For non-proportional analyses, LFV is increased to P first then held
           constant, then LFH is increased (e is ignored).
         """
+        
+        # Parse keyword arguments
+        section_args = kwargs.get('section_args', [])
+        section_kwargs = kwargs.get('section_kwargs', {})
         e = kwargs.get('e', 0)
         P = kwargs.get('P', 0)
         num_steps_vertical = kwargs.get('num_steps_vertical', 20)
@@ -118,7 +137,8 @@ class CrossSection2d:
         steel_strain_limit = kwargs.get('steel_strain_limit', 0.05)
         try_smaller_steps = kwargs.get('try_smaller_steps', True)
 
-        self.build_ops_model(*section_args)
+        # Build OpenSees model
+        self.build_ops_model(section_args, section_kwargs)
 
         # Initialize analysis results
         results = AnalysisResults()
@@ -467,14 +487,22 @@ class CrossSection2d:
         else:
             raise ValueError(f'Analysis type {analysis_type} not implemented')
 
-    def run_ops_interaction(self, section_args, section_kwargs, num_points=10,
-                            prop_load_incr_factor=1e-3, nonprop_disp_incr_factor=1e-4):
+    def run_ops_interaction(self, **kwargs):
+
+        # Parse keyword arguments
+        section_args = kwargs.get('section_args', [])
+        section_kwargs = kwargs.get('section_kwargs', {})
+        num_points = kwargs.get('num_points', 10)
+        prop_disp_incr_factor = kwargs.get('prop_disp_incr_factor', 1e-3)
+        nonprop_disp_incr_factor = kwargs.get('nonprop_disp_incr_factor', 1e-4)
+        section_load_factor = kwargs.get('section_load_factor', 1e-1)
 
         # Run one axial load only analysis to determine maximum axial strength
         if CrossSection2d.print_ops_status:
             print("Running cross-section axial only analysis...")
-        results = self.run_ops_analysis('proportional_limit_point', section_args, section_kwargs,
-                                        load_incr_factor=prop_load_incr_factor)
+        results = self.run_ops_analysis('proportional_limit_point', e=0, 
+                                        section_args=section_args, section_kwargs=section_kwargs,
+                                        disp_incr_factor=prop_disp_incr_factor)
         if CrossSection2d.print_ops_status:
             print("Axial only analysis is completed.")
         P = [max(results.applied_axial_load)]
@@ -487,7 +515,8 @@ class CrossSection2d:
             print("Running cross-section non-proportional analysis...")
         for i in range(1, num_points):
             iP = P[0] * (num_points - 1 - i) / (num_points - 1)
-            results = self.run_ops_analysis('nonproportional_limit_point', section_args, section_kwargs, P=iP,
+            results = self.run_ops_analysis('nonproportional_limit_point', P=iP,
+                                            section_args=section_args, section_kwargs=section_kwargs, 
                                             disp_incr_factor=nonprop_disp_incr_factor)
             P.append(iP)
             M.append(max(results.maximum_abs_moment))
