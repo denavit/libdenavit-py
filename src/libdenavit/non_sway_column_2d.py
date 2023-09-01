@@ -38,8 +38,8 @@ class NonSwayColumn2d:
         self.eb = eb
         defaults = {'dxo': 0.0,
                     'axis': None,
-                    'n_elem': 6,
-                    'element_type': 'mixedBeamColumn',
+                    'ops_n_elem': 6,
+                    'ops_element_type': 'mixedBeamColumn',
                     'ops_geom_transf_type': 'Corotational',
                     'ops_integration_points': 3
                     }
@@ -504,6 +504,7 @@ class NonSwayColumn2d:
         else:
             raise ValueError(f'Analysis type {analysis_type} not implemented')
 
+
     def run_ops_interaction(self, *section_args, **kwargs):
         num_points = kwargs.get('num_points', 10)
         prop_disp_incr_factor = kwargs.get('prop_disp_incr_factor', 1e-6)
@@ -515,7 +516,7 @@ class NonSwayColumn2d:
             fig_at_step, ax_at_step = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [3, 1]})
 
         # Run one axial load only analyis to determine maximum axial strength
-        results = self.run_ops_analysis('proportional_limit_point', section_args, section_kwargs, e=0,
+        results = self.run_ops_analysis('proportional_limit_point', *section_args, e=0,
                                         disp_incr_factor=prop_disp_incr_factor)
         P = [results.applied_axial_load_at_limit_point]
         M1 = [0]
@@ -529,14 +530,14 @@ class NonSwayColumn2d:
             iP = P[0] * (num_points-1-i) / (num_points-1)
             if iP == 0:
                 cross_section = CrossSection2d(self.section, self.axis)
-                results = cross_section.run_ops_analysis('nonproportional_limit_point', section_args, section_kwargs,
+                results = cross_section.run_ops_analysis('nonproportional_limit_point', *section_args,
                                                          P=0, load_incr_factor=section_load_factor)
                 P.append(iP)
                 M1.append(results.maximum_abs_moment_at_limit_point)
                 M2.append(results.maximum_abs_moment_at_limit_point)
                 exit_message.append(results.exit_message)
             else:
-                results = self.run_ops_analysis('nonproportional_limit_point', section_args, section_kwargs, P=iP,
+                results = self.run_ops_analysis('nonproportional_limit_point', *section_args, P=iP,
                                                 disp_incr_factor=nonprop_disp_incr_factor)
                 P.append(iP)
                 M1.append(results.applied_moment_top_at_limit_point)
@@ -562,6 +563,7 @@ class NonSwayColumn2d:
             plt.show()
 
         return {'P': np.array(P), 'M1': np.array(M1), 'M2': np.array(M2), 'exit_message': exit_message}
+
 
     def run_ops_interaction_proportional(self, e_list, *section_args, **kwargs):
         results = [self.run_ops_analysis('proportional_limit_point', *section_args, e=e, **kwargs) for e
@@ -693,6 +695,7 @@ class NonSwayColumn2d:
             M2_list.append(iM2)
         results = {'P':np.array(P_list),'M1':np.array(M1_list),'M2':np.array(M2_list)}
         return results
+
 
     def ops_get_section_strains(self):
         maximum_concrete_compression_strain = []
