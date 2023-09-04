@@ -100,20 +100,20 @@ class InteractionDiagram2d():
             line_1 = LineString(list(polin.exterior.coords))
             line_2 = LineString(np.column_stack((pathX, pathY)))
             intersection = line_1.intersection(line_2)
-            if intersection.type not in ['Point', 'MultiPoint']:
+            if intersection.geom_type not in ['Point', 'MultiPoint']:
                 raise Exception('could not find an intersection')
 
         else:
             line_1 = LineString(np.column_stack((self.idx, self.idy)))
             line_2 = LineString(np.column_stack((pathX, pathY)))
             intersection = line_1.intersection(line_2)
-            if intersection.type not in ['Point', 'MultiPoint']:
+            if intersection.geom_type not in ['Point', 'MultiPoint']:
                 raise Exception('could not find an intersection')
 
         # @todo get ind and x from as output
-        if intersection.type == 'Point':
+        if intersection.geom_type == 'Point':
             return intersection.x, intersection.y
-        elif intersection.type == 'MultiPoint':
+        elif intersection.geom_type == 'MultiPoint':
             x = []
             y = []
             for i in intersection.geoms:
