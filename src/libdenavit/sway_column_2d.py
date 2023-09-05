@@ -42,7 +42,7 @@ class SwayColumn2d:
         else:
             raise ValueError(f'lever_arm not implemented for k_bot = {self.k_bot} and k_top = {self.k_top}')
 
-    def build_ops_model(self, *section_args, **kwargs):
+    def build_ops_model(self, section_args, section_kwargs, **kwargs):
         ops.wipe()
         ops.model('basic', '-ndm', 2, '-ndf', 3)
         
@@ -104,7 +104,7 @@ class SwayColumn2d:
         ops.geomTransf(self.ops_geom_transf_type, 100)
 
         if type(self.section).__name__ == "RC":
-            self.section.build_ops_fiber_section(*section_args, **kwargs)
+            self.section.build_ops_fiber_section(*section_args, **section_kwargs, axis=self.axis)
         else:
             raise ValueError(f'Unknown cross section type {type(self.section).__name__}')
 
@@ -114,7 +114,7 @@ class SwayColumn2d:
             ops.element(self.ops_element_type, index, index, index + 1, 100, 1)
 
 
-    def run_ops_analysis(self, analysis_type, *section_args, **kwargs):
+    def run_ops_analysis(self, analysis_type, **kwargs):
         """ Run an OpenSees analysis of the column
         
         Parameters
@@ -141,6 +141,9 @@ class SwayColumn2d:
         - For non-proportional analyses, LFV is increased to P first then held
           constant, then LFH is increased (e is ignored)
         """
+
+        section_args = kwargs.get('section_args', ())
+        section_kwargs = kwargs.get('section_kwargs', {})
         e = kwargs.get('e', 1.0)
         P = kwargs.get('P', 0)
         num_steps_vertical = kwargs.get('num_steps_vertical', 10)
@@ -155,17 +158,17 @@ class SwayColumn2d:
         if deformation_limit == "default":
             deformation_limit = 0.1 * self.length
 
-        self.build_ops_model(*section_args, **kwargs)
+        self.build_ops_model(section_args, section_kwargs)
 
         # region Initialize analysis results
         results = AnalysisResults()
-        result_variables = [
+        attributes = [
             "applied_axial_load", "applied_horizonal_load", "maximum_abs_moment", "maximum_abs_disp",
             "lowest_eigenvalue", "moment_at_top", "moment_at_bottom", "maximum_concrete_compression_strain",
-            "maximum_steel_strain", "curvature"
-        ]
-        for variable in result_variables:
-            setattr(results, variable, [])
+            "maximum_steel_strain", "curvature"]
+
+        for attribute in attributes:
+            setattr(results, attribute, [])
         # endregion
 
         # Define a function to find limit point
@@ -512,18 +515,22 @@ class SwayColumn2d:
             raise ValueError(f'Analysis type {analysis_type} not implemented')
 
 
-    def run_ops_interaction(self, *section_args, **kwargs):
+    def run_ops_interaction(self, **kwargs):
+        # Parse keyword arguments
+        section_args = kwargs.get('section_args', ())
+        section_kwargs = kwargs.get('section_kwargs', {})
         num_points = kwargs.get('num_points', 10)
         prop_disp_incr_factor = kwargs.get('prop_disp_incr_factor', 1e-7)
         nonprop_disp_incr_factor = kwargs.get('nonprop_disp_incr_factor', 1e-4)
         section_load_factor = kwargs.get('section_load_factor', 1e-1)
+        plot_load_deformation = kwargs.get('plot_load_deformation', False)
 
-        plot_load_deformation = False
         if plot_load_deformation:
             fig_at_step, ax_at_step = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [3, 1]})
 
         # Run one axial load only analyis to determine maximum axial strength
-        results = self.run_ops_analysis('proportional_limit_point', *section_args, e=0,
+        results = self.run_ops_analysis('proportional_limit_point', e=0,
+                                        section_args=section_args, section_kwargs=section_kwargs,
                                         disp_incr_factor=prop_disp_incr_factor, deformation_limit=None)
         P = [results.applied_axial_load_at_limit_point]
         M1 = [0]
@@ -537,14 +544,16 @@ class SwayColumn2d:
             iP = P[0] * (num_points - 1 - i) / (num_points - 1)
             if iP == 0:
                 cross_section = CrossSection2d(self.section, self.axis)
-                results = cross_section.run_ops_analysis('nonproportional_limit_point',*section_args,
-                                                         P=0, load_incr_factor=section_load_factor)
+                results = cross_section.run_ops_analysis('nonproportional_limit_point',section_args=section_args,
+                                                         section_kwargs=section_kwargs,P=0,
+                                                         load_incr_factor=section_load_factor)
                 P.append(iP)
                 M1.append(results.maximum_abs_moment_at_limit_point)
                 M2.append(results.maximum_abs_moment_at_limit_point)
                 exit_message.append(results.exit_message)
             else:
-                results = self.run_ops_analysis('nonproportional_limit_point', *section_args, P=abs(iP),
+                results = self.run_ops_analysis('nonproportional_limit_point', section_args=section_args,
+                                                section_kwargs=section_kwargs, P=abs(iP),
                                                 disp_incr_factor=nonprop_disp_incr_factor, deformation_limit=None)
                 P.append(iP)
                 M1.append(abs(results.applied_horizontal_load_at_limit_point * self.lever_arm))
