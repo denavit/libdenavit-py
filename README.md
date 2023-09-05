@@ -18,7 +18,7 @@
 ## Install
 
 ```sh
-pip install "git+https://github.com/denavit/libdenavit-py.git"
+pip install libdenavit
 ```
 
 
