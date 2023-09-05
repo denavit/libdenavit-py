@@ -20,8 +20,8 @@ class SwayColumn2d:
         self.gamma = gamma
         defaults = {'dxo': 0.0,
                     'Dxo': 0.0,
-                    'n_elem': 6,
-                    'axis': 'x',
+                    'ops_n_elem': 6,
+                    'axis': None,
                     'effective_length_factor_override': None,
                     'ops_element_type': "mixedBeamColumn",
                     'ops_geom_transf_type': "Corotational",
@@ -78,10 +78,7 @@ class SwayColumn2d:
         if self.k_top == inf:
             ops.fix(self.ops_n_elem, 0, 0, 1)
         elif type(self.k_bot) in [int, float]:
-            if self.include_initial_geometric_imperfections:
-                ops.node(1001, self.Dxo, self.length)
-            else:
-                ops.node(1001, 0, self.length)
+            ops.node(1001, self.Dxo, self.length)
             ops.fix(1001, 1, 1, 1)
             ops.uniaxialMaterial('Elastic', 1001, self.k_top)
             ops.element("zeroLength", 1001, 1001, self.ops_n_elem, '-mat', 1001, '-dir', 6)
@@ -205,8 +202,8 @@ class SwayColumn2d:
                     dU = self.length * disp_incr_factor / div_factor
                     ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
                 elif analysis_type == "nonproportional_limit_point":
-                    U = self.length * disp_incr_factor / div_factor
-                    ops.integrator('DisplacementControl', self.ops_n_elem, 3, dU)
+                    dU = self.length * disp_incr_factor / div_factor
+                    ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
 
         def try_analysis_options():
             options = [('ModifiedNewton', 1e-3),
@@ -240,7 +237,7 @@ class SwayColumn2d:
             ops.constraints('Plain')
             ops.numberer('RCM')
             ops.system('UmfPack')
-            ops.test('NormUnbalance', 1e-2, 10)
+            ops.test('NormUnbalance', 1e-3, 10)
             ops.algorithm('Newton')
 
             # Axial only analysis
@@ -276,7 +273,7 @@ class SwayColumn2d:
 
                 if ok != 0 and try_smaller_steps:
                     for div_factor in [10, 100, 1000]:
-                        update_dU(disp_incr_factor, div_facto, analysis_type=analysis_type)
+                        update_dU(disp_incr_factor, div_factor, analysis_type=analysis_type)
                         ok = ops.analyze(1)
                         if ok == 0 and div_factor == 1000:
                             disp_incr_factor /= 10
