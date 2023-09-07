@@ -198,31 +198,36 @@ class RC:
             # ACI 318-19, Section 6.6.4.4.4c
             if P is None or M is None:
                 raise ValueError("P and M must be defined for EI_type = 'ACI-c'")
-            EI = []
-            max_EI = 0.875 * self.Ec * self.Ig(axis)
-            min_EI = 0.35 * self.Ec * self.Ig(axis)
+            Ieff = []
+            max_I = 0.875 * self.Ig(axis)
+            min_I = 0.35 * self.Ig(axis)
             if isinstance(P, (list, np.ndarray)):
-                if type(P) != type(M) or len(P) != len(M):
-                    raise ValueError("P and M must be of the same type and size")
                 for P, M in zip(P, M):
-                        EI_ACI = (0.8+25*self.Asr/self.Ag)*(1-M/P/self.depth(axis)-0.5*P/self.p0)*self.Ec*self.Ig(axis)
-                        if EI_ACI > max_EI:
-                            EI.append(max_EI)
-                        elif EI_ACI < min_EI:
-                            EI.append(min_EI)
-                        else:
-                            EI.append(EI_ACI)
+                    I_ACI = (0.8 + 25 * self.Asr / self.Ag) * (
+                            1 - M / P / self.depth(axis) - 0.5 * P / self.p0) * self.Ig(axis)
+                    if I_ACI > max_I:
+                        Ieff.append(max_I)
+                    elif I_ACI < min_I:
+                        Ieff.append(min_I)
+                    else:
+                        Ieff.append(EI_ACI)
+                EI = [i * self.Ec for i in Ieff]
+                if return_max_min:
+                    return EI, max_I * self.Ec, min_I * self.Ec
                 return EI
 
             elif isinstance(P, float):
-                EI_ACI = (0.8 + 25 * self.Asr / self.Ag) * (
-                            1 - M / P / self.depth(axis) - 0.5 * P / self.p0) * self.Ec * self.Ig(axis)
-                if EI_ACI > max_EI:
-                    EI = max_EI
-                elif EI_ACI < min_EI:
-                    EI = min_EI
+                I_ACI = (0.8 + 25 * self.Asr / self.Ag) * (
+                            1 - M / P / self.depth(axis) - 0.5 * P / self.p0) * self.Ig(axis)
+                if I_ACI > max_I:
+                    Ieff = max_I
+                elif I_ACI < min_I:
+                    Ieff = min_I
                 else:
-                    EI = EI_ACI
+                    Ieff = I_ACI
+                EI = Ieff * self.Ec
+                if return_max_min:
+                    return EI, max_I * self.Ec, min_I * self.Ec
                 return EI
 
         if EI_type == "JF-a":
