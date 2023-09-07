@@ -99,8 +99,7 @@ class RC:
             self._reinforcement = [x]
 
     def depth(self, axis):
-        d = self.conc_cross_section.depth(axis)
-        return d
+        return self.conc_cross_section.depth(axis)
 
     @property
     def Ag(self):
@@ -185,16 +184,16 @@ class RC:
     def EIgross(self, axis):
         return self.Ec * self.Ic(axis) + self.Es * self.Isr(axis)
     
-    def EIeff(self, axis, EI_type, betadns=0.0, P=None, M=None):
-        if EI_type == "ACI-a":
+    def EIeff(self, axis, EI_type, betadns=0.0, P=None, M=None, return_max_min_limits=False):
+        if EI_type.lower() == "aci-a":
             # ACI 318-19, Section 6.6.4.4.4a
             return 0.4 * self.Ec * self.Ig(axis) / (1 + betadns)
 
-        if EI_type == "ACI-b":
+        if EI_type.lower() == "aci-b":
             # ACI 318-19, Section 6.6.4.4.4b
             return (0.2 * self.Ec * self.Ig(axis) + self.Es * self.Isr(axis)) / (1 + betadns)
 
-        if EI_type == "ACI-c":
+        if EI_type.lower() == "aci-c":
             # ACI 318-19, Section 6.6.4.4.4c
             if P is None or M is None:
                 raise ValueError("P and M must be defined for EI_type = 'ACI-c'")
@@ -212,7 +211,7 @@ class RC:
                     else:
                         Ieff.append(EI_ACI)
                 EI = [i * self.Ec for i in Ieff]
-                if return_max_min:
+                if return_max_min_limits:
                     return EI, max_I * self.Ec, min_I * self.Ec
                 return EI
 
@@ -226,11 +225,11 @@ class RC:
                 else:
                     Ieff = I_ACI
                 EI = Ieff * self.Ec
-                if return_max_min:
+                if return_max_min_limits:
                     return EI, max_I * self.Ec, min_I * self.Ec
                 return EI
 
-        if EI_type == "JF-a":
+        if EI_type.lower() == "jf-a":
             # Jenkins and Frosch, 2011 - Eq.10.1
             EI = []
             if P is None or M is None:
@@ -272,7 +271,7 @@ class RC:
             else:
                 raise ValueError("P and M types or sizes are not as expected")
 
-        if EI_type == "JF-b":
+        if EI_type.lower() == "jf-b":
             # Jenkins and Frosch, 2011 - Eq.10.2
             EI = []
             if P is None or M is None:
@@ -406,9 +405,16 @@ class RC:
             P = np.delete(P, ind_M_negative)
             M = np.delete(M, ind_M_negative)
             et = np.delete(et, ind_M_negative)
+
+            sorted_indices = np.lexsort((-M, P))
+            P = np.array(P)[sorted_indices]
+            M = np.array(M)[sorted_indices]
+            et = np.array(et)[sorted_indices]
+
         return P, M, et
 
-    def build_ops_fiber_section(self, section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx, GJ=1.0e6, axis=None):
+    def build_ops_fiber_section(self, section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx, GJ=1.0e6,
+                                axis=None, **kwargs):
         """ Builds the fiber section object
 
         Parameters
