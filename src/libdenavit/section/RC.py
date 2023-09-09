@@ -414,7 +414,7 @@ class RC:
         return P, M, et
 
     def build_ops_fiber_section(self, section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx, GJ=1.0e6,
-                                axis=None, **kwargs):
+                                axis=None):
         """ Builds the fiber section object
 
         Parameters
