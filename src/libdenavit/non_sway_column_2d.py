@@ -190,9 +190,15 @@ class NonSwayColumn2d:
             results.maximum_abs_disp_at_limit_point   = interpolate_list(results.maximum_abs_disp,ind,x)
 
         def update_dU(disp_incr_factor, div_factor=1):
-            if np.sign(self.et) != np.sign(self.eb):
-                dU = self.length * disp_incr_factor / (2 * div_factor)
-                ops.integrator('DisplacementControl', 3 * self.ops_n_elem // 4, 1, dU)
+            sgn_et = int(np.sign(self.et))
+            sgn_eb = int(np.sign(self.eb))
+            if sgn_et != sgn_eb:
+                if max(self.et, self.eb, key=abs) == self.et:
+                    dof = 3 * self.ops_n_elem // 4
+                else:
+                    dof = 1 * self.ops_n_elem // 4
+                dU = self.length * disp_incr_factor / 2 / div_factor
+                ops.integrator('DisplacementControl', dof, 1, dU)
             else:
                 dU = self.length * disp_incr_factor / div_factor
                 ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
@@ -220,21 +226,32 @@ class NonSwayColumn2d:
             # time = LFV
             ops.timeSeries('Linear', 100)
             ops.pattern('Plain', 200, 100)
-            ops.load(self.ops_n_elem, 0, -1, self.et * e)
-            ops.load(0, 0, 0, -self.eb * e)
+
+            sgn_et = int(np.sign(self.et))
+            sgn_eb = int(np.sign(self.eb))
+            if sgn_et != sgn_eb:
+                if max(self.et, self.eb, key=abs) == self.et:
+                    dof = 3 * self.ops_n_elem // 4
+                    ecc_sign = sgn_et
+                else:
+                    dof = 1 * self.ops_n_elem // 4
+                    ecc_sign = sgn_eb
+                dU = self.length * disp_incr_factor / 2
+                ops.load(self.ops_n_elem, 0, -1, self.et * e * ecc_sign)
+                ops.load(0, 0, 0, -self.eb * e * ecc_sign)
+                ops.integrator('DisplacementControl', dof, 1, dU)
+            else:
+                ecc_sign = sgn_et
+                dU = self.length * disp_incr_factor
+                ops.load(self.ops_n_elem, 0, -1, self.et * e * ecc_sign)
+                ops.load(0, 0, 0, -self.eb * e * ecc_sign)
+                ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+
             ops.constraints('Plain')
             ops.numberer('RCM')
             ops.system('UmfPack')
             ops.test('NormUnbalance', 1e-3, 10)
             ops.algorithm('Newton')
-
-            if np.sign(self.et) != np.sign(self.eb):
-                dU = self.length * disp_incr_factor/2
-                ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
-            else:
-                dU = self.length * disp_incr_factor
-                ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
-            
             ops.analysis('Static')
             
             # Define recorder
@@ -243,8 +260,8 @@ class NonSwayColumn2d:
                 section_strains = self.ops_get_section_strains()
 
                 results.applied_axial_load.append(time)
-                results.applied_moment_top.append(self.et * e * time)
-                results.applied_moment_bot.append(-self.eb * e * time)
+                results.applied_moment_top.append(self.et * e * time * ecc_sign)
+                results.applied_moment_bot.append(-self.eb * e * time * ecc_sign)
                 results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
                 results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp())
                 results.lowest_eigenvalue.append(ops.eigen('-fullGenLapack', 1)[0])
@@ -401,17 +418,26 @@ class NonSwayColumn2d:
             
             # region Run lateral load (time = LFH)
             ops.loadConst('-time', 0.0)
-            
             ops.timeSeries('Linear', 101)
             ops.pattern('Plain', 201, 101)
-            ops.load(self.ops_n_elem, 0, 0, self.et)
-            ops.load(0, 0, 0, -self.eb)
-
-            if np.sign(self.et) != np.sign(self.eb):
-                dU = self.length * disp_incr_factor/2
-                ops.integrator('DisplacementControl', 3*self.ops_n_elem//4, 1, dU)
+            sgn_et = int(np.sign(self.et))
+            sgn_eb = int(np.sign(self.eb))
+            if sgn_et != sgn_eb:
+                if max(self.et, self.eb, key=abs) == self.et:
+                    dof = 3 * self.ops_n_elem // 4
+                    ecc_sign = sgn_et
+                else:
+                    dof = 1 * self.ops_n_elem // 4
+                    ecc_sign = sgn_eb
+                dU = self.length * disp_incr_factor / 2
+                ops.load(self.ops_n_elem, 0, 0, self.et * e * ecc_sign)
+                ops.load(0, 0, 0, -self.eb * e * ecc_sign)
+                ops.integrator('DisplacementControl', dof, 1, dU)
             else:
+                ecc_sign = sgn_et
                 dU = self.length * disp_incr_factor
+                ops.load(self.ops_n_elem, 0, 0, self.et * e * ecc_sign)
+                ops.load(0, 0, 0, -self.eb * e * ecc_sign)
                 ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
             
             ops.analysis('Static')
@@ -422,8 +448,8 @@ class NonSwayColumn2d:
                 section_strains = self.ops_get_section_strains()
 
                 results.applied_axial_load.append(P)
-                results.applied_moment_top.append(self.et * time)
-                results.applied_moment_bot.append(-self.eb * time)
+                results.applied_moment_top.append(self.et * time * ecc_sign)
+                results.applied_moment_bot.append(-self.eb * time * ecc_sign)
                 results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
                 results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp())
                 results.lowest_eigenvalue.append(ops.eigen('-fullGenLapack', 1)[0])
