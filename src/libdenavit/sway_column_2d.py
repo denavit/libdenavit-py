@@ -271,17 +271,17 @@ class SwayColumn2d:
                 ok = ops.analyze(1)
 
                 if ok != 0 and try_smaller_steps:
-                    for div_factor in [10, 100, 1000]:
+                    for div_factor in [1e1, 1e2, 1e3, 1e4, 1e5, 1e6]:
                         update_dU(disp_incr_factor, div_factor, analysis_type=analysis_type)
                         ok = ops.analyze(1)
-                        if ok == 0 and div_factor == 1000:
+                        if ok == 0 and div_factor in [1e3, 1e4, 1e5, 1e6]:
                             disp_incr_factor /= 10
                             break
                         elif ok == 0:
                             break
                         else:
                             ok = try_analysis_options()
-                            if ok == 0 and div_factor == 1000:
+                            if ok == 0 and div_factor in [1e3, 1e4, 1e5, 1e6]:
                                 disp_incr_factor /= 10
                                 break
                             elif ok == 0:
@@ -442,17 +442,17 @@ class SwayColumn2d:
 
                 if ok != 0 and try_smaller_steps:
                     if ok != 0 and try_smaller_steps:
-                        for div_factor in [10, 100, 1000]:
+                        for div_factor in [1e1, 1e2, 1e3, 1e4, 1e5, 1e6]:
                             update_dU(disp_incr_factor, div_factor, analysis_type=analysis_type)
                             ok = ops.analyze(1)
-                            if ok == 0 and div_factor == 1000:
+                            if ok == 0 and div_factor in [1e3, 1e4, 1e5, 1e6]:
                                 disp_incr_factor /= 10
                                 break
                             elif ok == 0:
                                 break
                             else:
                                 ok = try_analysis_options()
-                                if ok == 0 and div_factor == 1000:
+                                if ok == 0 and div_factor in [1e3, 1e4, 1e5, 1e6]:
                                     disp_incr_factor /= 10
                                     break
                                 elif ok == 0:
