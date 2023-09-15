@@ -20,7 +20,7 @@ class SwayColumn2d:
         self.gamma = gamma
         defaults = {'dxo': 0.0,
                     'Dxo': 0.0,
-                    'ops_n_elem': 6,
+                    'ops_n_elem': 8,
                     'axis': None,
                     'effective_length_factor_override': None,
                     'ops_element_type': "mixedBeamColumn",

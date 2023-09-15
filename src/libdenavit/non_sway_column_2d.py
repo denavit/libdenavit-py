@@ -38,7 +38,7 @@ class NonSwayColumn2d:
         self.eb = eb
         defaults = {'dxo': 0.0,
                     'axis': None,
-                    'ops_n_elem': 6,
+                    'ops_n_elem': 8,
                     'ops_element_type': 'mixedBeamColumn',
                     'ops_geom_transf_type': 'Corotational',
                     'ops_integration_points': 3
