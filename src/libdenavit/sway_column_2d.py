@@ -42,7 +42,7 @@ class SwayColumn2d:
         else:
             raise ValueError(f'lever_arm not implemented for k_bot = {self.k_bot} and k_top = {self.k_top}')
 
-    def build_ops_model(self, section_args, section_kwargs, **kwargs):
+    def build_ops_model(self, section_id, section_args, section_kwargs, **kwargs):
         ops.wipe()
         ops.model('basic', '-ndm', 2, '-ndf', 3)
         
@@ -101,7 +101,7 @@ class SwayColumn2d:
         ops.geomTransf(self.ops_geom_transf_type, 100)
 
         if type(self.section).__name__ == "RC":
-            self.section.build_ops_fiber_section(*section_args, **section_kwargs, axis=self.axis)
+            self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs, axis=self.axis)
         else:
             raise ValueError(f'Unknown cross section type {type(self.section).__name__}')
 
@@ -138,7 +138,7 @@ class SwayColumn2d:
         - For non-proportional analyses, LFV is increased to P first then held
           constant, then LFH is increased (e is ignored)
         """
-
+        section_id = kwargs.get('section_id', 1)
         section_args = kwargs.get('section_args', ())
         section_kwargs = kwargs.get('section_kwargs', {})
         e = kwargs.get('e', 1.0)
@@ -155,7 +155,6 @@ class SwayColumn2d:
         if deformation_limit == "default":
             deformation_limit = 0.1 * self.length
 
-        self.build_ops_model(section_args, section_kwargs)
 
         # region Initialize analysis results
         results = AnalysisResults()
@@ -514,6 +513,7 @@ class SwayColumn2d:
 
     def run_ops_interaction(self, **kwargs):
         # Parse keyword arguments
+        section_id = kwargs.get('section_id', 1)
         section_args = kwargs.get('section_args', ())
         section_kwargs = kwargs.get('section_kwargs', {})
         num_points = kwargs.get('num_points', 10)
@@ -526,7 +526,7 @@ class SwayColumn2d:
             fig_at_step, ax_at_step = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [3, 1]})
 
         # Run one axial load only analyis to determine maximum axial strength
-        results = self.run_ops_analysis('proportional_limit_point', e=0,
+        results = self.run_ops_analysis('proportional_limit_point', e=0, section_id=section_id,
                                         section_args=section_args, section_kwargs=section_kwargs,
                                         disp_incr_factor=prop_disp_incr_factor, deformation_limit=None)
         P = [results.applied_axial_load_at_limit_point]
@@ -541,7 +541,8 @@ class SwayColumn2d:
             iP = P[0] * (num_points - 1 - i) / (num_points - 1)
             if iP == 0:
                 cross_section = CrossSection2d(self.section, self.axis)
-                results = cross_section.run_ops_analysis('nonproportional_limit_point',section_args=section_args,
+                results = cross_section.run_ops_analysis('nonproportional_limit_point',
+                                                         section_id=section_id, section_args=section_args,
                                                          section_kwargs=section_kwargs,P=0,
                                                          load_incr_factor=section_load_factor)
                 P.append(iP)
@@ -549,8 +550,8 @@ class SwayColumn2d:
                 M2.append(results.maximum_abs_moment_at_limit_point)
                 exit_message.append(results.exit_message)
             else:
-                results = self.run_ops_analysis('nonproportional_limit_point', section_args=section_args,
-                                                section_kwargs=section_kwargs, P=abs(iP),
+                results = self.run_ops_analysis('nonproportional_limit_point', section_id=section_id,
+                                                section_args=section_args, section_kwargs=section_kwargs, P=abs(iP),
                                                 disp_incr_factor=nonprop_disp_incr_factor, deformation_limit=None)
                 P.append(iP)
                 M1.append(abs(results.applied_horizontal_load_at_limit_point * self.lever_arm))

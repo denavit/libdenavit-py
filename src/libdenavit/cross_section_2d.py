@@ -13,7 +13,7 @@ class CrossSection2d:
         self.section = section
         self.axis = axis
 
-    def build_ops_model(self, section_args, section_kwargs, **kwargs):
+    def build_ops_model(self, section_id, section_args, section_kwargs, **kwargs):
         """
            Build the OpenSees finite element model for the 2d cross section.
 
@@ -43,7 +43,7 @@ class CrossSection2d:
         ops.mass(2, 1, 1, 1)
 
         if type(self.section).__name__ == "RC":
-            self.section.build_ops_fiber_section(*section_args, **section_kwargs, axis=self.axis)
+            self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs, axis=self.axis)
         else:
             raise ValueError(f'Unknown cross section type {type(self.section).__name__}')
 
@@ -124,6 +124,7 @@ class CrossSection2d:
         """
         
         # Parse keyword arguments
+        section_id = kwargs.get('section_id', 1)
         section_args = kwargs.get('section_args', [])
         section_kwargs = kwargs.get('section_kwargs', {})
         e = kwargs.get('e', 0)
@@ -138,7 +139,7 @@ class CrossSection2d:
         try_smaller_steps = kwargs.get('try_smaller_steps', True)
 
         # Build OpenSees model
-        self.build_ops_model(section_args, section_kwargs)
+        self.build_ops_model(section_id, section_args, section_kwargs)
 
         # Initialize analysis results
         results = AnalysisResults()

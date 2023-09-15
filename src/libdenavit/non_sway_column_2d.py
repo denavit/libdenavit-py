@@ -54,13 +54,14 @@ class NonSwayColumn2d:
         raise ValueError(f'Number of elements should be even {self.ops_n_elem = }')
 
 
-    def build_ops_model(self, section_args, section_kwargs, **kwargs):
+    def build_ops_model(self, section_id, section_args, section_kwargs, **kwargs):
         """
            Build the OpenSees finite element model for the non-sway 2D column.
 
            This method constructs the finite element model in OpenSees for the non-sway 2D column element.
 
            Parameters:
+               section_id: An integer id for the section
                section_args: Positional arguments for building the section using OpenSees via section.build_ops_fiber_section().
                              (For RC sections the args are: section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx)
                section_kwargs: Keword arguments for building the section using OpenSees via section.build_ops_fiber_section().
@@ -95,7 +96,7 @@ class NonSwayColumn2d:
         ops.geomTransf(self.ops_geom_transf_type, 100)
         
         if type(self.section).__name__ == "RC":
-            self.section.build_ops_fiber_section(*section_args, **section_kwargs, axis=self.axis)
+            self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs, axis=self.axis)
         else:
             raise ValueError(f'Unknown cross section type {type(self.section).__name__}')
 
@@ -118,7 +119,9 @@ class NonSwayColumn2d:
                 - 'nonproportional_target_force' (not yet implemented)
                 - 'proportional_target_disp' (not yet implemented)
                 - 'nonproportional_target_disp' (not yet implemented)
-        *section_args :
+        section_id:
+            An integer id for the section
+        section_args :
             Non-keyworded arguments for the section's build_ops_fiber_section
         **kwargs :
             Keyworded arguments for the section's build_ops_fiber_section
@@ -134,7 +137,7 @@ class NonSwayColumn2d:
         - For non-proportional analyses, LFV is increased to P first then held
           constant, then LFH is increased (e is ignored)
         """
-
+        section_id = kwargs.get('section_id', 1)
         section_args = kwargs.get('section_args', [])
         section_kwargs = kwargs.get('section_kwargs', {})
         e = kwargs.get('e', 1.0)
@@ -151,7 +154,7 @@ class NonSwayColumn2d:
         if deformation_limit == 'default':
             deformation_limit = 0.1 * self.length/2
 
-        self.build_ops_model(section_args, section_kwargs)
+        self.build_ops_model(section_id, section_args, section_kwargs)
         
         # Initialize analysis results
         results = AnalysisResults()
@@ -512,6 +515,7 @@ class NonSwayColumn2d:
     def run_ops_interaction(self, **kwargs):
     
         # Parse keyword arguments
+        section_id = kwargs.get('section_id', 1)
         section_args = kwargs.get('section_args', [])
         section_kwargs = kwargs.get('section_kwargs', {})
         num_points = kwargs.get('num_points', 10)
@@ -524,7 +528,7 @@ class NonSwayColumn2d:
             fig_at_step, ax_at_step = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [3, 1]})
 
         # Run one axial load only analyis to determine maximum axial strength
-        results = self.run_ops_analysis('proportional_limit_point', e=0,
+        results = self.run_ops_analysis('proportional_limit_point', e=0, section_id=section_id,
                                         section_args=section_args, section_kwargs=section_kwargs,
                                         disp_incr_factor=prop_disp_incr_factor)
         P = [results.applied_axial_load_at_limit_point]
@@ -539,8 +543,8 @@ class NonSwayColumn2d:
             iP = P[0] * (num_points-1-i) / (num_points-1)
             if iP == 0:
                 cross_section = CrossSection2d(self.section, self.axis)
-                results = cross_section.run_ops_analysis('nonproportional_limit_point', P=0, 
-                                                         section_args=section_args,
+                results = cross_section.run_ops_analysis('nonproportional_limit_point', P=0,
+                                                         section_id=section_id, section_args=section_args,
                                                          load_incr_factor=section_load_factor)
                 P.append(iP)
                 M1.append(results.maximum_abs_moment_at_limit_point)
@@ -548,7 +552,7 @@ class NonSwayColumn2d:
                 exit_message.append(results.exit_message)
             else:
                 results = self.run_ops_analysis('nonproportional_limit_point', P=iP,
-                                                section_args=section_args, 
+                                                section_id=section_id, section_args=section_args,
                                                 disp_incr_factor=nonprop_disp_incr_factor)
                 P.append(iP)
                 M1.append(results.applied_moment_top_at_limit_point)
@@ -576,8 +580,8 @@ class NonSwayColumn2d:
         return {'P': np.array(P), 'M1': np.array(M1), 'M2': np.array(M2), 'exit_message': exit_message}
 
 
-    def run_ops_interaction_proportional(self, e_list, *section_args, **kwargs):
-        results = [self.run_ops_analysis('proportional_limit_point', *section_args, e=e, **kwargs) for e
+    def run_ops_interaction_proportional(self, e_list, **kwargs):
+        results = [self.run_ops_analysis('proportional_limit_point', e=e, **kwargs) for e
                    in e_list]
         P = [result.applied_axial_load_at_limit_point for result in results]
         M1 = [result.applied_moment_top_at_limit_point for result in results]
