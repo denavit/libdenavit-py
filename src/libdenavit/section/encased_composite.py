@@ -1,4 +1,5 @@
-from math import pi, sqrt
+from math import ceil, pi, sqrt
+import openseespy.opensees as ops
 from libdenavit.section import AciStrainCompatibility, FiberSingle, FiberCirclePatch, FiberSection, Rectangle, FiberQuadPatch, RectangularTube
 from libdenavit.section.database import reinforcing_bar_database
 
@@ -99,13 +100,27 @@ class SRC:
     def Ag(self):
         return self.B * self.H
 
+    @property
+    def p0(self):
+        # Nominal axial strength of section
+        p0 = self.Fy * self.As + self.Fylr * self.Asr + 0.85 * self.fc * self.Ac
+        return p0
+
+    def depth(self, axis):
+        if axis.lower() == 'x':
+            return self.H 
+        elif axis.lower() == 'y':
+            return self.B
+        else:
+            raise ValueError(f'Invalid axis: {axis}')
+
     def Is(self, axis):
         if axis.lower() == 'x':
             return (1/12)*self.bf*self.d**3 - (1/12)*(self.bf-self.tw)*self.h**3 
         elif axis.lower() == 'y':
             return 2*(1/12)*self.tf*self.bf**3 - (1/12)*self.h*self.tw**3
         else:
-            raise Exception(f'Unknown axis: {axis}')
+            raise ValueError(f'Invalid axis: {axis}')
 
     def Ic(self, axis):
         return self.Ig(axis) - self.Is(axis) - self.Isr(axis)
@@ -120,7 +135,7 @@ class SRC:
             for xi in x:
                 I += xi*xi
         else:
-            raise ValueError(f'Unknown option for axis: {axis}') 
+            raise ValueError(f'Invalid axis: {axis}') 
         I = I*self.Ab
         return I
 
@@ -195,7 +210,170 @@ class SRC:
                 fs.add_fibers(FiberSingle(self.Ab, x[i], y[i], id_reinf, id_conc))
         return fs
 
+    def build_ops_fiber_section(self, section_id, steel_mat_type, reinf_mat_type, conc_mat_type, nfy, nfx, 
+                                GJ=1.0e6, axis=None, start_material_id=1):
+        """ Builds the fiber section object
 
+        Parameters
+        ----------
+        section_id : int
+            The id of the section
+        steel_mat_type : str
+            The type of the structural steel material
+        reinf_mat_type : str
+            The type of the reinforcing steel material
+        conc_mat_type : str
+            The type of the concrete material
+        nfy : int
+            The minimum number of fibers in the y direction
+        nfx : int
+            The minimum number of fibers in the x direction
+        GJ : float (default 1.0e6)
+            The torsional rigidity of the cross section
+        axis : str (default None)
+            Optional argument for defining a fiber section for 2-dimensional analysis
+              - If "None", then a 3-dimensional fiber section will be defined
+              - If "x", then a 2-dimensional fiber section will be defined based on 
+                bending about the x-axis (note that the value nfx will be ignored) 
+              - If "y", then a 2-dimensional fiber section will be defined based on 
+                bending about the y-axis (note that the value nfy will be ignored)
+        start_material_id : int (default 1)
+            The id of the first uniaxial material to be defined (others will be defined sequentially)
+        """
+
+        # Three or four uniaxial materials are defined in this function
+        steel_material_id = start_material_id
+        reinforcing_material_id = start_material_id+1
+        concrete_material_id = start_material_id+2        # Used if no confinement
+        cover_concrete_material_id = start_material_id+2  # Used if confinement
+        core_concrete_material_id  = start_material_id+3  # Used if confinement
+        
+        # Define section      
+        ops.section('Fiber', section_id, '-GJ', GJ)
+
+        # region Define Structural Steel Material
+        if steel_mat_type == "Elastic":
+            ops.uniaxialMaterial("Elastic", steel_material_id, self.Es)
+        
+        elif steel_mat_type == "ElasticPP":
+            ops.uniaxialMaterial("ElasticPP", steel_material_id, self.Es, self.Fy / self.Es)
+
+        elif steel_mat_type == "Hardening":
+            ops.uniaxialMaterial("Hardening", steel_material_id, self.Es, self.Fy, 0.001*self.Es, 0)
+
+        else:
+            raise ValueError(f"Steel material {steel_mat_type} not supported")
+        # endregion
+
+
+        # region Define Reinforcing Steel Material
+        if reinf_mat_type == "Elastic":
+            ops.uniaxialMaterial("Elastic", reinforcing_material_id, self.Es)
+        
+        elif reinf_mat_type == "ElasticPP":
+            ops.uniaxialMaterial("ElasticPP", reinforcing_material_id, self.Es, self.Fylr / self.Es)
+
+        elif reinf_mat_type == "Hardening":
+            ops.uniaxialMaterial("Hardening", reinforcing_material_id, self.Es, self.Fylr, 0.001*self.Es, 0)
+
+        else:
+            raise ValueError(f"Steel material {reinf_mat_type} not supported")
+        # endregion
+
+            
+        # region Define Concrete Material
+        if conc_mat_type == "Elastic":
+            ops.uniaxialMaterial('Elastic', concrete_material_id, self.Ec)
+            confinement = False
+        
+        elif conc_mat_type == "ENT":
+            ops.uniaxialMaterial('ENT', concrete_material_id, self.Ec)
+            confinement = False
+
+        elif conc_mat_type == "Concrete01_no_confinement":
+            ops.uniaxialMaterial("Concrete01", concrete_material_id, -self.fc, -2*self.fc/self.Ec, 0, -0.006)
+            confinement = False       
+
+        elif conc_mat_type == "Concrete04_no_confinement":
+            ops.uniaxialMaterial("Concrete04", concrete_material_id, -self.fc, -self.eps_c, -1.0, self.Ec)
+            confinement = False
+
+        else:
+            raise ValueError(f"Concrete material {conc_mat_type} not supported")
+        # endregion
+
+
+        # region Define fibers and patches
+        tw2 = self.tw/2
+        bf2 = self.bf/2
+        B2 = self.B/2
+        h2 = self.h/2
+        d2 = self.d/2
+        H2 = self.H/2 
+        
+        if (axis is None) or (axis == '3d') or (axis == 'x'): 
+
+            # Structural Steel 
+            nfIJ = ceil(self.tf*nfy/self.H)
+            nfJK = ceil(self.bf*nfx/self.B)
+            ops.patch('quad', steel_material_id, nfIJ, nfJK,  h2, -bf2,  d2, -bf2,  d2, bf2,  h2, bf2)
+            ops.patch('quad', steel_material_id, nfIJ, nfJK, -d2, -bf2, -h2, -bf2, -h2, bf2, -d2, bf2)
+            
+            nfIJ = ceil(self.h*nfy/self.H)
+            nfJK = ceil(self.tw*nfx/self.B)
+            ops.patch('quad', steel_material_id, nfIJ, nfJK, -h2, -tw2,  h2, -tw2,  h2, tw2, -h2, tw2)      
+        
+            # Reinforcing Steel
+            (x_reinf,y_reinf) = self.reinforcing_coordinates()
+            for x, y in zip(x_reinf,y_reinf):
+                ops.fiber(y, x, self.Ab, reinforcing_material_id)
+                if confinement:
+                    negative_area_material_id = core_concrete_material_id
+                else:
+                    negative_area_material_id = concrete_material_id
+                ops.fiber(y, x, -self.Ab, negative_area_material_id)
+                    
+            # Concrete
+            if confinement:
+                raise ValueError('Not yet implemented for concrete confinement')
+            else:
+                nfIJ = ceil((H2-d2)*nfy/self.H)
+                nfJK = ceil(self.B*nfx/self.B)
+                ops.patch('quad', concrete_material_id, nfIJ, nfJK,  d2, -B2,  H2,  -B2,  H2,  B2,  d2,  B2)
+                ops.patch('quad', concrete_material_id, nfIJ, nfJK, -H2, -B2, -d2,  -B2, -d2,  B2, -H2,  B2)
+                                                                                                      
+                nfIJ = ceil(self.tf*nfy/self.H)
+                nfJK = ceil((B2-bf2)*nfx/self.B)
+                ops.patch('quad', concrete_material_id, nfIJ, nfJK,  h2, -B2,  d2,  -B2,  d2,-bf2,  h2,-bf2)
+                ops.patch('quad', concrete_material_id, nfIJ, nfJK,  h2, bf2,  d2,  bf2,  d2,  B2,  h2,  B2)
+                ops.patch('quad', concrete_material_id, nfIJ, nfJK, -d2, -B2, -h2,  -B2, -h2,-bf2, -d2,-bf2)
+                ops.patch('quad', concrete_material_id, nfIJ, nfJK, -d2, bf2, -h2,  bf2, -h2,  B2, -d2,  B2)
+                                                                                                      
+                nfIJ = ceil(self.h*nfy/self.H)
+                nfJK = ceil((B2-tw2)*nfx/self.B)
+                ops.patch('quad', concrete_material_id, nfIJ, nfJK, -h2, -B2,  h2,  -B2,  h2,-tw2, -h2,-tw2)
+                ops.patch('quad', concrete_material_id, nfIJ, nfJK, -h2, tw2,  h2,  tw2,  h2,  B2, -h2,  B2)
+
+        elif axis in ['x', 'y']:
+            raise ValueError('build_ops_fiber_section not yet implemented for two-dimensional analyses')
+
+        else:
+            raise ValueError(f'Invalid axis: {axis}')
+        # endregion
+
+    def maximum_concrete_compression_strain(self, axial_strain, curvatureX=0, curvatureY=0):
+        extreme_strain = axial_strain - self.H/2 * abs(curvatureX) - self.B/2 * abs(curvatureY)
+        return extreme_strain
+
+    def maximum_tensile_steel_strain(self, axial_strain, curvatureX=0, curvatureY=0):
+        max_strain = float('-inf')
+        (x_reinf,y_reinf) = self.reinforcing_coordinates()
+        for x, y in zip(x_reinf,y_reinf):
+            strain = axial_strain - y * curvatureX - x * curvatureY
+            if strain > max_strain:
+                max_strain = strain
+        return max_strain
+        
 def run_example():
     H = 28
     B = 24
