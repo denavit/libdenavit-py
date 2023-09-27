@@ -25,11 +25,11 @@ class SRC:
         self.nbB = nbB
         if bar_size is None:
             self.Ab = Ab
-            self.db = db
+            self._db = db
         else:
             bar_data = reinforcing_bar_database[bar_size]
             self.Ab = bar_data['area']
-            self.db = bar_data['diameter']
+            self._db = bar_data['diameter']
         self.Fylr = Fylr  # Yield strength of longitudinal reinforcing
         self.Dp = Dp  # Distance from outside surface of concrete to center of longitudinal reinforcing
 
@@ -42,6 +42,17 @@ class SRC:
             return 2 * (self.nbH + self.nbB) - 4
         else:
             return 0
+
+    @property
+    def db(self):
+        if self._db is not None:
+            return self._db
+        else:
+            return sqrt(4 * self.Ab / pi)
+
+    @db.setter
+    def db(self, x):
+        self._db = x
 
     @property
     def Asr(self):
