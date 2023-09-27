@@ -5,8 +5,6 @@ from libdenavit.section.database import reinforcing_bar_database
 
 
 class SRC:
-    _Es = None
-    _Ec = None
 
     def __init__(self, H, B, d, bf, tf, tw, Fy, fc, units, nbH, nbB, Fylr, Dp, bar_size=None, Ab=None, db=None):
         # Main Parameters
@@ -35,6 +33,11 @@ class SRC:
 
         # Options
         self.C2 = 0.85
+
+        # Internal variables
+        self._Es = None
+        self._Ec = None
+
 
     @property
     def num_bars(self):
