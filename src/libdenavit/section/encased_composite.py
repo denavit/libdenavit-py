@@ -1,4 +1,6 @@
 from math import ceil, pi, sqrt
+import matplotlib.pyplot as plt
+import numpy as np
 import openseespy.opensees as ops
 from libdenavit.section import AciStrainCompatibility, FiberSingle, FiberCirclePatch, FiberSection, Rectangle, FiberQuadPatch, RectangularTube
 from libdenavit.section.database import reinforcing_bar_database
@@ -387,6 +389,34 @@ class SRC:
             if strain > max_strain:
                 max_strain = strain
         return max_strain
+        
+    def plot_section(self, show=True, **kwargs):
+        plt.figure()
+
+        # Concrete
+        x = [self.B / 2, - self.B / 2, - self.B / 2, self.B / 2, self.B / 2]
+        y = [self.H / 2, self.H / 2, - self.H / 2, - self.H / 2, self.H / 2]
+        plt.fill(x, y, edgecolor='k', facecolor=[0.9,0.9,0.9], **kwargs)
+
+        # Steel Shape
+        x = [self.bf / 2, -self.bf / 2, - self.bf / 2, -self.tw / 2, -self.tw / 2, -self.bf / 2, - self.bf / 2, 
+             self.bf / 2,  self.bf / 2,   self.tw / 2,  self.tw / 2,  self.bf / 2,  self.bf / 2]
+        y = [self.d / 2, self.d / 2, self.h / 2, self.h / 2, -self.h / 2, -self.h / 2, -self.d / 2, 
+             -self.d / 2, -self.h / 2, -self.h / 2, self.h / 2, self.h / 2, self.d / 2]
+        plt.fill(x, y, edgecolor='k', facecolor=[0.5,0.5,0.5], **kwargs)
+        
+        # Reinforcement
+        (x_reinf,y_reinf) = self.reinforcing_coordinates()
+        angles = np.linspace(0,2*pi,16)
+        x_bar = (self.db/2)*np.cos(angles)
+        y_bar = (self.db/2)*np.sin(angles)
+        for x, y in zip(x_reinf,y_reinf):
+            plt.fill(x_bar+x, y_bar+y, edgecolor='k', facecolor=[0.5,0.5,0.5], **kwargs)
+        
+        plt.box(False)
+        plt.axis('scaled')
+        if show:
+            plt.show()
         
 def run_example():
     H = 28
