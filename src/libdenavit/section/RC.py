@@ -712,11 +712,11 @@ class RC:
                 confinement = False
 
             elif conc_mat_type == "ENT":
-                ops.uniaxialMaterial('ENT', 2, self.Ec)
+                ops.uniaxialMaterial('ENT', concrete_material_id, self.Ec)
                 confinement = False
     
             elif conc_mat_type == "Elastic":
-                ops.uniaxialMaterial('Elastic', 2, self.Ec)
+                ops.uniaxialMaterial('Elastic', concrete_material_id, self.Ec)
                 confinement = False
     
             else:
@@ -844,7 +844,7 @@ class RC:
                 confinement = True
                 
             elif conc_mat_type == "Concrete04_no_confinement":
-                ops.uniaxialMaterial("Concrete04", 2, -self.fc, -self.eps_c, -2 * self.eps_c, self.Ec)
+                ops.uniaxialMaterial("Concrete04", concrete_material_id, -self.fc, -self.eps_c, -2 * self.eps_c, self.Ec)
                 confinement = False
 
             elif conc_mat_type == "Concrete01_no_confinement":
@@ -852,11 +852,11 @@ class RC:
                 confinement = False
 
             elif conc_mat_type == "ENT":
-                ops.uniaxialMaterial('ENT', 2, self.Ec)
+                ops.uniaxialMaterial('ENT', concrete_material_id, self.Ec)
                 confinement = False
 
             elif conc_mat_type == "Elastic":
-                ops.uniaxialMaterial('Elastic', 2, self.Ec)
+                ops.uniaxialMaterial('Elastic', concrete_material_id, self.Ec)
                 confinement = False
 
             else:
