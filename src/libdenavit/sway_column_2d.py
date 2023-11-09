@@ -6,6 +6,7 @@ from libdenavit import sidesway_uninhibited_effective_length_factor, CrossSectio
 from libdenavit.OpenSees import AnalysisResults
 import openseespy.opensees as ops
 import numpy as np
+from scipy.optimize import fsolve
 
 
 class SwayColumn2d:   
@@ -41,6 +42,7 @@ class SwayColumn2d:
             return self.length/2
         else:
             raise ValueError(f'lever_arm not implemented for k_bot = {self.k_bot} and k_top = {self.k_top}')
+
 
     def build_ops_model(self, section_id, section_args, section_kwargs, **kwargs):
         ops.wipe()
@@ -155,6 +157,7 @@ class SwayColumn2d:
         if deformation_limit == "default":
             deformation_limit = 0.1 * self.length
 
+        self.build_ops_model(section_id, section_args, section_kwargs)
 
         # region Initialize analysis results
         results = AnalysisResults()
@@ -645,70 +648,101 @@ class SwayColumn2d:
         section_factored = kwargs.get('section_factored', True)
         Pc_factor = kwargs.get('Pc_factor', 0.75)
         beta_dns = kwargs.get('beta_dns', 0)
+        minimum_eccentricity = kwargs.get('minimum_eccentricity', False)
+
         # Get cross-sectional interaction diagram
-        P_id, M_id, _ = self.section.section_interaction_2d(self.axis, 100, factored=section_factored)
-        id2d = InteractionDiagram2d(M_id, P_id, is_closed=True)
+        P_id, M_id, _ = self.section.section_interaction_2d(self.axis, 100, factored=section_factored,
+                                                            only_compressive=True)
+        id2d = InteractionDiagram2d(M_id, P_id, is_closed=False)
 
-        EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=max(abs(P_id)), M=0)
-        k = self.effective_length_factor(EIeff)
-        Pc = [pi ** 2 * EIeff / (k * self.length) ** 2]
-        h = self.section.depth(self.axis)
-
-        # Run one axial load only analysis to determine maximum axial strength
         if minimum_eccentricity:
-            P_path = np.linspace(0, max(1.001 * min(P_id), -0.999 * Pc_factor * Pc), 1000)
-            M2_path = np.zeros_like(P_path)
-            for i, P in enumerate(P_path):
-                delta = max(self.Cm / (1 - (-P) / (Pc_factor * Pc)), 1.0)
-                if self.section.units.lower() == "us":
-                    M1_min = -P * (0.6 + 0.03 * h)  # ACI 6.6.4.5.4
-                elif self.section.units.lower() == "si":
-                    M1_min = -P * (0.015 + 0.03 * h)
-                else:
-                    raise ValueError("The unit system defined in the section is not supported")
-                M2_path[i] = delta * M1_min
-
-            iM2, iP = id2d.find_intersection(M2_path, P_path)
-
-            P_list = [iP]
-            M1_list = [0]
-            M2_list = [iM2]
+            raise NotImplementedError('Minimum eccentricity not implemented')
 
         else:
-            buckling_load = -Pc_factor * Pc[-1]
-            if buckling_load < min(P_id):
-                P_list = [min(P_id)]
-                M1_list = [0]
-                M2_list = [0]
+            EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=max(P_id), M=0)
+            k = self.effective_length_factor(EIeff)
+            Pc = pi ** 2 * EIeff / (k * self.length) ** 2
+            buckling_load = Pc_factor * Pc
+
+        P_list, M1_list, M2_list = [], [], []
+
+        if buckling_load > max(P_id):
+            # Buckling does not happend since the maximum axial strength is less than the lower bound buckling load
+            P_list.append(max(P_id))
+            M1_list.append(0)
+            M2_list.append(0)
+
+        else:
+            # Buckling happens
+            if EI_type.lower() in ['aci-a', 'aci-b']:
+                P_list.append(buckling_load)
+                M1_list.append(0)
+                M2_list.append(id2d.find_x_given_y(buckling_load, 'pos'))
+
+            elif EI_type.lower() in ['jf-a', 'jf-b', 'aci-c', 'new_1']:
+                def error(P):
+                    P = P[0]
+                    EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=P, M=0)
+                    k = self.effective_length_factor(EIeff)
+                    Pc = pi ** 2 * EIeff / (k * self.length) ** 2
+                    return P - Pc_factor * Pc
+
+                # Find P such that error = zero
+                Pguess = 0.9 * max(P_id)
+                solution, _, ier, _ = fsolve(error, Pguess, full_output=True)
+                if ier != 1:
+                    Pguess = 0.1 * max(P_id)
+                    solution, _, ier, _ = fsolve(error, Pguess, full_output=True)
+                    if ier != 1:
+                        raise Exception("Buckling load calculation did not converge.")
+                buckling_load = solution[0]
+
+                # Buckling
+                error = []
+                max_M_section = max(M_id)
+                M2_trials = np.arange(0, max_M_section, max_M_section/1000)
+                for M2 in M2_trials:
+                    EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=buckling_load, M=M2)
+                    k = self.effective_length_factor(EIeff)
+                    Pc = pi ** 2 * EIeff / (k * self.length) ** 2
+                    error.append(buckling_load - Pc_factor * Pc)
+
+                M2 = M2_trials[error.index(min(error, key=abs))]
+
+                P_list.append(buckling_load)
+                M1_list.append(0)
+                M2_list.append(M2)
             else:
-                def f(x):
-                    EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=abs(Pc[-1]), M=0)
-                    Pc.append(pi ** 2 * EIeff / (k * self.length) ** 2)
-                    return abs(Pc[-2]) - abs(Pc[-1])
+                raise ValueError(f'Invalid EI_type {EI_type}')
 
-                from scipy.optimize import newton
-                buckling_load = -Pc_factor * \
-                                newton(f, 0.0, maxiter=1000, tol=Pc[-1] / 100, disp=False, full_output=True)[0]
-
-                P_list = [buckling_load]
-                M1_list = [0]
-                M2_list = [id2d.find_x_given_y(buckling_load, 'pos')]
-
-        # Loop axial linearly spaced axial loads with non-proportional analyses
+        # Loop axial linearly spaced axial loads witn non-proportional analyses
         for i in range(1, num_points):
-            iP = 0.999*P_list[0] * (num_points - 1 - i) / (num_points - 1)
-            iM2 = id2d.find_x_given_y(iP, 'pos')
+            iP = 0.999 * P_list[0] * (num_points - i - 1) / (num_points - 1)
+            iM2_section = id2d.find_x_given_y(iP, 'pos')
 
-            EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=abs(iP), M=abs(iM2))
+            EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=iP, M=iM2_section)
             k = self.effective_length_factor(EIeff)
             Pc = pi ** 2 * EIeff / (k * self.length) ** 2
 
-            delta = 1 / (1 - (-iP) / (Pc_factor * Pc))
-            iM1_s = iM2 / delta
+            iM1_list = [0]
+            iM2_list = np.arange(0, iM2_section, iM2_section / 1000)
+
+            for iM2 in iM2_list:
+                EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=iP, M=iM2)
+                k = self.effective_length_factor(EIeff)
+                Pc = pi ** 2 * EIeff / (k * self.length) ** 2
+                if Pc_factor * Pc < iP:
+                    break
+                delta_s = max(1 / (1 - (iP) / (Pc_factor * Pc)), 1.0)
+                iM1_list.append(iM2 / delta_s)
+
+            iM1 = max(iM1_list)
+            iM2 = iM2_list[iM1_list.index(iM1) -1]
             P_list.append(iP)
-            M1_list.append(iM1_s)
+            M1_list.append(iM1)
             M2_list.append(iM2)
-        return {'P': -1*np.array(P_list), 'M1': np.array(M1_list), 'M2': np.array(M2_list)}
+        results = {'P': np.array(P_list), 'M1': np.array(M1_list), 'M2': np.array(M2_list)}
+        return results
 
 
     def effective_length_factor(self, EI):

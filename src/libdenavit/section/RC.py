@@ -19,6 +19,7 @@ class RC:
     _epscra = 1.0
     _epscrd = None
     _tcast = None
+    _Mn = dict()
 
     def __init__(self, conc_cross_section, reinforcement, fc, fy, units, dbt=None, s=None, fyt=None, lat_config="A",
                  transverse_reinf_type='ties', epsshu=0.0, epscru=0.0):
@@ -329,6 +330,17 @@ class RC:
             return self.EIgross(axis)
 
         raise ValueError(f'Unknown EI_type {EI_type}')
+
+
+    def Mn(self, axis):
+        if self._Mn.get(axis) is None:
+            from libdenavit import InteractionDiagram2d
+            P_CS, M_CS, _ = self.section_interaction_2d(axis, 20, factored=False, only_compressive=True)
+            CS_id2d = InteractionDiagram2d(M_CS, P_CS, is_closed=True)
+            Mn = CS_id2d.find_x_given_y(0, 'pos')
+            self._Mn[axis] = Mn
+
+        return self._Mn[axis]
 
     def phi(self, et):
         f = ACI_phi(self.transverse_reinf_type, et, self.fy / self.Es)
@@ -713,11 +725,11 @@ class RC:
                 confinement = False
 
             elif conc_mat_type == "ENT":
-                ops.uniaxialMaterial('ENT', 2, self.Ec)
+                ops.uniaxialMaterial('ENT', concrete_material_id, self.Ec)
                 confinement = False
     
             elif conc_mat_type == "Elastic":
-                ops.uniaxialMaterial('Elastic', 2, self.Ec)
+                ops.uniaxialMaterial('Elastic', concrete_material_id, self.Ec)
                 confinement = False
     
             else:
@@ -845,7 +857,7 @@ class RC:
                 confinement = True
                 
             elif conc_mat_type == "Concrete04_no_confinement":
-                ops.uniaxialMaterial("Concrete04", 2, -self.fc, -self.eps_c, -2 * self.eps_c, self.Ec)
+                ops.uniaxialMaterial("Concrete04", concrete_material_id, -self.fc, -self.eps_c, -2 * self.eps_c, self.Ec)
                 confinement = False
 
             elif conc_mat_type == "Concrete01_no_confinement":
@@ -853,11 +865,11 @@ class RC:
                 confinement = False
 
             elif conc_mat_type == "ENT":
-                ops.uniaxialMaterial('ENT', 2, self.Ec)
+                ops.uniaxialMaterial('ENT', concrete_material_id, self.Ec)
                 confinement = False
 
             elif conc_mat_type == "Elastic":
-                ops.uniaxialMaterial('Elastic', 2, self.Ec)
+                ops.uniaxialMaterial('Elastic', concrete_material_id, self.Ec)
                 confinement = False
 
             else:
