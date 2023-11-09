@@ -13,9 +13,15 @@ class RC:
     _Es = None
     _eps_c = None
     _Abt = None
+    _age = None
+    _epssha = None
+    _tcr = None
+    _epscra = 1.0
+    _epscrd = None
+    _tcast = None
 
     def __init__(self, conc_cross_section, reinforcement, fc, fy, units, dbt=None, s=None, fyt=None, lat_config="A",
-                 transverse_reinf_type='ties'):
+                 transverse_reinf_type='ties', epsshu=0.0, epscru=0.0):
         self.conc_cross_section = conc_cross_section
         self.reinforcement = reinforcement
         self.fc = fc
@@ -26,6 +32,13 @@ class RC:
         self.fyt = fyt
         self.lat_config = lat_config
         self.transverse_reinf_type = transverse_reinf_type
+        self.epsshu = epsshu
+        self.epscru = epscru
+        O = self.conc_cross_section.perimeter
+        if O > 0.0:
+            A = self.conc_cross_section.A
+            self._epssha = A / O
+            self._epscrd = self._epssha
 
     @property
     def Ec(self):
