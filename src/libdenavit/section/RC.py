@@ -1,7 +1,12 @@
 from math import sqrt, pi, ceil, exp, sin
 import matplotlib.pyplot as plt
 import numpy as np
-import openseespy.opensees as ops
+try:
+    import sys
+    sys.path.append('/home/mhscott/OpenSees/SRC/interpreter')
+    import opensees as ops
+except ModuleNotFoundError:
+    import openseespy.opensees as ops
 from libdenavit.OpenSees import circ_patch_2d, obround_patch_2d, obround_patch_2d_confined
 from libdenavit.section import AciStrainCompatibility, FiberSection, ACI_phi
 

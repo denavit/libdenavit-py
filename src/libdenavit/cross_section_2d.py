@@ -1,7 +1,12 @@
 from math import pi, sin
 from libdenavit import find_limit_point_in_list, interpolate_list
 from libdenavit.OpenSees import AnalysisResults
-import openseespy.opensees as ops
+try:
+    import sys
+    sys.path.append('/home/mhscott/OpenSees/SRC/interpreter')
+    import opensees as ops
+except ModuleNotFoundError:
+    import openseespy.opensees as ops
 import numpy as np
 
 

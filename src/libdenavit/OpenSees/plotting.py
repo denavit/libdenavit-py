@@ -1,4 +1,9 @@
-import openseespy.opensees as ops
+try:
+    import sys
+    sys.path.append('/home/mhscott/OpenSees/SRC/interpreter')
+    import opensees as ops
+except ModuleNotFoundError:
+    import openseespy.opensees as ops
 import matplotlib.pyplot as plt
 
 def get_node_coords():
