@@ -24,7 +24,7 @@ pip install libdenavit
 ## Local Build
 
 ```sh
-cd libdenavity-py
+cd libdenavit-py
 
 python3 -m build .
 python3 -m pip install .
