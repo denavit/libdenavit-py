@@ -9,7 +9,8 @@ except ModuleNotFoundError:
     import openseespy.opensees as ops
 from libdenavit.OpenSees import circ_patch_2d, obround_patch_2d, obround_patch_2d_confined
 from libdenavit.section import AciStrainCompatibility, FiberSection, ACI_phi
-
+from libdenavit.unit_convert import unit_convert
+import bennycloth as benny
 
 class RC:
     treat_reinforcement_as_point = True
@@ -19,10 +20,11 @@ class RC:
     _eps_c = None
     _Abt = None
     _age = None
+    _age = 14
     _epssha = None
     _tcr = None
-    _epscra = 1.0
-    _epscrd = None
+    _tcr = 1000
+    #_tcr = 10000
     _tcast = None
     _Mn = dict()
 
@@ -38,13 +40,9 @@ class RC:
         self.fyt = fyt
         self.lat_config = lat_config
         self.transverse_reinf_type = transverse_reinf_type
-        self.epsshu = epsshu
-        self.epscru = epscru
-        O = self.conc_cross_section.perimeter
-        if O > 0.0:
-            A = self.conc_cross_section.A
-            self._epssha = A / O
-            self._epscrd = self._epssha
+        self.epsshu = abs(epsshu)
+        self.epscru = abs(epscru)
+        #print(self.epsshu,self.epscru)
 
     @property
     def Ec(self):
@@ -444,7 +442,7 @@ class RC:
         return P, M, et
 
     def build_ops_fiber_section(self, section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx, GJ=1.0e6,
-                                axis=None):
+                                axis=None, creep=False):
         """ Builds the fiber section object
 
         Parameters
@@ -470,6 +468,8 @@ class RC:
                 bending about the x-axis (note that the value nfx will be ignored) 
               - If "y", then a 2-dimensional fiber section will be defined based on 
                 bending about the y-axis (note that the value nfy will be ignored)
+        creep: bool (default False)
+            Optional argument to include creep parameters in concrete definition
         """
 
         # Two or three uniaxial materials are defined in this function
@@ -477,6 +477,9 @@ class RC:
         concrete_material_id = start_material_id+1        # Used if no confinement
         cover_concrete_material_id = start_material_id+1  # Used if confinement
         core_concrete_material_id  = start_material_id+2  # Used if confinement
+        concrete_creep_material_id = start_material_id+3
+        cover_concrete_creep_material_id = start_material_id+3
+        core_concrete_creep_material_id = start_material_id+4
         
         # Define section        
         ops.section('Fiber', section_id, '-GJ', GJ)
@@ -499,7 +502,7 @@ class RC:
         # endregion
 
         if type(self.conc_cross_section).__name__ == 'Rectangle':
-            
+
             # region Define Concrete Material
             if conc_mat_type == "Concrete04":
                 # Defined based on Mander, J. B., Priestley, M. J. N., and Park, R. (1988). 
@@ -590,6 +593,31 @@ class RC:
             else:
                 raise ValueError(f"Concrete material {conc_mat_type} not supported")
             # endregion
+                    
+            if creep:
+                VoverS = self.conc_cross_section.A / self.conc_cross_section.perimeter
+                VoverS = unit_convert(VoverS, "in", "mm")
+                t0 = 1000
+                t0 = self._tcr
+                creepdata = benny.CreepACI209R(self.fc,VoverS,28,t0, phiu0=self.epscru)
+                shrinkagedata = benny.ShrinkageACI209R(self.fc,VoverS,28,t0, epsshu0=self.epsshu)
+                #creepdata['phiu'] = self.epscru
+                print(self._age, shrinkagedata, self._tcr, creepdata, 4)
+                if confinement == True:
+                    ops.uniaxialMaterial('Creep',cover_concrete_creep_material_id,cover_concrete_material_id,
+                                         self._age, shrinkagedata['epsshu'], shrinkagedata['psish'], self._tcr, 
+                                         creepdata['phiu'], creepdata['psicr1'], creepdata['psicr2'], 0)
+                    ops.uniaxialMaterial('Creep',core_concrete_creep_material_id,core_concrete_material_id,
+                                         self._age, shrinkagedata['epsshu'], shrinkagedata['psish'], self._tcr, 
+                                         creepdata['phiu'], creepdata['psicr1'], creepdata['psicr2'], 0)                    
+                else:
+                    ops.uniaxialMaterial('Creep',concrete_creep_material_id,concrete_material_id, 
+                                         self._age, shrinkagedata['epsshu'], shrinkagedata['psish'], self._tcr, 
+                                         creepdata['phiu'], creepdata['psicr1'], creepdata['psicr2'], 0)
+
+                cover_concrete_material_id = cover_concrete_creep_material_id
+                core_concrete_material_id = core_concrete_creep_material_id
+                concrete_material_id = concrete_creep_material_id
 
             # region Define fibers and patches
             if (axis is None) or (axis == '3d'): 
@@ -740,7 +768,32 @@ class RC:
             else:
                 raise ValueError(f"Concrete material {conc_mat_type} not supported")
             # endregion
-    
+
+            if creep:
+                VoverS = self.conc_cross_section.A / self.conc_cross_section.perimeter
+                VoverS = unit_convert(VoverS, "in", "mm")
+                t0 = 1000
+                t0 = self._tcr
+                creepdata = benny.CreepACI209R(self.fc,VoverS,28,t0, phiu0=self.epscru)
+                shrinkagedata = benny.ShrinkageACI209R(self.fc,VoverS,28,t0, epsshu0=self.epsshu)
+                #creepdata['phiu'] = self.epscru
+                print(self._age, shrinkagedata, self._tcr, creepdata, 4)
+                if confinement == True:
+                    ops.uniaxialMaterial('Creep',cover_concrete_creep_material_id,cover_concrete_material_id,
+                                         self._age, shrinkagedata['epsshu'], shrinkagedata['psish'], self._tcr, 
+                                         creepdata['phiu'], creepdata['psicr1'], creepdata['psicr2'], 0)
+                    ops.uniaxialMaterial('Creep',core_concrete_creep_material_id,core_concrete_material_id,
+                                         self._age, shrinkagedata['epsshu'], shrinkagedata['psish'], self._tcr, 
+                                         creepdata['phiu'], creepdata['psicr1'], creepdata['psicr2'], 0)                    
+                else:
+                    ops.uniaxialMaterial('Creep',concrete_creep_material_id,concrete_material_id, 
+                                         self._age, shrinkagedata['epsshu'], shrinkagedata['psish'], self._tcr, 
+                                         creepdata['phiu'], creepdata['psicr1'], creepdata['psicr2'], 0)
+
+                cover_concrete_material_id = cover_concrete_creep_material_id
+                core_concrete_material_id = core_concrete_creep_material_id
+                concrete_material_id = concrete_creep_material_id
+
             # region Define fibers and patches
             if (axis is None) or (axis == '3d'): 
                 for i in self.reinforcement:
@@ -880,6 +933,31 @@ class RC:
             else:
                 raise ValueError(f"Concrete material {conc_mat_type} not supported")
             # endregion
+
+            if creep:
+                VoverS = self.conc_cross_section.A / self.conc_cross_section.perimeter
+                VoverS = unit_convert(VoverS, "in", "mm")
+                t0 = 1000
+                t0 = self._tcr
+                creepdata = benny.CreepACI209R(self.fc,VoverS,28,t0, phiu0=self.epscru)
+                shrinkagedata = benny.ShrinkageACI209R(self.fc,VoverS,28,t0, epsshu0=self.epsshu)
+                #creepdata['phiu'] = self.epscru
+                print(self._age, shrinkagedata, self._tcr, creepdata, 4)
+                if confinement == True:
+                    ops.uniaxialMaterial('Creep',cover_concrete_creep_material_id,cover_concrete_material_id,
+                                         self._age, shrinkagedata['epsshu'], shrinkagedata['psish'], self._tcr, 
+                                         creepdata['phiu'], creepdata['psicr1'], creepdata['psicr2'], 0)
+                    ops.uniaxialMaterial('Creep',core_concrete_creep_material_id,core_concrete_material_id,
+                                         self._age, shrinkagedata['epsshu'], shrinkagedata['psish'], self._tcr, 
+                                         creepdata['phiu'], creepdata['psicr1'], creepdata['psicr2'], 0)                    
+                else:
+                    ops.uniaxialMaterial('Creep',concrete_creep_material_id,concrete_material_id, 
+                                         self._age, shrinkagedata['epsshu'], shrinkagedata['psish'], self._tcr, 
+                                         creepdata['phiu'], creepdata['psicr1'], creepdata['psicr2'], 0)
+
+                cover_concrete_material_id = cover_concrete_creep_material_id
+                core_concrete_material_id = core_concrete_creep_material_id
+                concrete_material_id = concrete_creep_material_id
 
             # region Define fibers and patches
             if (axis is None) or (axis == '3d'):
