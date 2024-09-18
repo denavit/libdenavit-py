@@ -1,4 +1,4 @@
-from math import pi, sin
+from math import pi, sin, log10
 from libdenavit import find_limit_point_in_list, interpolate_list, InteractionDiagram2d, CrossSection2d
 from libdenavit.OpenSees import AnalysisResults
 import openseespy.opensees as ops
@@ -41,18 +41,28 @@ class NonSwayColumn2d:
                     'ops_n_elem': 8,
                     'ops_element_type': 'mixedBeamColumn',
                     'ops_geom_transf_type': 'Corotational',
-                    'ops_integration_points': 3
+                    'ops_integration_points': 3,
+                    'creep': False,
+                    '_Psus': 0.0,
+                    'tsus': 10000
                     }
         for key, value in defaults.items():
             setattr(self, key, kwargs.get(key, value))
 
     
     @property
+    def Psus(self):
+        return self._Psus 
+    
+    @Psus.setter 
+    def Psus(self, x):
+        self._Psus = x
+
+    @property
     def ops_mid_node(self):
         if self.ops_n_elem % 2 == 0:
             return self.ops_n_elem // 2
         raise ValueError(f'Number of elements should be even {self.ops_n_elem = }')
-
 
     def build_ops_model(self, section_id, section_args, section_kwargs, **kwargs):
         """
@@ -96,7 +106,7 @@ class NonSwayColumn2d:
         ops.geomTransf(self.ops_geom_transf_type, 100)
         
         if type(self.section).__name__ == "RC":
-            self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs, axis=self.axis)
+            self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs, axis=self.axis, creep=self.creep)
         else:
             raise ValueError(f'Unknown cross section type {type(self.section).__name__}')
 
@@ -222,7 +232,7 @@ class NonSwayColumn2d:
             ops.test('NormUnbalance', 1e-3, 10)
 
         # Run analysis
-        if analysis_type.lower() == 'proportional_limit_point':
+        if analysis_type.lower() == 'proportional_limit_point' and self.creep == False:
             # time = LFV
             ops.timeSeries('Linear', 100)
             ops.pattern('Plain', 200, 100)
@@ -309,6 +319,222 @@ class NonSwayColumn2d:
                     break
 
                 record()
+
+                # Check for drop in applied load
+                if percent_load_drop_limit is not None:
+                    current_applied_axial_load = results.applied_axial_load[-1]
+                    maximum_applied_axial_load = max(maximum_applied_axial_load, current_applied_axial_load)
+                    if current_applied_axial_load < (1 - percent_load_drop_limit) * maximum_applied_axial_load:
+                        results.exit_message = 'Load Drop Limit Reached'
+                        break
+
+                # Check for lowest eigenvalue less than zero
+                if eigenvalue_limit is not None:
+                    if results.lowest_eigenvalue[-1] < eigenvalue_limit:
+                        results.exit_message = 'Eigenvalue Limit Reached'
+                        break
+
+                # Check for maximum displacement
+                if deformation_limit is not None:
+                    if results.maximum_abs_disp[-1] > deformation_limit:
+                        results.exit_message = 'Deformation Limit Reached'
+                        break
+
+                # Check for strain in extreme compressive concrete fiber
+                if concrete_strain_limit is not None:
+                    if results.maximum_concrete_compression_strain[-1] < concrete_strain_limit:
+                        results.exit_message = 'Extreme Compressive Concrete Fiber Strain Limit Reached'
+                        break
+
+                # Check for strain in extreme steel fiber
+                if steel_strain_limit is not None:
+                    if results.maximum_steel_strain[-1] > steel_strain_limit:
+                        results.exit_message = 'Extreme Steel Fiber Strain Limit Reached'
+                        break
+
+            find_limit_point()
+            return results
+
+        elif analysis_type.lower() == 'proportional_limit_point' and self.creep == True:
+            # Do one analysis with no load
+            ops.integrator('LoadControl',0.0)
+            ops.analysis('Static','-noWarnings')
+            
+            ops.setTime(14)
+            ops.setCreep(1)
+            ops.analyze(1)
+            
+            # Analysis for gravity load
+            ops.setCreep(1)
+
+            # time = LFV
+            Psus = self._Psus
+            ops.timeSeries('Constant', 100)
+            ops.pattern('Plain', 200, 100, '-factor', Psus)
+
+            sgn_et = int(np.sign(self.et))
+            sgn_eb = int(np.sign(self.eb))
+            if sgn_et != sgn_eb:
+                if max(self.et, self.eb, key=abs) == self.et:
+                    dof = 3 * self.ops_n_elem // 4
+                    ecc_sign = sgn_et
+                else:
+                    dof = 1 * self.ops_n_elem // 4
+                    ecc_sign = sgn_eb
+                dU = self.length * disp_incr_factor / 2
+                ops.load(self.ops_n_elem, 0, -1, self.et * e * ecc_sign)
+                ops.load(0, 0, 0, -self.eb * e * ecc_sign)
+                #ops.integrator('DisplacementControl', dof, 1, dU)
+            else:
+                ecc_sign = sgn_et
+                dU = self.length * disp_incr_factor
+                ops.load(self.ops_n_elem, 0, -1, self.et * e * ecc_sign)
+                ops.load(0, 0, 0, -self.eb * e * ecc_sign)
+                #ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+
+            # Define recorder
+            def record(lam=0):
+                #time = ops.getTime()
+                section_strains = self.ops_get_section_strains()
+
+                time = ops.getLoadFactor(200)
+                #ops.reactions()
+                #lam = 0
+                #time = abs(ops.nodeReaction(0,2))
+                results.applied_axial_load.append(time + lam)
+                results.applied_moment_top.append(self.et * e * (time+lam) * ecc_sign)
+                results.applied_moment_bot.append(-self.eb * e * (time+lam) * ecc_sign)
+                results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
+                results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp())
+                results.lowest_eigenvalue.append(ops.eigen('-fullGenLapack', 1)[0])
+                results.maximum_concrete_compression_strain.append(section_strains[0])
+                results.maximum_steel_strain.append(section_strains[1])
+
+                if self.axis == 'x':
+                    results.curvature.append(section_strains[2])
+                elif self.axis == 'y':
+                    results.curvature.append(section_strains[3])
+                else:
+                    raise ValueError(f'The value of axis ({self.axis}) is not supported.')
+
+            record()
+
+            ops.integrator('LoadControl',0)
+
+            ops.constraints('Plain')
+            ops.numberer('RCM')
+            ops.system('UmfPack')
+            ops.test('NormDispIncr', 1e-3, 10)
+            ops.algorithm('Newton')
+            ops.analysis('Static')
+            
+            # Analysis for sustained load
+            ops.analyze(1)
+            
+            record()
+
+            # Shrinkage analysis
+            ops.setTime(28)
+            ops.setCreep(1)
+            ops.analyze(1)
+
+
+            
+            
+
+            # Creep it out
+            ops.setCreep(1)
+            tstart = 28
+            ops.loadConst('-time',tstart)
+            tsus = self.tsus
+            if tsus < 100:
+                tsus = 100
+            tfinish = tsus-100
+            logt = log10(tstart)
+            t0 = tstart
+            while logt <= log10(tfinish):
+                logt = logt + 0.01
+                t1 = 10**logt
+                dt = t1-t0
+                ops.integrator('LoadControl',dt)
+                ok = ops.analyze(1)
+                ops.setTime(t1)
+                if ok < 0:
+                    break
+                record()
+                t0=t1
+
+            if ok < 0:
+                results.exit_message = 'Analysis Failed in Hold Phase'
+                find_limit_point()
+                return results
+
+            # One analysis for equilibrium after creep
+            ops.integrator('LoadControl',0)
+            ops.analyze(1)
+            
+            ops.setCreep(0)            
+            ops.integrator('LoadControl',0)
+            ops.analyze(1)
+            record()
+
+            ops.setTime(0)
+            ops.timeSeries('Linear', 1000)
+            ops.pattern('Plain', 2000, 1000)
+
+            sgn_et = int(np.sign(self.et))
+            sgn_eb = int(np.sign(self.eb))
+            if sgn_et != sgn_eb:
+                if max(self.et, self.eb, key=abs) == self.et:
+                    dof = 3 * self.ops_n_elem // 4
+                    ecc_sign = sgn_et
+                else:
+                    dof = 1 * self.ops_n_elem // 4
+                    ecc_sign = sgn_eb
+                dU = self.length * disp_incr_factor / 2
+                ops.load(self.ops_n_elem, 0, -1, self.et * e * ecc_sign)
+                ops.load(0, 0, 0, -self.eb * e * ecc_sign)
+                ops.integrator('DisplacementControl', dof, 1, dU)
+            else:
+                ecc_sign = sgn_et
+                dU = self.length * disp_incr_factor
+                dU = 0.01
+                ops.load(self.ops_n_elem, 0, -1, self.et * e * ecc_sign)
+                ops.load(0, 0, 0, -self.eb * e * ecc_sign)
+                ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+
+            maximum_applied_axial_load = 0.
+            while True:
+                ok = ops.analyze(1)
+
+                if ok != 0 and try_smaller_steps:
+                    for div_factor in [1e1, 1e2, 1e3, 1e4, 1e5, 1e6]:
+                        update_dU(disp_incr_factor, div_factor)
+                        ok = ops.analyze(1)
+                        if ok == 0 and div_factor in [1e3, 1e4, 1e5, 1e6]:
+                            disp_incr_factor /= 10
+                            break
+                        elif ok == 0:
+                            break
+                        else:
+                            ok = try_analysis_options()
+                            if ok == 0 and div_factor in [1e3, 1e4, 1e5, 1e6]:
+                                disp_incr_factor /= 10
+                                break
+                            elif ok == 0:
+                                break
+
+                if ok != 0 and not try_smaller_steps:
+                    ok = try_analysis_options()
+
+                if ok == 0:
+                    reset_analysis_options(disp_incr_factor)
+                elif ok != 0:
+                    results.exit_message = 'Analysis Failed'
+                    warnings.warn('Analysis Failed')
+                    break
+
+                record(ops.getTime())
 
                 # Check for drop in applied load
                 if percent_load_drop_limit is not None:
