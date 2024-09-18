@@ -1,9 +1,4 @@
-try:
-    import sys
-    sys.path.append('/home/mhscott/OpenSees/SRC/interpreter')
-    import opensees as ops
-except ModuleNotFoundError:
-    import openseespy.opensees as ops
+import openseespy.opensees as ops
 from libdenavit import area_of_circular_segment, centroid_of_circular_segment
 from math import ceil, tan, acos
 
