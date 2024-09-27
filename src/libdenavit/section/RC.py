@@ -7,6 +7,7 @@ from libdenavit.section import AciStrainCompatibility, FiberSection, ACI_phi
 from libdenavit.unit_convert import unit_convert
 import bennycloth as benny
 
+
 class RC:
     treat_reinforcement_as_point = True
     _reinforcement = None
@@ -196,16 +197,16 @@ class RC:
     def EIgross(self, axis):
         return self.Ec * self.Ic(axis) + self.Es * self.Isr(axis)
     
-    def EIeff(self, axis, EI_type, betadns=0.0, P=None, M=None, return_max_min_limits=False):
+    def EIeff(self, axis, EI_type, betadns=0.0, P=None, M=None, col=None):
         if EI_type.lower() == "aci-a":
             # ACI 318-19, Section 6.6.4.4.4a
             return 0.4 * self.Ec * self.Ig(axis) / (1 + betadns)
 
-        if EI_type.lower() == "aci-b":
+        elif EI_type.lower() == "aci-b":
             # ACI 318-19, Section 6.6.4.4.4b
             return (0.2 * self.Ec * self.Ig(axis) + self.Es * self.Isr(axis)) / (1 + betadns)
 
-        if EI_type.lower() == "aci-c":
+        elif EI_type.lower() == "aci-c":
             # ACI 318-19, Section 6.6.4.4.4c
             if P is None or M is None:
                 raise ValueError("P and M must be defined for EI_type = 'ACI-c'")
@@ -223,8 +224,6 @@ class RC:
                     else:
                         Ieff.append(EI_ACI)
                 EI = [i * self.Ec for i in Ieff]
-                if return_max_min_limits:
-                    return EI, max_I * self.Ec, min_I * self.Ec
                 return EI
 
             elif isinstance(P, float):
@@ -237,11 +236,9 @@ class RC:
                 else:
                     Ieff = I_ACI
                 EI = Ieff * self.Ec
-                if return_max_min_limits:
-                    return EI, max_I * self.Ec, min_I * self.Ec
                 return EI
 
-        if EI_type.lower() == "jf-a":
+        elif EI_type.lower() == "jf-a":
             # Jenkins and Frosch, 2011 - Eq.10.1
             EI = []
             if P is None or M is None:
@@ -283,7 +280,7 @@ class RC:
             else:
                 raise ValueError("P and M types or sizes are not as expected")
 
-        if EI_type.lower() == "jf-b":
+        elif EI_type.lower() == "jf-b":
             # Jenkins and Frosch, 2011 - Eq.10.2
             EI = []
             if P is None or M is None:
@@ -324,10 +321,18 @@ class RC:
             else:
                 raise ValueError("P and M types or sizes are not as expected")
 
-        if EI_type == "gross":
+        elif EI_type.lower() == "gross":
             return self.EIgross(axis)
 
-        raise ValueError(f'Unknown EI_type {EI_type}')
+            import importlib
+            module_name = EI_type[0]
+            class_name = EI_type[1]
+            module = importlib.import_module(module_name)
+            EI_trial = getattr(module, function_name)
+
+            return EI_trial(self, axis, EI_type, betadns, P, M, col)
+        else:
+            raise ValueError(f'Unknown EI_type {EI_type}')
 
     def interaction_diagram_object(self, axis, num_points, factored=False, only_compressive=True):
         if self._CS_id2d is None:
