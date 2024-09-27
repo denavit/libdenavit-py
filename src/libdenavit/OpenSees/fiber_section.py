@@ -92,8 +92,7 @@ def obround_patch_2d(mat_tag, num_fibers, D, a, axis, yc=0):
 
 
 def obround_patch_2d_confined(mat_tag_cover, mat_tag_core, num_fibers, D, a, Dc, axis, yc=0):
-    if axis == 'x':
-        
+    if axis == 'y':
         # Number of fibers in each region
         nf_mid  = ceil(Dc/2 * num_fibers / (D+a))
         nf_center  = ceil(a/2 * num_fibers / (D+a))
@@ -155,16 +154,14 @@ def obround_patch_2d_confined(mat_tag_cover, mat_tag_core, num_fibers, D, a, Dc,
             ops.fiber(yc + iy + a/2, 0, iA, mat_tag_cover)
             ops.fiber(yc - iy - a/2, 0, iA, mat_tag_cover)
 
-    elif axis == 'y':
-        
+    elif axis == 'x':
         # Find the height of the rectangle inside circle
         y_center = a / 2 * tan(acos((a / 2) / (Dc / 2)))
-        nf = ceil(Dc / 2 * num_fibers / D)
 
         # Number of fibers in each region
-        nf_center = ceil(y_center / (Dc / 2) * nf)
-        nf_mid = ceil((Dc / 2 - y_center) / (Dc / 2) * nf)
-        nf_top = ceil((D / 2 - Dc / 2) / (D / 2) * nf)
+        nf_center = ceil(y_center / (Dc / 2) * num_fibers)
+        nf_mid = ceil((Dc / 2 - y_center) / (Dc / 2) * num_fibers)
+        nf_top = ceil((D / 2 - Dc / 2) / (D / 2) * num_fibers)
 
         # Height of each fiber (strip) in each region
         dy_center = y_center / nf_center
@@ -280,63 +277,107 @@ def run_example():
 
 
 def run_example_2(num_fibers):
-    D = 4
-    Dc = 3.5
-    a = 3
+    import numpy as np
+    from libdenavit.OpenSees import get_fiber_data
+
+    # Parameters
+    D, Dc, a = 4, 3.5, 3
+    num_fibers = 100  # Assuming num_fibers is defined
+    GJ = 10e6
+
+    # Initialize model
     ops.wipe()
     ops.model('basic', '-ndm', 3, '-ndf', 6)
 
+    # Define nodes and boundary conditions
     ops.node(0, 0, 0, 0)
     ops.node(1, 0, 0, 0)
-
     ops.fix(1, 1, 0, 1, 1, 0, 0)
+
+    # Define materials
     ops.uniaxialMaterial('Elastic', 1, 1000)
     ops.uniaxialMaterial('Elastic', 2, 2000)
 
-    ops.section("Fiber", 1, '-GJ', 10e6)
+    # First fiber section and zero-length section element
+    ops.section("Fiber", 1, '-GJ', GJ)
     obround_patch_2d_confined(1, 2, num_fibers, D, a, Dc, "x")
     ops.element('zeroLengthSection', 1, 0, 1, 1)
 
-    from libdenavit.OpenSees import get_fiber_data
+    # Get and process fiber data for first section
     x, y, A, m = get_fiber_data("1")
-    #print(f'x: {x}\n', f'y: {y}\n', f'A: {A}\n', f'm: {m}\n')
-    print(f"A  = {sum(A) :.6f} vs 24.566 from CAD")
+    A_total = sum(A)
+    Ix = np.sum(np.array(A) * np.array(y) ** 2)
 
-    import numpy as np
-    y = np.array(y)
-    A = np.array(A)
-    Ix = np.sum(A * y * y)
-    print(f"{Ix = :.6f} vs 81.8407 from CAD")
+    # Print results for first section
+    print(f"A  = {A_total:.4f} from confined model vs 24.566 from CAD")
+    print(f"Ix = {Ix:.4f} from confined model vs 28.5664 from CAD")
+
+    # Remove first element and redefine section and element
+    ops.remove("element", 1)
+    ops.section('Fiber', 2, '-GJ', GJ)
+    obround_patch_2d(1, num_fibers, D, a, "x")
+    ops.element('zeroLengthSection', 1, 0, 1, 2)
+
+    # Get and process fiber data for second section
+    x, y, A, m = get_fiber_data("2")
+    A_total = sum(A)
+    Ix = np.sum(np.array(A) * np.array(y) ** 2)
+
+    # Print results for second section
+    print(f"A  = {A_total:.4f} from unconfined model vs 24.566 from CAD")
+    print(f"Ix = {Ix:.4f} from unconfined model vs 28.5664 from CAD")
 
 
 def run_example_3(num_fibers):
-    D = 4
-    Dc = 3.5
-    a = 3
+    import numpy as np
+    from libdenavit.OpenSees import get_fiber_data
+
+    # Parameters
+    D, Dc, a = 4, 3.5, 3
+    num_fibers = 100  # Assuming num_fibers is defined
+    GJ = 10e6
+
+    # Initialize model
     ops.wipe()
     ops.model('basic', '-ndm', 3, '-ndf', 6)
 
+    # Define nodes and boundary conditions
     ops.node(0, 0, 0, 0)
     ops.node(1, 0, 0, 0)
-
     ops.fix(1, 1, 0, 1, 1, 0, 0)
+
+    # Define materials
     ops.uniaxialMaterial('Elastic', 1, 1000)
     ops.uniaxialMaterial('Elastic', 2, 2000)
 
-    ops.section("Fiber", 1, '-GJ', 10e6)
+    # First fiber section (confined) and zero-length section element
+    ops.section("Fiber", 1, '-GJ', GJ)
     obround_patch_2d_confined(1, 2, num_fibers, D, a, Dc, "y")
     ops.element('zeroLengthSection', 1, 0, 1, 1)
 
-    from libdenavit.OpenSees import get_fiber_data
+    # Get and process fiber data for confined model
     x, y, A, m = get_fiber_data("1")
-    #print(f'x: {x}\n', f'y: {y}\n', f'A: {A}\n', f'm: {m}\n')
-    print(f"A  = {sum(A) :.6f} vs 24.566 from CAD")
+    A_total = sum(A)
+    Iy = np.sum(np.array(A) * np.array(y) ** 2)
 
-    import numpy as np
-    y = np.array(y)
-    A = np.array(A)
-    Iy = np.sum(A * y * y)
-    print(f"{Iy = :.6f} vs 28.5700 from CAD")
+    # Print results for confined model
+    print(f"A  = {A_total:.4f} from confined model vs 24.566 from CAD")
+    print(f"Iy = {Iy:.4f} from confined model vs 81.8407 from CAD")
+
+    # Remove first element and redefine section and element (unconfined model)
+    ops.remove("element", 1)
+    ops.section("Fiber", 2, '-GJ', GJ)
+    obround_patch_2d(1, num_fibers, D, a, "y")
+    ops.element('zeroLengthSection', 1, 0, 1, 2)
+
+    # Get and process fiber data for unconfined model
+    x, y, A, m = get_fiber_data("2")
+    A_total = sum(A)
+    Iy = np.sum(np.array(A) * np.array(y) ** 2)
+
+    # Print results for unconfined model
+    print(f"A  = {A_total:.4f} from unconfined model vs 24.566 from CAD")
+    print(f"Iy = {Iy:.4f} from unconfined model vs 81.8407 from CAD")
 
 
 if __name__ == "__main__":
