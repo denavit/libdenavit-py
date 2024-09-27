@@ -202,7 +202,7 @@ class NonSwayColumn2d:
         def update_dU(disp_incr_factor, div_factor=1):
             sgn_et = int(np.sign(self.et))
             sgn_eb = int(np.sign(self.eb))
-            if sgn_et != sgn_eb:
+            if sgn_et != sgn_eb and (sgn_eb != 0 and sgn_et != 0):
                 if max(self.et, self.eb, key=abs) == self.et:
                     dof = 3 * self.ops_n_elem // 4
                 else:
@@ -239,7 +239,7 @@ class NonSwayColumn2d:
 
             sgn_et = int(np.sign(self.et))
             sgn_eb = int(np.sign(self.eb))
-            if sgn_et != sgn_eb:
+            if sgn_et != sgn_eb and (sgn_eb != 0 and sgn_et != 0):
                 if max(self.et, self.eb, key=abs) == self.et:
                     dof = 3 * self.ops_n_elem // 4
                     ecc_sign = sgn_et
@@ -648,7 +648,7 @@ class NonSwayColumn2d:
             ops.pattern('Plain', 201, 101)
             sgn_et = int(np.sign(self.et))
             sgn_eb = int(np.sign(self.eb))
-            if sgn_et != sgn_eb:
+            if sgn_et != sgn_eb and (sgn_eb != 0 and sgn_et != 0):
                 if max(self.et, self.eb, key=abs) == self.et:
                     dof = 3 * self.ops_n_elem // 4
                     ecc_sign = sgn_et
