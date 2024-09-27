@@ -1003,7 +1003,7 @@ class NonSwayColumn2d:
         return 0.6 + 0.4 * min(self.et, self.eb, key=abs) / max(self.et, self.eb, key=abs)
 
 
-    def calculated_EI_ops(self, P_list, M1_list, M2_list, Pc_factor=1) -> dict:
+    def calculated_EI_ops(self, P_list, M1_list, M2_ops, Pc_factor=1) -> dict:
         """
             Back-calculate the effective flexural stiffness (EI) based on OpenSees results.
 
@@ -1024,33 +1024,33 @@ class NonSwayColumn2d:
 
         P_list = np.array(P_list)
         M1_list = np.array(M1_list)
-        M2_list = np.array(M2_list)
+        M2_ops = np.array(M2_ops)
         EIgross = self.section.EIgross(self.axis)
 
-        id2d_ops = InteractionDiagram2d(M2_list, P_list, is_closed=False)
-
+        M2_list = []
         EI_list_ops = []
+
         for P, M1 in zip(P_list, M1_list):
-            try:
-                M2 = id2d_ops.find_x_given_y(P, 'pos')
-            except:
-                EI_list_ops.append(float("nan"))
-                continue
+            M2 = np.interp(P, np.flip(P_list), np.flip(M2_ops))
+            M2_list.append(M2)
 
             if M1 > M2:
                 EI_list_ops.append(float("nan"))
                 continue
 
             delta = M2 / M1
-            Pc = delta * P / (Pc_factor * (delta - self.Cm))
+            Pc = P / (1-self.Cm/delta) / Pc_factor
             k = 1  # Effective length factor (always one for this non-sway column)
             EI = Pc * (k * self.length / pi) ** 2
+            if EI>EIgross:
+                EI = EIgross
             EI_list_ops.append(EI)
 
-        return {"P":np.array(P_list), "M1":np.array(M1_list),"EI_ops":np.array(EI_list_ops), "EIgross":EIgross}
+        return {"P":np.array(P_list), "M1":np.array(M1_list), "M2":np.array(M2_list), "Calculated EI":np.array(EI_list_ops),
+                "EIgross":EIgross}
 
 
-    def calculated_EI_design(self, P_list, M1_list, section_factored=False, Pc_factor=1) -> dict: 
+    def calculated_EI_design(self, P_list, M1_list, P_design, M2_design, section_factored=False, Pc_factor=1) -> dict:
         """
             Back-calculate the effective flexural stiffness (EI) based on OpenSees and AASHTO values.
 
@@ -1070,31 +1070,32 @@ class NonSwayColumn2d:
 
         P_list = np.array(P_list)
         M1_list = np.array(M1_list)
+        P_design = np.array(P_design)
+        M2_design = np.array(M2_design)
+
         EIgross = self.section.EIgross(self.axis)
-
-        P_CS, M_CS, _ = self.section.section_interaction_2d(self.axis, 100, factored=section_factored,
-                                                            only_compressive=True)
-        id2d_AASHTO = InteractionDiagram2d(M_CS, P_CS, is_closed=False)
-
+        M2_list = []
         EI_list_AASHTO = []
+
         for P, M1 in zip(P_list, M1_list):
-            if P < min(P_CS) or P == max(P_CS):
-                EI_list_AASHTO.append(float("nan"))
-                continue
-            try:
-                M2 = id2d_AASHTO.find_x_given_y(P, 'pos')
-            except:
+            M2 = np.interp(P, np.flip(P_design), np.flip(M2_design))
+            M2_list.append(M2)
+
+            if P < min(P_design) or P > max(P_design) or M1 > M2:
                 EI_list_AASHTO.append(float("nan"))
                 continue
 
-            if M1 > M2:
-                EI_list_AASHTO.append(float("nan"))
+            if M1>M2:
+                EI_list_AASHTO.append(EIgross)
                 continue
+
             delta = M2 / M1
-            Pc = delta * P / (Pc_factor * (delta - self.Cm))
+            Pc = P / (1 - self.Cm / delta) / Pc_factor
             k = 1  # Effective length factor (always one for this non-sway column)
             EI = Pc * (k * self.length / pi) ** 2
+            if EI>EIgross:
+                EI = EIgross
             EI_list_AASHTO.append(EI)
-
-        return {"P": np.array(P_list), "M1": np.array(M1_list), "EI_AASHTO": np.array(EI_list_AASHTO),
+            
+        return {"P": np.array(P_list), "M1": np.array(M1_list), "M2":np.array(M2_list), "Calculated EI": np.array(EI_list_AASHTO),
                 "EIgross": EIgross}
