@@ -44,6 +44,9 @@ class InteractionDiagram2d():
         if degrees:
             angles = np.deg2rad(angles)
 
+        if type(angles) in [float, int, np.float64]:
+            angles = [angles]
+
         angles = [i%(2*np.pi) for i in angles]
         d = [None] * len(angles)
 
@@ -74,6 +77,9 @@ class InteractionDiagram2d():
                         raise ValueError('Bad intersection diagram')
                 except:
                     d[i] = math.hypot(Ix, Iy)
+
+        if len(d) == 1:
+            return d[0]
 
         return d
 
@@ -124,18 +130,26 @@ class InteractionDiagram2d():
 
 
     def find_x_given_y(self, Y, signX):
-        if signX.lower() in ['+', 'positive', 'pos']:
-            peakX = 1.1 * np.max(self.idx)
-        elif signX.lower() in ['-', 'negative', 'neg']:
-            peakX = 1.1 * np.min(self.idx)
-        else:
-            raise ValueError('signX must be positive or negative')
+        X_list = []
+        if type(Y) in [int, float, np.float64]:
+            Y_list = [Y]
+        for y in Y_list:
+            if signX.lower() in ['+', 'positive', 'pos']:
+                peakX = 1.1 * np.max(self.idx)
+            elif signX.lower() in ['-', 'negative', 'neg']:
+                peakX = 1.1 * np.min(self.idx)
+            else:
+                raise ValueError('signX must be positive or negative')
 
-        npts = 10
-        pathX = np.linspace(0, peakX, npts)
-        pathY = Y * np.ones(npts)
-        X, _ = self.find_intersection(pathX, pathY)
-        return X
+            npts = 10
+            pathX = np.linspace(0, peakX, npts)
+            pathY = y * np.ones(npts)
+            X_list.append(self.find_intersection(pathX, pathY)[0])
+
+        if type(Y) in [int, float, np.float64]:
+            return X_list[0]
+        else:
+            return X
 
 
     def find_y_given_x(self, X, signY):
