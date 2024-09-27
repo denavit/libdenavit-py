@@ -886,17 +886,18 @@ class NonSwayColumn2d:
 
         # Compute buckling load based on maximum axial strength (this should be a lower bound)
         else:
-            EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=max(P_id), M=0)
+            EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=max(P_id), M=0, col=self)
             Pc = pi ** 2 * EIeff / (k * self.length) ** 2
             buckling_load = Pc_factor * Pc
 
-        P_list, M1_list, M2_list = [], [], []
+        P_list, M1_list, M2_list, EIeff_list = [], [], [], []
 
         if buckling_load > max(P_id):
             # Buckling does not happen since the maximum axial strength is less than the lower bound buckling load
             P_list.append(max(P_id))
             M1_list.append(0)
             M2_list.append(0)
+            EIeff_list.append(EIeff)
 
         else:
             # Buckling happens
@@ -905,25 +906,30 @@ class NonSwayColumn2d:
                 M1_list.append(0)
                 M2_list.append(id2d.find_x_given_y(buckling_load, 'pos'))
 
-            elif EI_type.lower() in ['jf-a', 'jf-b', 'aci-c', 'new_1']:
+            else:
                 def error(P):
                     P = P[0]
-                    EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=P, M=0)
+                    EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=P, M=0, col=self)
                     Pc = pi ** 2 * EIeff / (k * self.length) ** 2
                     return P - Pc_factor * Pc
 
                 # Find P such that error = zero
-                Pguess = 0.9*max(P_id)
+                Pguess = 0.9 * max(P_id)
                 solution, _, ier, _ = fsolve(error, Pguess, full_output=True)
                 if ier != 1:
-                    raise Exception("Buckling load calculation did not converge.")
+                    Pguess = 0.1 * max(P_id)
+                    solution, _, ier, _ = fsolve(error, Pguess, full_output=True)
+                    if ier != 1:
+                        raise Exception("Buckling load calculation did not converge.")
                 buckling_load = solution[0]
 
                 # Buckling
                 error = []
-                M2_trials = list(range(int(max(M_id)), 0, -10))
+
+                max_M_section = max(M_id)
+                M2_trials = np.arange(0, max_M_section, max_M_section / 1000)
                 for M2 in M2_trials:
-                    EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=buckling_load, M=M2)
+                    EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=buckling_load, M=M2, col=self)
                     Pc = pi ** 2 * EIeff / (k * self.length) ** 2
                     error.append(buckling_load - Pc_factor * Pc)
 
@@ -932,35 +938,41 @@ class NonSwayColumn2d:
                 P_list.append(buckling_load)
                 M1_list.append(0)
                 M2_list.append(M2)
-
-            else:
-                raise ValueError(f'Invalid EI_type {EI_type}')
+                EIeff_list.append(self.section.EIeff(self.axis, EI_type, beta_dns, P=buckling_load, M=M2, col=self))
 
         # Loop axial linearly spaced axial loads with non-proportional analyses
         for i in range(1, num_points):
             iP = 0.999 * P_list[0] * (num_points - i - 1) / (num_points - 1)
-            iM2_section = id2d.find_x_given_y(iP, 'pos')
-            k = 1  # Effective length factor (always one for this non-sway column)
-            EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=iP, M=iM2_section)
-            Pc = pi ** 2 * EIeff / (k * self.length) ** 2
-
-            iM1_list = [0]
-            iM2_list = np.arange(0, id2d.find_x_given_y(iP, 'pos'), id2d.find_x_given_y(iP, 'pos')/1000)
-            for iM2 in iM2_list:
-                EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=iP, M=iM2)
+            if EI_type.lower() in ['aci-a', 'aci-b']:
+                iM2 = id2d.find_x_given_y(iP, 'pos')
+                EIeff = self.section.EIeff(self.axis, EI_type, beta_dns)
+                k = 1
                 Pc = pi ** 2 * EIeff / (k * self.length) ** 2
-                if Pc_factor * Pc < iP:
-                    break
                 delta = max(self.Cm / (1 - (iP) / (Pc_factor * Pc)), 1.0)
+                iM1 = iM2 / delta
+            else:
+                iM2_section = id2d.find_x_given_y(iP, 'pos')
+                k = 1  # Effective length factor (always one for this non-sway column)
 
-                iM1_list.append(iM2 / delta)
+                iM1_list = [0]
+                iM2_list = np.arange(0, iM2_section, iM2_section/1000)
+                for iM2 in iM2_list:
+                    EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=iP, M=iM2, col=self)
+                    Pc = pi ** 2 * EIeff / (k * self.length) ** 2
+                    if Pc_factor * Pc < iP:
+                        break
 
-            iM1 = max(iM1_list)
-            iM2 = iM2_list[iM1_list.index(iM1) - 1]
+                    delta = max(self.Cm / (1 - (iP) / (Pc_factor * Pc)), 1.0)
+
+                    iM1_list.append(iM2 / delta)
+
+                iM1 = max(iM1_list)
+                iM2 = iM2_list[iM1_list.index(iM1)-1]
             P_list.append(iP)
             M1_list.append(iM1)
             M2_list.append(iM2)
-        results = {'P':np.array(P_list),'M1':np.array(M1_list),'M2':np.array(M2_list)}
+            EIeff_list.append(self.section.EIeff(self.axis, EI_type, beta_dns, P=iP, M=iM2, col=self))
+        results = {'P':np.array(P_list),'M1':np.array(M1_list),'M2':np.array(M2_list), 'EIeff':np.array(EIeff_list)}
         return results
 
 
