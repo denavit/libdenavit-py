@@ -21,7 +21,6 @@ class RC:
     _tcr = 1000
     #_tcr = 10000
     _tcast = None
-    _Mn = dict()
 
     def __init__(self, conc_cross_section, reinforcement, fc, fy, units, dbt=None, s=None, fyt=None, lat_config="A",
                  transverse_reinf_type='ties', epsshu=0.0, epscru=0.0):
@@ -37,7 +36,8 @@ class RC:
         self.transverse_reinf_type = transverse_reinf_type
         self.epsshu = abs(epsshu)
         self.epscru = abs(epscru)
-        #print(self.epsshu,self.epscru)
+        self._Mn = dict()
+        self._CS_id2d = None
 
     @property
     def Ec(self):
@@ -329,6 +329,13 @@ class RC:
 
         raise ValueError(f'Unknown EI_type {EI_type}')
 
+    def interaction_diagram_object(self, axis, num_points, factored=False, only_compressive=True):
+        if self._CS_id2d is None:
+            from libdenavit import InteractionDiagram2d
+            P_CS, M_CS, _ = self.section_interaction_2d(axis, 20, factored=False, only_compressive=True)
+            CS_id2d = InteractionDiagram2d(M_CS, P_CS, is_closed=True)
+            self._CS_id2d = CS_id2d
+        return self._CS_id2d
 
     def Mn(self, axis):
         if self._Mn.get(axis) is None:
