@@ -659,7 +659,7 @@ class SwayColumn2d:
             raise NotImplementedError('Minimum eccentricity not implemented')
 
         else:
-            EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=max(P_id), M=0)
+            EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=max(P_id), M=0, col=self)
             k = self.effective_length_factor(EIeff)
             Pc = pi ** 2 * EIeff / (k * self.length) ** 2
             buckling_load = Pc_factor * Pc
@@ -679,10 +679,10 @@ class SwayColumn2d:
                 M1_list.append(0)
                 M2_list.append(id2d.find_x_given_y(buckling_load, 'pos'))
 
-            elif EI_type.lower() in ['jf-a', 'jf-b', 'aci-c', 'new_1']:
+            else:
                 def error(P):
                     P = P[0]
-                    EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=P, M=0)
+                    EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=P, M=0, col=self)
                     k = self.effective_length_factor(EIeff)
                     Pc = pi ** 2 * EIeff / (k * self.length) ** 2
                     return P - Pc_factor * Pc
@@ -702,7 +702,7 @@ class SwayColumn2d:
                 max_M_section = max(M_id)
                 M2_trials = np.arange(0, max_M_section, max_M_section/1000)
                 for M2 in M2_trials:
-                    EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=buckling_load, M=M2)
+                    EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=buckling_load, M=M2, col=self)
                     k = self.effective_length_factor(EIeff)
                     Pc = pi ** 2 * EIeff / (k * self.length) ** 2
                     error.append(buckling_load - Pc_factor * Pc)
@@ -712,15 +712,13 @@ class SwayColumn2d:
                 P_list.append(buckling_load)
                 M1_list.append(0)
                 M2_list.append(M2)
-            else:
-                raise ValueError(f'Invalid EI_type {EI_type}')
 
         # Loop axial linearly spaced axial loads witn non-proportional analyses
         for i in range(1, num_points):
             iP = 0.999 * P_list[0] * (num_points - i - 1) / (num_points - 1)
             iM2_section = id2d.find_x_given_y(iP, 'pos')
 
-            EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=iP, M=iM2_section)
+            EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=iP, M=iM2_section, col=self)
             k = self.effective_length_factor(EIeff)
             Pc = pi ** 2 * EIeff / (k * self.length) ** 2
 
@@ -728,7 +726,7 @@ class SwayColumn2d:
             iM2_list = np.arange(0, iM2_section, iM2_section / 1000)
 
             for iM2 in iM2_list:
-                EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=iP, M=iM2)
+                EIeff = self.section.EIeff(self.axis, EI_type, beta_dns, P=iP, M=iM2, col=self)
                 k = self.effective_length_factor(EIeff)
                 Pc = pi ** 2 * EIeff / (k * self.length) ** 2
                 if Pc_factor * Pc < iP:
