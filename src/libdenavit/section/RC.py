@@ -17,7 +17,6 @@ class RC:
     _Abt = None
     _age = None
     _age = 14
-    _epssha = None
     _tcr = None
     _tcr = 1000
     #_tcr = 10000
@@ -92,7 +91,7 @@ class RC:
         if self.units.lower() == 'us':
             return (self.fc * 1000) ** (1 / 4) / 4000
         if self.units.lower() == 'si':
-            return self.fc ** (1 / 4) / 28
+            return (self.fc * 145.038) ** (1 / 4) / 4000
 
         raise ValueError(f'eps_c is not set and default is not impleted for {self.units = }')
     
