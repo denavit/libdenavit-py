@@ -524,6 +524,7 @@ class SwayColumn2d:
         nonprop_disp_incr_factor = kwargs.get('nonprop_disp_incr_factor', 1e-4)
         section_load_factor = kwargs.get('section_load_factor', 1e-1)
         plot_load_deformation = kwargs.get('plot_load_deformation', False)
+        full_results = kwargs.get('full_results', False)
 
         if plot_load_deformation:
             fig_at_step, ax_at_step = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [3, 1]})
@@ -535,6 +536,14 @@ class SwayColumn2d:
         P = [results.applied_axial_load_at_limit_point]
         M1 = [0]
         M2 = [results.maximum_abs_moment_at_limit_point]
+        if full_results:
+            M1t_path = [results.moment_at_top]
+            M1b_path = [results.moment_at_bottom]
+            M2_path = [results.maximum_abs_moment]
+            applied_h_path = [results.applied_horizontal_load]
+            abs_disp_path = [results.maximum_abs_disp]
+
+
         exit_message = [results.exit_message]
         if P is np.nan or P == [np.nan]:
             raise ValueError('Analysis failed at axial only loading')
@@ -551,6 +560,14 @@ class SwayColumn2d:
                 P.append(iP)
                 M1.append(results.maximum_abs_moment_at_limit_point)
                 M2.append(results.maximum_abs_moment_at_limit_point)
+
+                if full_results:
+                    M1t_path.append(results.maximum_abs_moment)
+                    M1b_path.append(results.maximum_abs_moment)
+                    M2_path.append(results.maximum_abs_moment)
+                    applied_h_path.append([0]*len(results.maximum_abs_moment))
+                    abs_disp_path.append([0]*len(results.maximum_abs_moment))
+
                 exit_message.append(results.exit_message)
             else:
                 results = self.run_ops_analysis('nonproportional_limit_point', section_id=section_id,
@@ -559,6 +576,14 @@ class SwayColumn2d:
                 P.append(iP)
                 M1.append(abs(results.applied_horizontal_load_at_limit_point * self.lever_arm))
                 M2.append(results.maximum_abs_moment_at_limit_point)
+
+                if full_results:
+                    M1t_path.append(results.moment_at_top)
+                    M1b_path.append(results.moment_at_bottom)
+                    M2_path.append(results.maximum_abs_moment)
+                    applied_h_path.append(results.applied_horizonal_load)
+                    abs_disp_path.append(results.maximum_abs_disp)
+
                 exit_message.append(results.exit_message)
 
             if plot_load_deformation:
@@ -579,8 +604,12 @@ class SwayColumn2d:
             fig_at_step.tight_layout()
             plt.show()
 
-        results = {'P': np.array(P), 'M1': np.array(M1), 'M2': np.array(M2), 'exit_message': exit_message}
-        return results
+        if full_results:
+            return {'P': np.array(P), 'M1': np.array(M1), 'M2': np.array(M2), 'exit_message': exit_message,
+                    'M1t_path': np.array(M1t_path), 'M1b_path': np.array(M1b_path),'M2_path': np.array(M2_path),
+                    'applied_h_path': np.array(applied_h_path), 'abs_disp_path': np.array(abs_disp_path)}
+        else:
+            return {'P': np.array(P), 'M1': np.array(M1), 'M2': np.array(M2), 'exit_message': exit_message}
 
 
     def ops_get_section_strains(self):

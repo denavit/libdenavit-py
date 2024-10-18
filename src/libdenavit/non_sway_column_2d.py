@@ -775,6 +775,7 @@ class NonSwayColumn2d:
         nonprop_disp_incr_factor = kwargs.get('nonprop_disp_incr_factor', 1e-5)
         section_load_factor = kwargs.get('section_load_factor', 1e-1)
         plot_load_deformation = kwargs.get('plot_load_deformation', False)
+        full_results = kwargs.get('full_results', False)
 
         if plot_load_deformation:
             fig_at_step, ax_at_step = plt.subplots(2, 1, figsize=(10, 6), gridspec_kw={'height_ratios': [3, 1]})
@@ -786,6 +787,13 @@ class NonSwayColumn2d:
         P = [results.applied_axial_load_at_limit_point]
         M1 = [0]
         M2 = [results.maximum_abs_moment_at_limit_point]
+        if full_results:
+            M1t_path = [results.applied_moment_top]
+            M1b_path = [results.applied_moment_bot]
+            M2_path = [results.maximum_abs_moment]
+            disp_path = [results.maximum_abs_disp]
+
+
         exit_message = [results.exit_message]
         if P is np.nan or P == [np.nan]:
             raise ValueError('Analysis failed at axial only loading')
@@ -801,6 +809,12 @@ class NonSwayColumn2d:
                 P.append(iP)
                 M1.append(results.maximum_abs_moment_at_limit_point)
                 M2.append(results.maximum_abs_moment_at_limit_point)
+                if full_results:
+                    M1t_path.append(results.maximum_abs_moment)
+                    M1b_path.append(results.maximum_abs_moment)
+                    M2_path.append(results.maximum_abs_moment)
+                    disp_path.append([0]*len(results.maximum_abs_moment))
+
                 exit_message.append(results.exit_message)
             else:
                 results = self.run_ops_analysis('nonproportional_limit_point', P=iP,
@@ -809,6 +823,12 @@ class NonSwayColumn2d:
                 P.append(iP)
                 M1.append(results.applied_moment_top_at_limit_point)
                 M2.append(results.maximum_abs_moment_at_limit_point)
+                if full_results:
+                    M1t_path.append(results.applied_moment_top)
+                    M1b_path.append(results.applied_moment_bot)
+                    M2_path.append(results.maximum_abs_moment)
+                    disp_path.append(results.maximum_abs_disp)
+
                 exit_message.append(results.exit_message)
 
             if plot_load_deformation:
@@ -828,8 +848,12 @@ class NonSwayColumn2d:
 
             fig_at_step.tight_layout()
             plt.show()
+        if full_results:
+            return {'P': np.array(P), 'M1': np.array(M1), 'M2': np.array(M2), 'exit_message': exit_message,
+                    'M1t_path': M1t_path, 'M1b_path': M1b_path, 'M2_path': M2_path, 'disp_path': disp_path}
+        else:
+            return {'P': np.array(P), 'M1': np.array(M1), 'M2': np.array(M2), 'exit_message': exit_message}
 
-        return {'P': np.array(P), 'M1': np.array(M1), 'M2': np.array(M2), 'exit_message': exit_message}
 
 
     def run_ops_interaction_proportional(self, e_list, **kwargs):
