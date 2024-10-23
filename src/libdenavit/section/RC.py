@@ -323,15 +323,16 @@ class RC:
         elif EI_type.lower() == "gross":
             return self.EIgross(axis)
 
-            import importlib
-            module_name = EI_type[0]
-            class_name = EI_type[1]
-            module = importlib.import_module(module_name)
-            EI_trial = getattr(module, function_name)
-
-            return EI_trial(self, axis, EI_type, betadns, P, M, col)
         else:
-            raise ValueError(f'Unknown EI_type {EI_type}')
+            try:
+                import importlib
+                module_name, EI_input = EI_type.split(',')
+                func_name = module_name
+                module = importlib.import_module(module_name)
+                EI_trial = getattr(module, func_name)
+                return EI_trial(self, axis, EI_input, betadns, P, M, col)
+            except:
+                raise ValueError(f'Unknown EI_type {EI_type}')
 
     def interaction_diagram_object(self, axis, num_points, factored=False, only_compressive=True):
         if self._CS_id2d is None:
