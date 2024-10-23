@@ -6,18 +6,11 @@ from shapely.geometry import LineString, Polygon
 import matplotlib.pyplot as plt
 
 def cart2pol(x, y):
-    assert type(x) == type(y), "x and y must be of the same type"
-    if type(x) in [int, float]:
-        x = [x]
-        y = [y]
+    x = np.asarray(x)
+    y = np.asarray(y)
 
-    assert len(x) == len(y), "x and y must be of the same length"
-
-    rho = []
-    phi = []
-    for i, _ in enumerate(x):
-        rho.append(np.sqrt(x[i]**2 + y[i]**2))
-        phi.append(np.arctan2(y[i], x[i]))
+    rho = np.hypot(x, y)  # Computes sqrt(x**2 + y**2) efficiently
+    phi = np.arctan2(y, x)  # Computes arctan2(y, x) element-wise
 
     return rho, phi
 
