@@ -448,8 +448,122 @@ class RC:
 
         return P, M, et
 
+    def confined_concrete_props(self):
+        if type(self.conc_cross_section).__name__ == 'Rectangle':
+            # dc and bc = core dimensions to centerlines of perimeter hoop in x and y directions
+            bc = self.reinforcement[0].Bx + self.reinforcement[0].db / 2 + self.dbt / 2
+            dc = self.reinforcement[0].By + self.reinforcement[0].db / 2 + self.dbt / 2
+
+            # Ac = area of core of section enclosed by the center lines of the permiter hoops
+            Ac = bc * dc
+
+            # ρcc = ratio of area of longitudinal reinforcement to area of core of section
+            ρcc = self.reinforcement[0].Ab * self.reinforcement[0].num_bars / Ac
+
+            # wx and wy = clear distance between bars in x and y directions
+            wx = self.reinforcement[0].Bx / (self.reinforcement[0].nbx - 1) - self.reinforcement[0].db
+            wy = self.reinforcement[0].By / (self.reinforcement[0].nby - 1) - self.reinforcement[0].db
+
+            # sp = clear vertical spacing between spiral or hoop bars
+            sp = self.s - self.dbt
+
+            # ke = confinement effectiveness coefficient
+            sum_w = (2 * (self.reinforcement[0].nbx - 1) * wx ** 2 +
+                     2 * (self.reinforcement[0].nby - 1) * wy ** 2) / (6 * bc * dc)
+            ke = (1 - sum_w) * (1 - sp / (2 * bc)) * (1 - sp / (2 * dc)) / (1 - ρcc)
+
+            # Asx and Asy = total area of transverse bars running in the x and y directions
+            if self.lat_config == 'A':
+                Asx = 2 * pi * self.dbt ** 2 / 4
+                Asy = 2 * pi * self.dbt ** 2 / 4
+            elif self.lat_config == 'B':
+                Asx = 4 * pi * self.dbt ** 2 / 4
+                Asy = 4 * pi * self.dbt ** 2 / 4
+            else:
+                raise ValueError(f"Unknown lat_config ({self.lat_config})")
+
+            # flx and fly = lateral confining stress in x and y directions
+            flx = ke * Asx / (self.s * dc) * self.fyt
+            fly = ke * Asy / (self.s * bc) * self.fyt
+
+            # Confinement effect from Chang, G. A., and Mander, J. B. (1994).
+            # Seismic Energy Based Fatigue Damage Analysis of Bridge Columns: Part I -
+            # Evaluation of Seismic Capacity. National Center for Earthquake Engineering
+            # Research, Department of Civil Engineering, State University of New York at
+            # Buffalo, Buffalo, New York.
+            # Confinement Effect on Strength (Section 3.4.3)
+            x_bar = (flx + fly) / (2 * self.fc)
+            r = max(flx, fly) / min(flx, fly)
+            A_parameter = 6.886 - (0.6069 + 17.275 * r) * exp(-4.989 * r)
+            B_parameter = 4.5 / (5 / A_parameter * (0.9849 - 0.6306 * exp(-3.8939 * r)) - 0.1) - 5
+            k1 = A_parameter * (0.1 + 0.9 / (1 + B_parameter * x_bar))
+            fcc = self.fc * (1 + k1 * x_bar)
+            # Confinement Effect on Ductility (Section 3.4.4)
+            k2 = 5 * k1
+            eps_prime_cc = self.eps_c * (1 + k2 * x_bar)
+            return fcc, eps_prime_cc
+
+        if type(self.conc_cross_section).__name__ == 'Circle':
+            # ds = core diameter based on center line of perimeter hoop
+            ds = 2 * self.reinforcement[0].rc + self.reinforcement[0].db + self.dbt
+
+            # Ac = area of core of section enclosed by the center line of the permiter hoops
+            Ac = pi / 4 * ds * ds
+
+            # ρcc = ratio of area of longitudinal reinforcement to area of core of section
+            ρcc = self.reinforcement[0].Ab * self.reinforcement[0].num_bars / Ac
+
+            # sp = clear vertical spacing between spiral or hoop bars
+            sp = self.s - self.dbt
+
+            # ke = confinement effectiveness coefficient (Equation 15)
+            ke = (1 - sp / (2 * ds)) / (1 - ρcc)
+
+            # flx and fly = lateral confining stress in x and y directions
+            ρs = 4 * self.Abt / (ds * self.s)  # Equation 17
+            fl = 0.5 * ke * ρs * self.fyt  # Equation 19
+
+            # fcc = confined concrete strength
+            fcc = self.fc * (-1.254 + 2.254 * sqrt(1 + 7.94 * fl / self.fc) - 2 * fl / self.fc)
+            # Confinement Effect on Ductility (Section 3.4.4 of Chang and Mander 1994)
+            k1 = (fcc - self.fc) / fl
+            k2 = 5 * k1
+            x_bar = (fl + fl) / (2 * self.fc)
+            eps_prime_cc = self.eps_c * (1 + k2 * x_bar)
+            return fcc, eps_prime_cc
+
+        if type(self.conc_cross_section).__name__ == 'Obround':
+            # ds = core diameter based on center line of perimeter hoop
+            ds = self.reinforcement[0].D + self.reinforcement[0].db + self.dbt
+
+            # Ac = area of core of section enclosed by the center line of the perimeter hoops
+            Ac = pi / 4 * ds * ds
+
+            # ρcc = ratio of area of longitudinal reinforcement to area of core of section
+            ρcc = self.reinforcement[0].Ab * self.reinforcement[0].num_bars / 2 / Ac
+
+            # sp = clear vertical spacing between spiral or hoop bars
+            sp = self.s - self.dbt
+
+            # ke = confinement effectiveness coefficient (Equation 15)
+            ke = (1 - sp / (2 * ds)) / (1 - ρcc)
+
+            # flx and fly = lateral confining stress in x and y directions
+            ρs = 4 * self.Abt / ds * self.s  # Equation 17
+            fl = 0.5 * ke * ρs * self.fyt  # Equation 19
+
+            # fcc = confined concrete strength
+            fcc = self.fc * (-1.254 + 2.254 * sqrt(1 + 7.94 * fl / self.fc) - 2 * fl / self.fc)
+
+            # Confinement Effect on Ductility (Section 3.4.4 of Chang and Mander 1994)
+            k1 = (fcc - self.fc) / fl
+            k2 = 5 * k1
+            x_bar = (fl + fl) / (2 * self.fc)
+            eps_prime_cc = self.eps_c * (1 + k2 * x_bar)
+            return fcc, eps_prime_cc
+
     def build_ops_fiber_section(self, section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx, GJ=1.0e6,
-                                axis=None, creep=False):
+                                axis=None, creep=False, creep_props_dict=None, shrikage_props_dict=None):
         """ Builds the fiber section object
 
         Parameters
@@ -479,17 +593,19 @@ class RC:
             Optional argument to include creep parameters in concrete definition
         """
 
-        # Two or three uniaxial materials are defined in this function
+        # region Define Material IDs
         steel_material_id = start_material_id
-        concrete_material_id = start_material_id+1        # Used if no confinement
-        cover_concrete_material_id = start_material_id+1  # Used if confinement
-        core_concrete_material_id  = start_material_id+2  # Used if confinement
-        concrete_creep_material_id = start_material_id+3
-        cover_concrete_creep_material_id = start_material_id+3
-        core_concrete_creep_material_id = start_material_id+4
-        
-        # Define section        
+        concrete_material_id = start_material_id + 1  # Used if no confinement
+        cover_concrete_material_id = start_material_id + 1  # Used if confinement
+        core_concrete_material_id = start_material_id + 2  # Used if confinement
+        concrete_creep_material_id = start_material_id + 3
+        cover_concrete_creep_material_id = start_material_id + 3
+        core_concrete_creep_material_id = start_material_id + 4
+        # endregion
+
+        # region Define ops Section
         ops.section('Fiber', section_id, '-GJ', GJ)
+        # endregion
 
         # region Define Steel Material
         if steel_mat_type == "ElasticPP":
@@ -504,130 +620,89 @@ class RC:
 
         elif steel_mat_type == "Elastic":
             ops.uniaxialMaterial("Elastic", steel_material_id, self.Es)
+
         else:
             raise ValueError(f"Steel material {steel_mat_type} not supported")
         # endregion
 
-        if type(self.conc_cross_section).__name__ == 'Rectangle':
-
-            # region Define Concrete Material
-            if conc_mat_type == "Concrete04":
-                # Defined based on Mander, J. B., Priestley, M. J. N., and Park, R. (1988). 
-                # “Theoretical Stress-Strain Model for Confined Concrete.” Journal of Structural 
-                # Engineering, ASCE, 114(8), 1804―1826.
-            
+        # region Define Concrete Material
+        def validate_section_reinf(self):
+            if type(self.conc_cross_section).__name__ == 'Rectangle':
                 if type(self.reinforcement[0]).__name__ != 'ReinfRect':
-                    raise ValueError(f"Reinforcement type {type(self.reinforcement).__name__} not supported for this section type")
-                if self.reinforcement[0].xc != 0 or self.reinforcement[0].yc != 0:
-                    raise ValueError(f"Reinforcing pattern must be centered")
-                if self.dbt is None:
-                   raise ValueError("dbt must be defined")
-                if self.s is None:
-                    raise ValueError("s must be defined")
-                
-                # dc and bc = core dimensions to centerlines of perimeter hoop in x and y directions
-                bc = self.reinforcement[0].Bx + self.reinforcement[0].db/2 + self.dbt/2
-                dc = self.reinforcement[0].By + self.reinforcement[0].db/2 + self.dbt/2
-                                
-                # Ac = area of core of section enclosed by the center lines of the permiter hoops
-                Ac = bc*dc
-                
-                # ρcc = ratio of area of longitudinal reinforcement to area of core of section
-                ρcc = self.reinforcement[0].Ab * self.reinforcement[0].num_bars / Ac
-                
-                # wx and wy = clear distance between bars in x and y directions
-                wx = self.reinforcement[0].Bx / (self.reinforcement[0].nbx - 1) - self.reinforcement[0].db
-                wy = self.reinforcement[0].By / (self.reinforcement[0].nby - 1) - self.reinforcement[0].db
-                
-                # sp = clear vertical spacing between spiral or hoop bars
-                sp = self.s - self.dbt
-                
-                # ke = confinement effectiveness coefficient
-                sum_w = (2 * (self.reinforcement[0].nbx - 1) * wx ** 2 +
-                         2 * (self.reinforcement[0].nby - 1) * wy ** 2) / (6 * bc * dc)
-                ke = (1 - sum_w) * (1 - sp / (2 * bc)) * (1 - sp / (2 * dc)) / (1 - ρcc)
-                
-                # Asx and Asy = total area of transverse bars running in the x and y directions
-                if self.lat_config == 'A':
-                    Asx = 2 * pi * self.dbt ** 2 / 4
-                    Asy = 2 * pi * self.dbt ** 2 / 4
-                elif self.lat_config == 'B':
-                    Asx = 4 * pi * self.dbt ** 2 / 4
-                    Asy = 4 * pi * self.dbt ** 2 / 4
-                else:
-                    raise ValueError(f"Unknown lat_config ({self.lat_config})")
-                 
-                # flx and fly = lateral confining stress in x and y directions
-                flx = ke * Asx / (self.s * dc) * self.fyt
-                fly = ke * Asy / (self.s * bc) * self.fyt
-                
-                # Confinement effect from Chang, G. A., and Mander, J. B. (1994). 
-                # Seismic Energy Based Fatigue Damage Analysis of Bridge Columns: Part I - 
-                # Evaluation of Seismic Capacity. National Center for Earthquake Engineering 
-                # Research, Department of Civil Engineering, State University of New York at 
-                # Buffalo, Buffalo, New York. 
-                # Confinement Effect on Strength (Section 3.4.3)
-                x_bar = (flx + fly) / (2 * self.fc)
-                r = max(flx, fly) / min(flx, fly)
-                A_parameter = 6.886 - (0.6069 + 17.275*r) * exp(-4.989*r)
-                B_parameter = 4.5 / (5 / A_parameter * (0.9849 - 0.6306 * exp(-3.8939*r)) - 0.1) - 5
-                k1 = A_parameter * (0.1 + 0.9 / (1 + B_parameter * x_bar))
-                fcc = self.fc * (1 + k1 * x_bar)
-                # Confinement Effect on Ductility (Section 3.4.4)
-                k2 = 5 * k1
-                eps_prime_cc = self.eps_c * (1 + k2 * x_bar)
+                    raise ValueError(
+                        f"Reinforcement type {type(self.reinforcement).__name__} not supported for this section type")
+            if type(self.conc_cross_section).__name__ == 'Circle':
+                if type(self.reinforcement[0]).__name__ != 'ReinfCirc':
+                    raise ValueError(
+                        f"Reinforcement type {type(self.reinforcement).__name__} not supported for this section type")
+            if type(self.conc_cross_section).__name__ == 'Obround':
+                if type(self.reinforcement[0]).__name__ != 'ReinfIntersectingLoops':
+                    raise ValueError(
+                        f"Reinforcement type {type(self.reinforcement).__name__} not supported for this section type")
 
-                ops.uniaxialMaterial("Concrete04", cover_concrete_material_id, -self.fc, -self.eps_c, -1.0, self.Ec)
-                ops.uniaxialMaterial("Concrete04", core_concrete_material_id, -fcc, -eps_prime_cc, -1.0, self.Ec)
-                confinement = True
+            if self.reinforcement[0].xc != 0 or self.reinforcement[0].yc != 0:
+                raise ValueError(f"Reinforcing pattern must be centered")
+            if self.dbt is None:
+                raise ValueError("dbt must be defined")
+            if self.s is None:
+                raise ValueError("s must be defined")
 
-            elif conc_mat_type == "Concrete04_no_confinement":
-                ops.uniaxialMaterial("Concrete04", concrete_material_id, -self.fc, -self.eps_c, -1.0, self.Ec)
-                confinement = False
+        confinement = False
+        if conc_mat_type == "Concrete04":
+            ''' Defined based on Mander, J. B., Priestley, M. J. N., and Park, R. (1988). 
+                “Theoretical Stress-Strain Model for Confined Concrete.” Journal of Structural 
+                Engineering, ASCE, 114(8), 1804―1826.
+            '''
 
-            elif conc_mat_type == "Concrete01_no_confinement":
-                ops.uniaxialMaterial("Concrete01", concrete_material_id, -self.fc, -2*self.fc/self.Ec, 0, 0.006)
-                confinement = False
+            validate_section_reinf(self)
 
-            elif conc_mat_type == "ENT":
-                ops.uniaxialMaterial('ENT', concrete_material_id, self.Ec)
-                confinement = False
+            fcc, eps_prime_cc = self.confined_concrete_props()
 
-            elif conc_mat_type == "Elastic":
-                ops.uniaxialMaterial('Elastic', concrete_material_id, self.Ec)
-                confinement = False
+            ops.uniaxialMaterial("Concrete04", cover_concrete_material_id, -self.fc, -self.eps_c, -1.0, self.Ec)
+            ops.uniaxialMaterial("Concrete04", core_concrete_material_id, -fcc, -eps_prime_cc, -1.0, self.Ec)
+            confinement = True
 
+        elif conc_mat_type == "Concrete04_no_confinement":
+            ops.uniaxialMaterial("Concrete04", concrete_material_id, -self.fc, -self.eps_c, -1.0, self.Ec)
+
+        elif conc_mat_type == "Concrete01_no_confinement":
+            ops.uniaxialMaterial("Concrete01", concrete_material_id, -self.fc, -2 * self.fc / self.Ec, 0, 0.006)
+
+        elif conc_mat_type == "ENT":
+            ops.uniaxialMaterial('ENT', concrete_material_id, self.Ec)
+
+        elif conc_mat_type == "Elastic":
+            ops.uniaxialMaterial('Elastic', concrete_material_id, self.Ec)
+
+        else:
+            raise ValueError(f"Concrete material {conc_mat_type} not supported")
+        # endregion
+
+        # region Define Creep Material
+        if creep:
+            creepdata = self.get_creep_props_for_uniaxial_material(**creep_props_dict)
+            shrinkagedata = self.get_shrinkage_props_for_uniaxial_material(**shrikage_props_dict)
+
+            if confinement:
+                ops.uniaxialMaterial('Creep', cover_concrete_creep_material_id, cover_concrete_material_id,
+                                     self._tD, shrinkagedata['eps_sh_u'], shrinkagedata['psish'], self._Tcr,
+                                     creepdata['phi_u'], creepdata['psicr1'], creepdata['psicr2'], self._tcast)
+                ops.uniaxialMaterial('Creep', core_concrete_creep_material_id, core_concrete_material_id,
+                                     self._tD, shrinkagedata['eps_sh_u'], shrinkagedata['psish'], self._Tcr,
+                                     creepdata['phi_u'], creepdata['psicr1'], creepdata['psicr2'], self._tcast)
             else:
-                raise ValueError(f"Concrete material {conc_mat_type} not supported")
-            # endregion
-                    
-            if creep:
-                VoverS = self.conc_cross_section.A / self.conc_cross_section.perimeter
-                VoverS = unit_convert(VoverS, "in", "mm")
-                t0 = 1000
-                t0 = self._tcr
-                creepdata = benny.CreepACI209R(self.fc,VoverS,28,t0, phiu0=self.epscru)
-                shrinkagedata = benny.ShrinkageACI209R(self.fc,VoverS,28,t0, epsshu0=self.epsshu)
-                #creepdata['phiu'] = self.epscru
-                print(self._age, shrinkagedata, self._tcr, creepdata, 4)
-                if confinement == True:
-                    ops.uniaxialMaterial('Creep',cover_concrete_creep_material_id,cover_concrete_material_id,
-                                         self._age, shrinkagedata['epsshu'], shrinkagedata['psish'], self._tcr, 
-                                         creepdata['phiu'], creepdata['psicr1'], creepdata['psicr2'], 0)
-                    ops.uniaxialMaterial('Creep',core_concrete_creep_material_id,core_concrete_material_id,
-                                         self._age, shrinkagedata['epsshu'], shrinkagedata['psish'], self._tcr, 
-                                         creepdata['phiu'], creepdata['psicr1'], creepdata['psicr2'], 0)                    
-                else:
-                    ops.uniaxialMaterial('Creep',concrete_creep_material_id,concrete_material_id, 
-                                         self._age, shrinkagedata['epsshu'], shrinkagedata['psish'], self._tcr, 
-                                         creepdata['phiu'], creepdata['psicr1'], creepdata['psicr2'], 0)
+                ops.uniaxialMaterial('Creep', concrete_creep_material_id, concrete_material_id,
+                                     self._tD, shrinkagedata['eps_sh_u'], shrinkagedata['psish'], self._Tcr,
+                                     creepdata['phi_u'], creepdata['psicr1'], creepdata['psicr2'], self._tcast)
 
-                cover_concrete_material_id = cover_concrete_creep_material_id
-                core_concrete_material_id = core_concrete_creep_material_id
-                concrete_material_id = concrete_creep_material_id
+            cover_concrete_material_id = cover_concrete_creep_material_id
+            core_concrete_material_id = core_concrete_creep_material_id
+            concrete_material_id = concrete_creep_material_id
+        # endregion
 
-            # region Define fibers and patches
-            if (axis is None) or (axis == '3d'): 
+        # region Define fibers and patches
+        if type(self.conc_cross_section).__name__ == 'Rectangle':
+            if (axis is None) or (axis == '3d'):
                 for i in self.reinforcement:
                     for index, value in enumerate(i.coordinates[0]):
                         ops.fiber(i.coordinates[1][index], value, i.Ab, steel_material_id)
@@ -642,7 +717,7 @@ class RC:
                 cdb = (H - self.reinforcement[0].By) / 2 - self.reinforcement[0].db / 2
                 if self.dbt is not None:
                     cdb = cdb - self.dbt / 2
-                
+
                 if confinement:
                     nfy_cover = ceil(cdb * nfy / H)
                     nfx_cover = ceil(cdb * nfx / B)
@@ -706,103 +781,9 @@ class RC:
                 else:
                     fiber_height = H / nfd
                     ops.layer('straight', concrete_material_id, nfd, fiber_height * B, -H / 2, 0, H / 2, 0)
-        
+
         elif type(self.conc_cross_section).__name__ == 'Circle':
-        
-            # region Define Concrete Material
-            if conc_mat_type == "Concrete04":
-                # Defined based on Mander, J. B., Priestley, M. J. N., and Park, R. (1988).
-                # “Theoretical Stress-Strain Model for Confined Concrete.” Journal of Structural
-                # Engineering, ASCE, 114(8), 1804―1826.
-                
-                if type(self.reinforcement[0]).__name__ != 'ReinfCirc':
-                    raise ValueError(f"Reinforcement type {type(self.reinforcement[0]).__name__} not supported for this section type")
-                if self.reinforcement[0].xc != 0 or self.reinforcement[0].yc != 0:
-                    raise ValueError(f"Reinforcing pattern must be centered")
-                if self.dbt is None:
-                    raise ValueError("dbt must be defined")
-                if self.s is None:
-                    raise ValueError("s must be defined")
-
-                # ds = core diameter based on center line of perimeter hoop
-                ds = 2*self.reinforcement[0].rc + self.reinforcement[0].db + self.dbt
-                
-                # Ac = area of core of section enclosed by the center line of the permiter hoops
-                Ac = pi/4*ds*ds
-                
-                # ρcc = ratio of area of longitudinal reinforcement to area of core of section
-                ρcc = self.reinforcement[0].Ab * self.reinforcement[0].num_bars / Ac
-                
-                # sp = clear vertical spacing between spiral or hoop bars
-                sp = self.s - self.dbt
-                
-                # ke = confinement effectiveness coefficient (Equation 15)
-                ke = (1 - sp/(2*ds))/(1-ρcc)
-                
-                # flx and fly = lateral confining stress in x and y directions
-                ρs = 4*self.Abt/(ds*self.s)  # Equation 17
-                fl = 0.5*ke*ρs*self.fyt  # Equation 19
-                
-                # fcc = confined concrete strength
-                fcc = self.fc*(-1.254 + 2.254*sqrt(1+7.94*fl/self.fc) - 2*fl/self.fc)
-                
-                # Confinement Effect on Ductility (Section 3.4.4 of Chang and Mander 1994)
-                k1 = (fcc-self.fc)/fl
-                k2 = 5 * k1
-                x_bar = (fl + fl) / (2 * self.fc)
-                eps_prime_cc = self.eps_c * (1 + k2 * x_bar)
-
-                ops.uniaxialMaterial("Concrete04", cover_concrete_material_id, -self.fc, -self.eps_c, -1.0, self.Ec)
-                ops.uniaxialMaterial("Concrete04", core_concrete_material_id, -fcc, -eps_prime_cc, -1.0, self.Ec)
-                confinement = True
-    
-            elif conc_mat_type == "Concrete04_no_confinement":
-                ops.uniaxialMaterial("Concrete04", concrete_material_id, -self.fc, -self.eps_c, -1.0, self.Ec)
-                confinement = False
-
-            elif conc_mat_type == "Concrete01_no_confinement":
-                ops.uniaxialMaterial("Concrete01", concrete_material_id, -self.fc, -2*self.fc/self.Ec, 0, 0.006)
-                confinement = False
-
-            elif conc_mat_type == "ENT":
-                ops.uniaxialMaterial('ENT', concrete_material_id, self.Ec)
-                confinement = False
-    
-            elif conc_mat_type == "Elastic":
-                ops.uniaxialMaterial('Elastic', concrete_material_id, self.Ec)
-                confinement = False
-    
-            else:
-                raise ValueError(f"Concrete material {conc_mat_type} not supported")
-            # endregion
-
-            if creep:
-                VoverS = self.conc_cross_section.A / self.conc_cross_section.perimeter
-                VoverS = unit_convert(VoverS, "in", "mm")
-                t0 = 1000
-                t0 = self._tcr
-                creepdata = benny.CreepACI209R(self.fc,VoverS,28,t0, phiu0=self.epscru)
-                shrinkagedata = benny.ShrinkageACI209R(self.fc,VoverS,28,t0, epsshu0=self.epsshu)
-                #creepdata['phiu'] = self.epscru
-                print(self._age, shrinkagedata, self._tcr, creepdata, 4)
-                if confinement == True:
-                    ops.uniaxialMaterial('Creep',cover_concrete_creep_material_id,cover_concrete_material_id,
-                                         self._age, shrinkagedata['epsshu'], shrinkagedata['psish'], self._tcr, 
-                                         creepdata['phiu'], creepdata['psicr1'], creepdata['psicr2'], 0)
-                    ops.uniaxialMaterial('Creep',core_concrete_creep_material_id,core_concrete_material_id,
-                                         self._age, shrinkagedata['epsshu'], shrinkagedata['psish'], self._tcr, 
-                                         creepdata['phiu'], creepdata['psicr1'], creepdata['psicr2'], 0)                    
-                else:
-                    ops.uniaxialMaterial('Creep',concrete_creep_material_id,concrete_material_id, 
-                                         self._age, shrinkagedata['epsshu'], shrinkagedata['psish'], self._tcr, 
-                                         creepdata['phiu'], creepdata['psicr1'], creepdata['psicr2'], 0)
-
-                cover_concrete_material_id = cover_concrete_creep_material_id
-                core_concrete_material_id = core_concrete_creep_material_id
-                concrete_material_id = concrete_creep_material_id
-
-            # region Define fibers and patches
-            if (axis is None) or (axis == '3d'): 
+            if (axis is None) or (axis == '3d'):
                 for i in self.reinforcement:
                     for index, value in enumerate(i.coordinates[0]):
                         ops.fiber(i.coordinates[1][index], value, i.Ab, steel_material_id)
@@ -811,9 +792,9 @@ class RC:
                         else:
                             negative_area_material_id = concrete_material_id
                         ops.fiber(i.coordinates[1][index], value, -i.Ab, negative_area_material_id)
-        
-                d  = self.conc_cross_section.diameter
-                max_fiber_size = d/max(nfx,nfy)
+
+                d = self.conc_cross_section.diameter
+                max_fiber_size = d / max(nfx, nfy)
                 if confinement:
                     ds = 2*self.reinforcement[0].rc + self.reinforcement[0].db + self.dbt
                     # Core Concrete
@@ -853,10 +834,10 @@ class RC:
                             negative_area_material_id = core_concrete_material_id
                         else:
                             negative_area_material_id = concrete_material_id
-                        ops.fiber(value, 0, -i.Ab, negative_area_material_id)            
-        
-                d  = self.conc_cross_section.diameter
-                max_fiber_size = d/nfy
+                        ops.fiber(value, 0, -i.Ab, negative_area_material_id)
+
+                d = self.conc_cross_section.diameter
+                max_fiber_size = d / nfy
                 if confinement:
                     ds = 2*self.reinforcement[0].rc + self.reinforcement[0].db + self.dbt
                     nf = ceil(0.5*ds/max_fiber_size)
@@ -868,105 +849,8 @@ class RC:
                     circ_patch_2d( concrete_material_id, nf, d)
             else:
                 raise ValueError(f'Unknown option for axis: {axis}')
-            # endregion
 
         elif type(self.conc_cross_section).__name__ == 'Obround':
-
-            # region Define Concrete Material
-            if conc_mat_type == "Concrete04":
-                # Defined based on Mander, J. B., Priestley, M. J. N., and Park, R. (1988).
-                # “Theoretical Stress-Strain Model for Confined Concrete.” Journal of Structural
-                # Engineering, ASCE, 114(8), 1804―1826.
-
-                if type(self.reinforcement[0]).__name__ != 'ReinfIntersectingLoops':
-                    raise ValueError(f"Reinforcement type {type(self.reinforcement[0]).__name__} not supported for this section type")
-                if self.reinforcement[0].xc != 0 or self.reinforcement[0].yc != 0:
-                    raise ValueError(f"Reinforcing pattern must be centered")
-                if self.dbt is None:
-                    raise ValueError("dbt must be defined")
-                if self.s is None:
-                    raise ValueError("s must be defined")
-
-                # ds = core diameter based on center line of perimeter hoop
-                ds = self.reinforcement[0].D + self.reinforcement[0].db + self.dbt
-
-                # Ac = area of core of section enclosed by the center line of the perimeter hoops
-                Ac = pi / 4 * ds * ds
-
-                # ρcc = ratio of area of longitudinal reinforcement to area of core of section
-                ρcc = self.reinforcement[0].Ab * self.reinforcement[0].num_bars/2 / Ac
-
-                # sp = clear vertical spacing between spiral or hoop bars
-                sp = self.s - self.dbt
-
-                # ke = confinement effectiveness coefficient (Equation 15)
-                ke = (1 - sp / (2 * ds)) / (1 - ρcc)
-
-                # flx and fly = lateral confining stress in x and y directions
-                ρs = 4 * self.Abt / ds * self.s  # Equation 17
-                fl = 0.5 * ke * ρs * self.fyt  # Equation 19
-
-                # fcc = confined concrete strength
-                fcc = self.fc * (-1.254 + 2.254 * sqrt(1 + 7.94 * fl / self.fc) - 2 * fl / self.fc)
-
-                # Confinement Effect on Ductility (Section 3.4.4 of Chang and Mander 1994)
-                k1 = (fcc - self.fc) / fl
-                k2 = 5 * k1
-                x_bar = (fl + fl) / (2 * self.fc)
-                eps_prime_cc = self.eps_c * (1 + k2 * x_bar)
-
-                ops.uniaxialMaterial("Concrete04", cover_concrete_material_id, -self.fc, -self.eps_c,
-                                     -2 * self.eps_c, self.Ec)
-                ops.uniaxialMaterial("Concrete04", core_concrete_material_id, -fcc, -eps_prime_cc,
-                                     - 2 * eps_prime_cc, self.Ec)
-                confinement = True
-                
-            elif conc_mat_type == "Concrete04_no_confinement":
-                ops.uniaxialMaterial("Concrete04", concrete_material_id, -self.fc, -self.eps_c, -2 * self.eps_c, self.Ec)
-                confinement = False
-
-            elif conc_mat_type == "Concrete01_no_confinement":
-                ops.uniaxialMaterial("Concrete01", concrete_material_id, -self.fc, -2 * self.fc / self.Ec, 0, 0.006)
-                confinement = False
-
-            elif conc_mat_type == "ENT":
-                ops.uniaxialMaterial('ENT', concrete_material_id, self.Ec)
-                confinement = False
-
-            elif conc_mat_type == "Elastic":
-                ops.uniaxialMaterial('Elastic', concrete_material_id, self.Ec)
-                confinement = False
-
-            else:
-                raise ValueError(f"Concrete material {conc_mat_type} not supported")
-            # endregion
-
-            if creep:
-                VoverS = self.conc_cross_section.A / self.conc_cross_section.perimeter
-                VoverS = unit_convert(VoverS, "in", "mm")
-                t0 = 1000
-                t0 = self._tcr
-                creepdata = benny.CreepACI209R(self.fc,VoverS,28,t0, phiu0=self.epscru)
-                shrinkagedata = benny.ShrinkageACI209R(self.fc,VoverS,28,t0, epsshu0=self.epsshu)
-                #creepdata['phiu'] = self.epscru
-                print(self._age, shrinkagedata, self._tcr, creepdata, 4)
-                if confinement == True:
-                    ops.uniaxialMaterial('Creep',cover_concrete_creep_material_id,cover_concrete_material_id,
-                                         self._age, shrinkagedata['epsshu'], shrinkagedata['psish'], self._tcr, 
-                                         creepdata['phiu'], creepdata['psicr1'], creepdata['psicr2'], 0)
-                    ops.uniaxialMaterial('Creep',core_concrete_creep_material_id,core_concrete_material_id,
-                                         self._age, shrinkagedata['epsshu'], shrinkagedata['psish'], self._tcr, 
-                                         creepdata['phiu'], creepdata['psicr1'], creepdata['psicr2'], 0)                    
-                else:
-                    ops.uniaxialMaterial('Creep',concrete_creep_material_id,concrete_material_id, 
-                                         self._age, shrinkagedata['epsshu'], shrinkagedata['psish'], self._tcr, 
-                                         creepdata['phiu'], creepdata['psicr1'], creepdata['psicr2'], 0)
-
-                cover_concrete_material_id = cover_concrete_creep_material_id
-                core_concrete_material_id = core_concrete_creep_material_id
-                concrete_material_id = concrete_creep_material_id
-
-            # region Define fibers and patches
             if (axis is None) or (axis == '3d'):
                 raise ValueError(f'3D option not supported for obround cross-sections yet')
 
@@ -997,16 +881,16 @@ class RC:
                                               self.conc_cross_section.D, self.conc_cross_section.a, ds,
                                               axis=axis)
                 else:
-                    obround_patch_2d(concrete_material_id, nf, 
+                    obround_patch_2d(concrete_material_id, nf,
                                      self.conc_cross_section.D, self.conc_cross_section.a,
                                      axis=axis)
 
             else:
                 raise ValueError(f'Unknown option for axis: {axis}')
-            # endregion
 
         else:
             raise ValueError(f"Concrete cross section {self.conc_cross_section.section_type} not supported")
+        # endregion
 
 
 def run_example():
