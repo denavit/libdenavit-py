@@ -1,4 +1,4 @@
-from math import sqrt, pi, ceil, exp, sin
+from math import sqrt, pi, ceil, exp, sin, log10
 import matplotlib.pyplot as plt
 import numpy as np
 import openseespy.opensees as ops
@@ -9,21 +9,18 @@ import bennycloth as benny
 
 
 class RC:
-    treat_reinforcement_as_point = True
-    _reinforcement = None
-    _Ec = None
-    _Es = None
-    _eps_c = None
-    _Abt = None
-    _age = None
-    _age = 14
-    _tcr = None
-    _tcr = 1000
-    #_tcr = 10000
-    _tcast = None
 
     def __init__(self, conc_cross_section, reinforcement, fc, fy, units, dbt=None, s=None, fyt=None, lat_config="A",
-                 transverse_reinf_type='ties', epsshu=0.0, epscru=0.0):
+                 transverse_reinf_type='ties', eps_sh_u=0.0, eps_cr_u=0.0):
+        self._treat_reinforcement_as_point = True
+        self._Ec = None
+        self._Es = None
+        self._eps_c = None
+        self._Abt = None
+        self._Mn = dict()
+        self._CS_id2d = None
+        self._reinforcement = None
+
         self.conc_cross_section = conc_cross_section
         self.reinforcement = reinforcement
         self.fc = fc
@@ -34,10 +31,12 @@ class RC:
         self.fyt = fyt
         self.lat_config = lat_config
         self.transverse_reinf_type = transverse_reinf_type
-        self.epsshu = abs(epsshu)
-        self.epscru = abs(epscru)
-        self._Mn = dict()
-        self._CS_id2d = None
+        self.eps_sh_u = abs(eps_sh_u)
+        self.eps_cr_u = abs(eps_cr_u)
+        self.tD = None
+        self.Tcr = None
+        self.tcast = None
+
 
     @property
     def Ec(self):
@@ -51,7 +50,6 @@ class RC:
             return 4700 * sqrt(self.fc)
 
         raise ValueError(f'Ec is not set and default is not implemented for {self.units = }')
-
     @Ec.setter
     def Ec(self, x):
         self._Ec = x
@@ -62,11 +60,10 @@ class RC:
             return self._Abt
         else:
             return pi * self.dbt ** 2 / 4
-    
     @Abt.setter
     def Abt(self, x):
         self._Abt = x
-    
+
     @property
     def Es(self):
         if self._Es is not None:
@@ -79,11 +76,10 @@ class RC:
             return 2e5
 
         raise ValueError(f'Es is not set and default is not implemented for {self.units = }')
-
     @Es.setter
     def Es(self, x):
         self._Es = x
-    
+
     @property
     def eps_c(self):
         if self._eps_c is not None:
@@ -94,15 +90,14 @@ class RC:
             return (self.fc * 145.038) ** (1 / 4) / 4000
 
         raise ValueError(f'eps_c is not set and default is not impleted for {self.units = }')
-    
     @eps_c.setter
     def eps_c(self, x):
         self._eps_c = x
         
+
     @property
     def reinforcement(self):
         return self._reinforcement
-
     @reinforcement.setter
     def reinforcement(self, x):
         if type(x) == list:
@@ -127,6 +122,7 @@ class RC:
         for i in self.reinforcement:
             a += i.num_bars * i.Ab
         return a
+
     def maximum_concrete_compression_strain(self, axial_strain, curvatureX=0, curvatureY=0):
         if type(self.conc_cross_section).__name__ == 'Rectangle':
             extreme_strain = axial_strain - self.conc_cross_section.H/2 * abs(curvatureX) \
@@ -137,7 +133,7 @@ class RC:
             extreme_strain = axial_strain - self.conc_cross_section.diameter/2 * sqrt(curvatureX**2 + curvatureY**2)
             return extreme_strain
 
-        if  type(self.conc_cross_section).__name__ == 'Obround':
+        if type(self.conc_cross_section).__name__ == 'Obround':
             extreme_strain = float("inf")
             for i in range(100):
                 x_coord = self.conc_cross_section.a/2 + self.conc_cross_section.D/2 * sin(pi/2 * i/100)
@@ -221,7 +217,7 @@ class RC:
                     elif I_ACI < min_I:
                         Ieff.append(min_I)
                     else:
-                        Ieff.append(EI_ACI)
+                        Ieff.append(I_ACI)
                 EI = [i * self.Ec for i in Ieff]
                 return EI
 
@@ -379,7 +375,7 @@ class RC:
             x, y = i.coordinates
 
             for j in range(len(x)):
-                if self.treat_reinforcement_as_point:
+                if self._treat_reinforcement_as_point:
                     scACI.add_steel_boundary(x[j], y[j], 0)
                 else:
                     raise ValueError("Not implemented yet")
@@ -923,7 +919,7 @@ def run_example():
     # Plot Interaction Diagram
     angle = 0
     num_points = 40
-    P, M, et = section.section_interaction_2d("x",num_points)
+    P, M, et = section.section_interaction_2d("x", num_points)
     ϕ = section.phi(et)
    
     plt.figure()
