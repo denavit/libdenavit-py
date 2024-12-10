@@ -54,6 +54,216 @@ class RC:
     def Ec(self, x):
         self._Ec = x
 
+    def get_shrinkage_props_for_uniaxial_material(self, **kwargs):
+        # Define default values for 'si' and 'us' units
+        default_values = {'si':
+                              {'eps_sh_u0': 780e-6,  # ultimate shrinkage strain
+                               'tc': 7,  # initial moist curing time
+                               'RH': 0.4,  # ambient relative humidity
+                               'fine_agg_ratio': 50,  # fine aggregate ratio
+                               'air_content': 0.06,  # air content
+                               'VoverS': 38,  # volume to surface ratio
+                               'slump': 70,  # slump (mm)
+                               'cement_content': 360  # cement content (kg/m^3)
+                               },
+                          'us':
+                              {'eps_sh_u0': 780e-6,  # ultimate shrinkage strain
+                               'tc': 7,  # initial moist curing time
+                               'RH': 0.4,  # ambient relative humidity
+                               'fine_agg_ratio': 50,  # fine aggregate ratio
+                               'air_content': 0.06,  # air content
+                               'VoverS': 1.5,  # volume to surface ratio
+                               'slump': 2.7,  # slump (in)
+                               'cement_content': 611  # cement content (lb/yd^3)
+                               }
+                          }
+
+        # Set default values for missing kwargs
+        for key, value in default_values[self.units].items():
+            kwargs.setdefault(key, value)
+
+        # Extract parameters from kwargs
+        eps_sh_u0 = kwargs['eps_sh_u0']
+        tc = kwargs['tc']
+        RH = kwargs['RH']
+        fine_agg_ratio = kwargs['fine_agg_ratio']
+        air = kwargs['air_content']
+        VoverS = kwargs['VoverS']
+        slump = kwargs['slump']
+        cement_content = kwargs['cement_content']
+
+        ### Shrinkage
+        # Correction for curing time
+        if tc == default_values[self.units]['tc']:
+            gamma_sh_tc = 1.0
+        else:
+            if tc <= 0:
+                raise ValueError("Curing time 'tc' must be positive.")
+            gamma_sh_tc = 1.202 - 0.2337 * log10(tc)
+
+        # Correction for relative humidity
+        if RH == default_values[self.units]['RH']:
+            gamma_sh_RH = 1.0
+        elif 0.4 <= RH <= 0.8:
+            gamma_sh_RH = 1.4 - 1.02 * RH
+        elif 0.8 < RH <= 1.0:
+            gamma_sh_RH = 3.0 - 3.0 * RH
+        else:
+            raise ValueError("Relative humidity 'RH' must be between 0.4 and 1.")
+
+        # Correction for member size (VoverS)
+        if VoverS == default_values[self.units]['VoverS']:
+            gamma_sh_VS = 1.0
+        elif self.units == 'si':
+            gamma_sh_VS = 1.2 * exp(-0.00472 * VoverS)
+        elif self.units == 'us':
+            gamma_sh_VS = 1.2 * exp(-0.12 * VoverS)
+
+        # Correction for slump
+        if slump == default_values[self.units]['slump']:
+            gamma_sh_s = 1.0
+        elif self.units == 'si':
+            gamma_sh_s = 0.89 + 0.00161 * slump
+        elif self.units == 'us':
+            gamma_sh_s = 0.89 + 0.041 * slump
+
+        # Correction for fine aggregate content
+        if fine_agg_ratio == default_values[self.units]['fine_agg_ratio']:
+            gamma_sh_psi = 1.0
+        elif fine_agg_ratio <= 50:
+            gamma_sh_psi = 0.3 + 0.014 * fine_agg_ratio
+        else:
+            gamma_sh_psi = 0.9 + 0.002 * fine_agg_ratio
+
+        # Correction for cement content
+        if cement_content == default_values[self.units]['cement_content']:
+            gamma_sh_c = 1.0
+        elif self.units == 'si':
+            gamma_sh_c = 0.75 + 0.00061 * cement_content
+        elif self.units == 'us':
+            gamma_sh_c = 0.75 + 0.00036 * cement_content
+
+        # Correction for air content
+        if air == default_values[self.units]['air_content']:
+            gamma_sh_a = 1.0
+        else:
+            gamma_sh_a = max(1.0, 0.95 + 0.008 * air)
+
+        # Apply minimum gamma_sh
+        min_gamma_sh = 0.2
+
+        # Global correction for ultimate shrinkage strain
+        gamma_sh = gamma_sh_tc * gamma_sh_RH * gamma_sh_VS * gamma_sh_s * gamma_sh_psi * gamma_sh_c * gamma_sh_a
+        print(
+            f'gamma_sh = {gamma_sh}, gamma_sh_tc = {gamma_sh_tc}, gamma_sh_RH = {gamma_sh_RH}, gamma_sh_VS = {gamma_sh_VS}, gamma_sh_s = {gamma_sh_s}, gamma_sh_psi = {gamma_sh_psi}, gamma_sh_c = {gamma_sh_c}, gamma_sh_a = {gamma_sh_a}')
+        gamma_sh = max(gamma_sh, min_gamma_sh)
+
+        if self.units == 'si':
+            f = 26 * exp(0.0142 * VoverS)
+        elif self.units == 'us':
+            f = 26 * exp(0.36 * VoverS)
+
+        eps_sh_u = -eps_sh_u0 * gamma_sh
+        return {'eps_sh_u': eps_sh_u, 'f': f, 'psish': f}
+
+    def get_creep_props_for_uniaxial_material(self, **kwargs):
+        # Define default values for 'si' and 'us' units
+        default_values = {'si':
+                              {'phi_u_0': 2.35,  # ultimate creep coefficient
+                               't0': 7,  # age at loading
+                               'RH': 0.4,  # ambient relative humidity
+                               'VoverS': 38,  # volume to surface ratio
+                               'slump': 70,  # slump (mm)
+                               'fine_agg_ratio': 50,  # fine aggregate ratio
+                               'air_content': 0.06,  # air content
+                               },
+                          'us':
+                              {'phi_u_0': 2.35,  # ultimate creep coefficient
+                               't0': 7,  # age at loading
+                               'RH': 0.4,  # ambient relative humidity
+                               'VoverS': 1.5,  # volume to surface ratio
+                               'slump': 2.7,  # slump (mm)
+                               'fine_agg_ratio': 0.5,  # fine aggregate ratio
+                               'air_content': 0.06,  # air content
+                               }
+                          }
+
+        try:
+            kwargs['VoverS'] = self.conc_cross_section.A / self.conc_cross_section.perimeter
+        except:
+            pass
+
+        # Set default values
+        for key, value in default_values[self.units].items():
+            kwargs.setdefault(key, value)
+
+        # Extract parameters from kwargs
+        phi_u_0 = kwargs['phi_u_0']
+        t0 = kwargs['t0']
+        RH = kwargs['RH']
+        VoverS = kwargs['VoverS']
+        slump = kwargs['slump']
+        fine_agg_ratio = kwargs['fine_agg_ratio']
+        air = kwargs['air_content']
+
+        ### Creep
+        # Correction for curing time
+        if 0 <= t0 <= 7:
+            gamma_c_t0 = 1.0
+        elif t0 > 0:
+            gamma_c_t0 = 1.25 * t0 ** -0.118
+        else:
+            raise ValueError("Loading time 't0' must be positive.")
+
+        # Correction for relative humidity
+        if RH < 0.4:
+            gamma_c_RH = 1.0
+        else:
+            gamma_c_RH = 1.27 - 0.67 * RH
+
+        # Correction for member size (VoverS)
+        if VoverS == default_values[self.units]['VoverS']:
+            gamma_c_VS = 1.0
+        elif self.units == 'si':
+            gamma_c_VS = 2 / 3 * (1 + 1.13 * exp(-0.0213 * VoverS))
+        elif self.units == 'us':
+            gamma_c_VS = 2 / 3 * (1 + 1.13 * exp(-0.54 * VoverS))
+
+        # Correction for slump
+        if slump == default_values[self.units]['slump']:
+            gamma_c_s = 1.0
+        elif self.units == 'si':
+            gamma_c_s = 0.82 + 0.00264 * slump
+        elif self.units == 'us':
+            gamma_c_s = 0.82 + 0.067 * slump
+
+        # Correction for fine aggregate content
+        if fine_agg_ratio == default_values[self.units]['fine_agg_ratio']:
+            gamma_c_psi = 1.0
+        else:
+            gamma_c_psi = 0.88 + 0.0024 * fine_agg_ratio
+
+        # Correction for air content
+        if air == default_values[self.units]['air_content']:
+            gamma_c_a = 1.0
+        else:
+            gamma_c_a = max(1.0, 0.46 + 0.09 * air)
+
+        # Global correction for ultimate shrinkage strain
+        gamma_c = gamma_c_t0 * gamma_c_RH * gamma_c_VS * gamma_c_s * gamma_c_psi * gamma_c_a
+        print(f'gamma_c = {gamma_c}, gamma_c_t0 = {gamma_c_t0}, gamma_c_RH = {gamma_c_RH}, gamma_c_VS = {gamma_c_VS},'
+              f'gamma_c_s = {gamma_c_s}, gamma_c_psi = {gamma_c_psi}, gamma_c_a = {gamma_c_a}')
+
+        phi_u = gamma_c * phi_u_0
+
+        psi = kwargs.get('psi', 1.0)
+        if self.units == 'si':
+            d = 26 * exp(0.0142 * VoverS)
+        elif self.units == 'us':
+            d = 26 * exp(0.36 * VoverS)
+
+        return {'phi_u': phi_u, 'psi': psi, "d": d, 'psicr1': psi, 'psicr2': d}
+
     @property
     def Abt(self):
         if self._Abt is not None:
