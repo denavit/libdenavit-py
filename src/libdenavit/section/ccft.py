@@ -1,4 +1,4 @@
-from math import pi
+from math import pi,sqrt
 from libdenavit.section import AciStrainCompatibility, FiberSingle, FiberCirclePatch, FiberSection
 from libdenavit.section.database import reinforcing_bar_database
 import numpy as np
@@ -79,6 +79,18 @@ class CCFT:
     @property
     def Ac(self):
         return 0.25*pi*(self.D-2*self.t)**2 - self.Asr
+    
+    def Is(self,axis='x'):
+        return pi/64*(self.D**4 - (self.D-2*self.t)**4)
+
+    def Isr(self,axis='x'):
+        if self.num_bars == 0:
+            return 0.0
+        else:
+            raise ValueError('Isr not yet implemented')
+            
+    def Ic(self,axis='x'):
+        return pi/64*(self.D-2*self.t)**4 - self.Isr(axis)
     
     def reinforcing_coordinates(self):
         angles = np.linspace(0,2*pi,self.num_bars,endpoint=False)
