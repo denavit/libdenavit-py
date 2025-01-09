@@ -1,4 +1,6 @@
-from math import pi,sqrt
+from math import pi, sqrt, ceil
+import openseespy.opensees as ops
+from libdenavit.OpenSees import circ_patch_2d
 from libdenavit.section import AciStrainCompatibility, FiberSingle, FiberCirclePatch, FiberSection
 from libdenavit.section.database import reinforcing_bar_database
 import numpy as np
@@ -140,14 +142,89 @@ class CCFT:
             
     def Ic(self,axis='x'):
         return pi/64*(self.D-2*self.t)**4 - self.Isr(axis)
-    
+
+    @property
+    def eps_c(self):
+        if self._eps_c is not None:
+            return self._eps_c
+        if self.units.lower() == 'us':
+            return (self.fc * 1000) ** (1 / 4) / 4000
+        if self.units.lower() == 'si':
+            return (self.fc * 145.038) ** (1 / 4) / 4000
+
+        raise ValueError(f'eps_c is not set and default is not impleted for {self.units = }')
+
+    @property
+    def Ag(self):
+        return 0.25*pi*self.D**2
+
+    def Ig(self, axis='x'):
+        """
+        Compute the gross moment of inertia of the CCFT cross-section about the specified axis.
+
+        Parameters
+        ----------
+        axis : str, optional
+            Axis about which to compute the moment of inertia. Options: 'x' or 'y'.
+            For a circular section with symmetrically placed bars, Ig_x = Ig_y.
+
+        Returns
+        -------
+        float
+            Approximate moment of inertia about the specified axis.
+        """
+        # Steel tube moment of inertia
+        I_steel = (pi / 64) * (self.D ** 4 - (self.D - 2 * self.t) ** 4)
+
+        # Concrete: approximate by scaling a full inner circle by area ratio
+        # Full inner circle inertia
+        I_inner_circle = (pi / 64) * (self.D - 2 * self.t) ** 4
+        full_inner_area = 0.25 * pi * (self.D - 2 * self.t) ** 2
+        area_ratio = self.Ac / full_inner_area
+        I_conc = I_inner_circle * area_ratio
+
+        # Bars as discrete points
+        I_bars = 0.0
+        if self.num_bars > 0:
+            x, y = self.reinforcing_coordinates()
+            if axis.lower() == 'x':
+                # Iy = sum(Ab * y^2)
+                for i in range(self.num_bars):
+                    I_bars += self.Ab * (y[i] ** 2)
+            elif axis.lower() == 'y':
+                # Ix = sum(Ab * x^2)
+                for i in range(self.num_bars):
+                    I_bars += self.Ab * (x[i] ** 2)
+            else:
+                raise ValueError("axis must be 'x' or 'y'")
+
+        return I_steel + I_conc + I_bars
+
+    @eps_c.setter
+    def eps_c(self, x):
+        self._eps_c = x
+
     def reinforcing_coordinates(self):
         angles = np.linspace(0,2*pi,self.num_bars,endpoint=False)
         r = 0.5*self.D - self.Dp
         x = r*np.sin(angles)
         y = r*np.cos(angles)
         return x,y
-    
+
+    def maximum_concrete_compression_strain(self, axial_strain, curvatureX=0, curvatureY=0):
+        extreme_strain = axial_strain - (self.D / 2 - self.t) * sqrt(curvatureX ** 2 + curvatureY ** 2)
+        return extreme_strain
+
+    def maximum_tensile_steel_strain(self, axial_strain, curvatureX=0, curvatureY=0):
+        max_strain = float('-inf')
+        for i in self.reinforcement[0].coordinates:
+            strain = axial_strain - (i[1] - self.reinforcement[0].yc) * curvatureX \
+                     - (i[0] - self.reinforcement[0].xc) * curvatureY
+            if strain > max_strain:
+                max_strain = strain
+        return max_strain
+
+
     def aci_strain_compatibility_object(self):
         id_steel = 1
         id_conc = 2
@@ -173,7 +250,91 @@ class CCFT:
             for i in range(self.num_bars):
                 fs.add_fibers(FiberSingle(self.Ab,x[i],y[i],id_reinf,id_conc))
         return fs
- 
+
+    def build_ops_fiber_section(self, section_id, start_material_id, steel_mat_type, conc_mat_type, tube_mat_type,
+                                nfx, nfy, GJ=1.0e6, axis=None):
+
+        # region Define Material IDs
+        steel_material_id = start_material_id
+        concrete_material_id = start_material_id + 1
+        tube_material_id = start_material_id + 2
+        # endregion
+
+        # region Define ops Section
+        ops.section('Fiber', section_id, '-GJ', GJ)
+        # endregion
+
+        # region Define Steel Material
+        if self.num_bars != 0:
+            if steel_mat_type == "ElasticPP":
+                ops.uniaxialMaterial("ElasticPP", steel_material_id, self.Es, self.Fylr / self.Es)
+
+            elif steel_mat_type == "Hardening":
+                ops.uniaxialMaterial("Hardening", steel_material_id, self.Es, self.Fylr, 0.001*self.Es, 0)
+
+            elif steel_mat_type == "ReinforcingSteel":
+                ops.uniaxialMaterial("ReinforcingSteel", steel_material_id, self.Fylr, self.Fylr * 1.5, self.Es, self.Es / 2,
+                                     0.002, 0.008)
+
+            elif steel_mat_type == "Elastic":
+                ops.uniaxialMaterial("Elastic", steel_material_id, self.Es)
+
+            else:
+                raise ValueError(f"Steel material {steel_mat_type} not supported")
+        # endregion
+
+        # region Define Concrete Material
+        if conc_mat_type == "Concrete04_no_confinement":
+            ops.uniaxialMaterial("Concrete04", concrete_material_id, -self.fc, -self.eps_c, -1.0, self.Ec)
+
+        elif conc_mat_type == "Concrete01_no_confinement":
+            ops.uniaxialMaterial("Concrete01", concrete_material_id, -self.fc, -2 * self.fc / self.Ec, 0, 0.006)
+
+        elif conc_mat_type == "ENT":
+            ops.uniaxialMaterial('ENT', concrete_material_id, self.Ec)
+
+        elif conc_mat_type == "Elastic":
+            ops.uniaxialMaterial('Elastic', concrete_material_id, self.Ec)
+
+        else:
+            raise ValueError(f"Concrete material {conc_mat_type} not supported")
+        # endregion
+
+        # region Define Tube Material
+        if tube_mat_type == "ElasticPP":
+            ops.uniaxialMaterial("ElasticPP", tube_material_id, self.Es, self.Fy / self.Es)
+        # endregion
+
+        # region Define Fibers and Patches
+        if (axis is None) or (axis == '3d'):
+            raise NotImplementedError('3D fiber section not implemented')
+
+        elif axis in ['x', 'y']:
+            if self.num_bars != 0:
+                for i in self.reinforcement:
+                    if axis == 'x':
+                        rebar_coords = i.coordinates[1]
+                    else:
+                        rebar_coords = i.coordinates[0]
+
+                    for index, value in enumerate(i.coordinates[1]):
+                        ops.fiber(value, 0, i.Ab, steel_material_id)
+                        negative_area_material_id = concrete_material_id
+                        ops.fiber(value, 0, -i.Ab, negative_area_material_id)
+
+            d = self.D - 2 * self.t
+            if axis == 'x':
+                max_fiber_size = d / nfy
+            else:
+                max_fiber_size = d / nfx
+
+            nf = ceil(0.5*d/max_fiber_size)
+            circ_patch_2d(concrete_material_id, nf, d)
+            circ_patch_2d(tube_material_id, ceil(nf * (self.D-d)/d), self.D, Di=d)
+        else:
+            raise NotImplementedError(f'Axis {axis} not implemented')
+
+        # endregion
 
 
 def run_example():
