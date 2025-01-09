@@ -5,16 +5,49 @@ import numpy as np
 
 
 class CCFT:
+    """
+     Class representing a Concrete-Filled Circular Tube (CFCT) cross-section.
+
+     Parameters
+     ----------
+     D : float
+         Outer diameter of the steel tube.
+     t : float
+         Wall thickness of the steel tube.
+     Fy : float
+         Yield stress of the steel tube.
+     fc : float
+         Compressive strength of the concrete.
+     units : str
+         Units system, either 'US' or 'SI'.
+     num_bars : int, optional
+         Number of longitudinal reinforcing bars. Default is 0 (no bars).
+     bar_size : str, optional
+         Standard size designation of the reinforcing bars (e.g., '#8').
+         If provided, `Ab` and `db` will be taken from the database.
+     Ab : float, optional
+         Cross-sectional area of one reinforcing bar (if bar_size not provided).
+     db : float, optional
+         Diameter of one reinforcing bar (if bar_size not provided).
+     Fylr : float, optional
+         Yield stress of the longitudinal reinforcing bars.
+     Dp : float, optional
+         Radial distance from the outside surface of the steel tube to the center of the longitudinal reinforcement.
+     neglect_local_buckling : bool, optional
+         Whether to neglect local buckling effects. Default is False.
+     """
     _Es = None
     _Ec = None
     
-    def __init__(self, D, t, Fy, fc, units, num_bars=0, bar_size=None, Ab=None, db=None, Fylr=None, Dp=None, neglect_local_buckling=False):
+    def __init__(self, D, t, Fy, fc, units, num_bars=0, bar_size=None, Ab=None, db=None, Fylr=None, Dp=None,
+                 reinforcement=None, neglect_local_buckling=False):
         # Main Parameters
         self.D = D
         self.t = t
         self.Fy = Fy
         self.fc = fc
         self.units = units
+        self._eps_c = None
         
         # Reinforcment
         self.reinforcement = reinforcement
@@ -26,11 +59,12 @@ class CCFT:
             bar_data = reinforcing_bar_database[bar_size]
             self.Ab = bar_data['area']
             self.db = bar_data['diameter']
-        self.Fylr = Fylr    # Yield strength of longitudinal reinforcing
-        self.Dp = Dp        # Distance from outside surface of steel tube to center of longitudinal reinforcing
+        self.Fylr = Fylr
+        self.Dp = Dp
         
         # Options
         self.neglect_local_buckling = neglect_local_buckling
+
 
     @property
     def Es(self):
