@@ -16,7 +16,8 @@ class CCFT:
         self.fc = fc
         self.units = units
         
-        # Reinforcing
+        # Reinforcment
+        self.reinforcement = reinforcement
         self.num_bars = num_bars
         if bar_size is None:
             self.Ab = Ab
@@ -68,7 +69,18 @@ class CCFT:
     @property
     def As(self):
         return 0.25*pi*(self.D**2 - (self.D-2*self.t)**2)
-        
+
+    @property
+    def reinforcement(self):
+        return self._reinforcement
+
+    @reinforcement.setter
+    def reinforcement(self, x):
+        if type(x) == list:
+            self._reinforcement = x
+        else:
+            self._reinforcement = [x]
+
     @property
     def Asr(self):
         if self.num_bars == 0:
@@ -87,7 +99,10 @@ class CCFT:
         if self.num_bars == 0:
             return 0.0
         else:
-            raise ValueError('Isr not yet implemented')
+            i = 0
+            for j in self.reinforcement:
+                i += j.I(axis)
+            return i
             
     def Ic(self,axis='x'):
         return pi/64*(self.D-2*self.t)**4 - self.Isr(axis)
