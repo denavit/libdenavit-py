@@ -42,12 +42,9 @@ class CrossSection2d:
 
         ops.mass(2, 1, 1, 1)
 
-        if type(self.section).__name__ == "RC":
-            self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs, axis=self.axis)
-        else:
-            raise ValueError(f'Unknown cross section type {type(self.section).__name__}')
+        self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs, axis=self.axis)
 
-        ops.element('zeroLengthSection', 1, 1, 2, section_args[0])
+        ops.element('zeroLengthSection', 1, 1, 2, section_id)
 
     def run_ops_analysis(self, analysis_type, **kwargs):
         """

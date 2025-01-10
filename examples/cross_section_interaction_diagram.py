@@ -24,11 +24,11 @@ col = CrossSection2d(section, axis=axis)
 section_args = (start_material_id, "ElasticPP", "Concrete04_no_confinement", 20, 20)
 section_kwargs = dict()
 
-result_ops = col.run_ops_interaction(section_args, section_kwargs, prop_load_incr_factor=1e-2,
-                                     nonprop_load_incr_factor=1e-1)
-result_design = col.run_AASHTO_interaction(axis, section_factored=False)
-plt.plot(result_ops["M"], result_ops["P"], '-', label='OPS')
-plt.plot(result_design["M"], -result_design["P"], 'r-', label='Design')
+result_ops = col.run_ops_interaction(section_args=section_args, section_kwargs=section_kwargs, 
+                                     prop_load_incr_factor=1e-2, nonprop_load_incr_factor=1e-1)
+result_design = col.run_AASHTO_interaction(section_factored=False)
+plt.plot(result_ops["M1"], result_ops["P"], '-', label='OPS')
+plt.plot(result_design["M1"], -result_design["P"], 'r-', label='Design')
 plt.xlabel('Bending Moment (kip-in.)')
 plt.ylabel('Axial Force (kips)')
 plt.xlim(0, )
