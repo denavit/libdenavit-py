@@ -168,9 +168,9 @@ class JoistGirder(BaseJoistClass):
    
     def moment_of_inertia(self):
         if self.strength_type == 'ASD':
-            I = 0.027*self.num_spaces*self.P_kips*(self.span_ft-1/3)*self.d_in
+            I = 0.027*self.num_spaces*self.P_kips*self.span_ft*self.d_in
         elif self.strength_type == 'LRFD':
-            I = 0.018*self.num_spaces*self.P_kips*(self.span_ft-1/3)*self.d_in
+            I = 0.018*self.num_spaces*self.P_kips*self.span_ft*self.d_in
         else:
             raise ValueError(f'Unknown strength type: {self.strength_type}')
         return I
