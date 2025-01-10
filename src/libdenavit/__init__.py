@@ -3,6 +3,7 @@ from .utils import find_limit_point_in_list, interpolate_list, find_intersection
 from .unit_convert import unit_conversion_factor, unit_convert
 from .camber import camber
 from .joist import OpenWebSteelJoist, JoistGirder
+from .joist_stability import Minkoff
 from .goal_seek import GoalSeekMonotonic
 from .interaction_diagram_2d import InteractionDiagram2d
 from .plotting import TennesseeColorsRGB
