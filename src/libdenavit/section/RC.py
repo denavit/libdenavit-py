@@ -11,7 +11,7 @@ import bennycloth as benny
 class RC:
 
     def __init__(self, conc_cross_section, reinforcement, fc, fy, units, dbt=None, s=None, fyt=None, lat_config="A",
-                 transverse_reinf_type='ties', eps_sh_u=0.0, eps_cr_u=0.0):
+                 transverse_reinf_type='ties', tD=5, Tcr=28, tcast=0):
         self._treat_reinforcement_as_point = True
         self._Ec = None
         self._Es = None
@@ -31,11 +31,10 @@ class RC:
         self.fyt = fyt
         self.lat_config = lat_config
         self.transverse_reinf_type = transverse_reinf_type
-        self.eps_sh_u = abs(eps_sh_u)
-        self.eps_cr_u = abs(eps_cr_u)
-        self.tD = None
-        self.Tcr = None
-        self.tcast = None
+        self.tD = tD
+        self.Tcr = Tcr
+        self.tcast = tcast
+
 
 
     @property
@@ -894,15 +893,15 @@ class RC:
 
             if confinement:
                 ops.uniaxialMaterial('Creep', cover_concrete_creep_material_id, cover_concrete_material_id,
-                                     self._tD, shrinkagedata['eps_sh_u'], shrinkagedata['psish'], self._Tcr,
-                                     creepdata['phi_u'], creepdata['psicr1'], creepdata['psicr2'], self._tcast)
+                                     self.tD, shrinkagedata['eps_sh_u'], shrinkagedata['psish'], self.Tcr,
+                                     creepdata['phi_u'], creepdata['psicr1'], creepdata['psicr2'], self.tcast)
                 ops.uniaxialMaterial('Creep', core_concrete_creep_material_id, core_concrete_material_id,
-                                     self._tD, shrinkagedata['eps_sh_u'], shrinkagedata['psish'], self._Tcr,
-                                     creepdata['phi_u'], creepdata['psicr1'], creepdata['psicr2'], self._tcast)
+                                     self.tD, shrinkagedata['eps_sh_u'], shrinkagedata['psish'], self.Tcr,
+                                     creepdata['phi_u'], creepdata['psicr1'], creepdata['psicr2'], self.tcast)
             else:
                 ops.uniaxialMaterial('Creep', concrete_creep_material_id, concrete_material_id,
-                                     self._tD, shrinkagedata['eps_sh_u'], shrinkagedata['psish'], self._Tcr,
-                                     creepdata['phi_u'], creepdata['psicr1'], creepdata['psicr2'], self._tcast)
+                                     self.tD, shrinkagedata['eps_sh_u'], shrinkagedata['psish'], self.Tcr,
+                                     creepdata['phi_u'], creepdata['psicr1'], creepdata['psicr2'], self.tcast)
 
             cover_concrete_material_id = cover_concrete_creep_material_id
             core_concrete_material_id = core_concrete_creep_material_id
