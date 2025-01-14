@@ -21,7 +21,7 @@ class NonSwayColumn2d:
                 length: The length of the entire column.
                 et: The eccentricity at the top of the column.
                 eb: The eccentricity at the bottom of the column.
-                **kwargs: Additional keyword arguments for customization.
+                kwargs: Additional keyword arguments for customization.
                           dxo (float or None, optional): Initial geometric imperfection.
                                                          Default is 0.0. If None, then no imperfection is included.
                           axis (str, optional): Axis. Default is None.
@@ -43,20 +43,11 @@ class NonSwayColumn2d:
                     'ops_geom_transf_type': 'Corotational',
                     'ops_integration_points': 3,
                     'creep': False,
-                    '_Psus': 0.0,
-                    'tsus': 10000
+                    'P_sus': 0.0,
+                    't_sus': 10000
                     }
         for key, value in defaults.items():
             setattr(self, key, kwargs.get(key, value))
-
-    
-    @property
-    def Psus(self):
-        return self._Psus 
-    
-    @Psus.setter 
-    def Psus(self, x):
-        self._Psus = x
 
     @property
     def ops_mid_node(self):
@@ -76,7 +67,7 @@ class NonSwayColumn2d:
                              (For RC sections the args are: section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx)
                section_kwargs: Keword arguments for building the section using OpenSees via section.build_ops_fiber_section().
                                (For RC sections, no kwargs are necessary).
-               **kwargs: Additional keyword arguments.
+               kwargs: Additional keyword arguments.
                          start_node_fixity (tuple, optional): Fixity conditions at the start node. Default is (1, 1, 0).
                          end_node_fixity (tuple, optional): Fixity conditions at the end node. Default is (1, 0, 0).
 
@@ -84,9 +75,19 @@ class NonSwayColumn2d:
                None
        """
 
+        # region Extract kwargs
+        creep_props_dict = kwargs.get('creep_props_dict', dict())
+        shrinkage_props_dict = kwargs.get('shrinkage_props_dict', dict())
+        start_node_fixity = kwargs.get('start_node_fixity', (1, 1, 0))
+        end_node_fixity = kwargs.get('end_node_fixity', (1, 0, 0))
+        # endregion
+
+        # region Build OpenSees model
         ops.wipe()
         ops.model('basic', '-ndm', 2, '-ndf', 3)
-        
+        # endregion
+
+        # region Define Nodes and Fixities and Geometric Transformation
         for index in range(self.ops_n_elem + 1):
             if isinstance(self.dxo, (int, float)):
                 x = sin(index / self.ops_n_elem * pi) * self.dxo
@@ -98,23 +99,25 @@ class NonSwayColumn2d:
             ops.node(index, x, y)
             ops.mass(index, 1, 1, 1)
 
-        start_node_fixity = kwargs.get('start_node_fixity', (1, 1, 0))
         ops.fix(0, *start_node_fixity)
-        end_node_fixity = kwargs.get('end_node_fixity', (1, 0, 0))
         ops.fix(self.ops_n_elem, *end_node_fixity)
-        
+
         ops.geomTransf(self.ops_geom_transf_type, 100)
-        
+        # endregion and
+
+        # region Define Fiber Section
         if type(self.section).__name__ == "RC":
-            self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs, axis=self.axis, creep=self.creep)
+            self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs, axis=self.axis,
+                                                 creep=self.creep, creep_props_dict=creep_props_dict,
+                                                 shrikage_props_dict=shrinkage_props_dict)
         else:
             raise ValueError(f'Unknown cross section type {type(self.section).__name__}')
+        # endregion
 
         ops.beamIntegration("Lobatto", 1, 1, self.ops_integration_points)
-        
+
         for index in range(self.ops_n_elem):
             ops.element(self.ops_element_type, index, index, index + 1, 100, 1)
-
 
     def run_ops_analysis(self, analysis_type, **kwargs):
         """ Run an OpenSees analysis of the column
@@ -133,7 +136,7 @@ class NonSwayColumn2d:
             An integer id for the section
         section_args :
             Non-keyworded arguments for the section's build_ops_fiber_section
-        **kwargs :
+        kwargs :
             Keyworded arguments for the section's build_ops_fiber_section
         
         Loading Notes
@@ -147,6 +150,8 @@ class NonSwayColumn2d:
         - For non-proportional analyses, LFV is increased to P first then held
           constant, then LFH is increased (e is ignored)
         """
+
+        # region Extract kwargs
         section_id = kwargs.get('section_id', 1)
         section_args = kwargs.get('section_args', [])
         section_kwargs = kwargs.get('section_kwargs', {})
@@ -160,13 +165,21 @@ class NonSwayColumn2d:
         steel_strain_limit = kwargs.get('steel_strain_limit', 0.05)
         percent_load_drop_limit = kwargs.get('percent_load_drop_limit', 0.05)
         try_smaller_steps = kwargs.get('try_smaller_steps', True)
+        creep_props_dict = kwargs.get('creep_props_dict', dict())
+        shrinkage_props_dict = kwargs.get('shrinkage_props_dict', dict())
+        # endregion
 
+        # region Set a default deformation limit if 'default' is passed
         if deformation_limit == 'default':
             deformation_limit = 0.1 * self.length/2
+        # endregion
 
-        self.build_ops_model(section_id, section_args, section_kwargs)
-        
-        # Initialize analysis results
+        # region Define OpenSees Model
+        self.build_ops_model(section_id, section_args, section_kwargs, creep_props_dict=creep_props_dict,
+                             shrinkage_props_dict=shrinkage_props_dict)
+        # endregion
+
+        # region Initialize analysis results
         results = AnalysisResults()
         attributes = ['applied_axial_load', 'applied_moment_top', 'applied_moment_bot', 'maximum_abs_moment',
                       'maximum_abs_disp', 'lowest_eigenvalue', 'maximum_concrete_compression_strain',
@@ -174,14 +187,14 @@ class NonSwayColumn2d:
 
         for attribute in attributes:
             setattr(results, attribute, [])
+        # endregion
 
-        # Define function to find limit point
         def find_limit_point():
             if 'Analysis Failed' in results.exit_message:
                 ind, x = find_limit_point_in_list(results.applied_moment_top, max(results.applied_moment_top))
                 warnings.warn(f'Analysis failed')
             elif 'Eigenvalue Limit' in results.exit_message:
-                ind,x = find_limit_point_in_list(results.lowest_eigenvalue, eigenvalue_limit)
+                ind, x = find_limit_point_in_list(results.lowest_eigenvalue, eigenvalue_limit)
             elif 'Extreme Compressive Concrete Fiber Strain Limit Reached' in results.exit_message:
                 ind, x = find_limit_point_in_list(results.maximum_concrete_compression_strain, concrete_strain_limit)
             elif 'Extreme Steel Fiber Strain Limit Reached' in results.exit_message:
@@ -190,14 +203,15 @@ class NonSwayColumn2d:
                 ind, x = find_limit_point_in_list(results.maximum_abs_disp, deformation_limit)
             elif 'Load Drop Limit Reached' in results.exit_message:
                 ind, x = find_limit_point_in_list(results.applied_moment_top, max(results.applied_moment_top))
+                ind, x =  find_limit_point_in_list(results.applied_axial_load, max(results.applied_axial_load))
             else:
                 raise Exception('Unknown limit point')
 
-            results.applied_axial_load_at_limit_point = interpolate_list(results.applied_axial_load,ind,x)
-            results.applied_moment_top_at_limit_point = interpolate_list(results.applied_moment_top,ind,x)
-            results.applied_moment_bot_at_limit_point = interpolate_list(results.applied_moment_bot,ind,x)
-            results.maximum_abs_moment_at_limit_point = interpolate_list(results.maximum_abs_moment,ind,x)
-            results.maximum_abs_disp_at_limit_point   = interpolate_list(results.maximum_abs_disp,ind,x)
+            results.applied_axial_load_at_limit_point = interpolate_list(results.applied_axial_load, ind, x)
+            results.applied_moment_top_at_limit_point = interpolate_list(results.applied_moment_top, ind, x)
+            results.applied_moment_bot_at_limit_point = interpolate_list(results.applied_moment_bot, ind, x)
+            results.maximum_abs_moment_at_limit_point = interpolate_list(results.maximum_abs_moment, ind, x)
+            results.maximum_abs_disp_at_limit_point = interpolate_list(results.maximum_abs_disp, ind, x)
 
         def update_dU(disp_incr_factor, div_factor=1):
             sgn_et = int(np.sign(self.et))
@@ -232,13 +246,14 @@ class NonSwayColumn2d:
             ops.test('NormUnbalance', 1e-3, 10)
 
         # Run analysis
-        if analysis_type.lower() == 'proportional_limit_point' and self.creep == False:
+        if analysis_type.lower() == 'proportional_limit_point' and self.creep is False:
             # time = LFV
             ops.timeSeries('Linear', 100)
             ops.pattern('Plain', 200, 100)
 
             sgn_et = int(np.sign(self.et))
             sgn_eb = int(np.sign(self.eb))
+
             if sgn_et != sgn_eb and (sgn_eb != 0 and sgn_et != 0):
                 if max(self.et, self.eb, key=abs) == self.et:
                     dof = 3 * self.ops_n_elem // 4
@@ -286,7 +301,7 @@ class NonSwayColumn2d:
                     raise ValueError(f'The value of axis ({self.axis}) is not supported.')
 
             record()
-            
+
             maximum_applied_axial_load = 0.
             while True:
                 ok = ops.analyze(1)
@@ -355,55 +370,41 @@ class NonSwayColumn2d:
             find_limit_point()
             return results
 
-        elif analysis_type.lower() == 'proportional_limit_point' and self.creep == True:
-            # Do one analysis with no load
-            ops.integrator('LoadControl',0.0)
-            ops.analysis('Static','-noWarnings')
-            
-            ops.setTime(14)
-            ops.setCreep(1)
-            ops.analyze(1)
-            
-            # Analysis for gravity load
-            ops.setCreep(1)
-
-            # time = LFV
-            Psus = self._Psus
-            ops.timeSeries('Constant', 100)
-            ops.pattern('Plain', 200, 100, '-factor', Psus)
-
+        elif analysis_type.lower() == 'proportional_limit_point' and self.creep is True:
+            # region Determine the sign of the eccentricity
             sgn_et = int(np.sign(self.et))
             sgn_eb = int(np.sign(self.eb))
             if sgn_et != sgn_eb:
                 if max(self.et, self.eb, key=abs) == self.et:
-                    dof = 3 * self.ops_n_elem // 4
                     ecc_sign = sgn_et
                 else:
-                    dof = 1 * self.ops_n_elem // 4
                     ecc_sign = sgn_eb
-                dU = self.length * disp_incr_factor / 2
-                ops.load(self.ops_n_elem, 0, -1, self.et * e * ecc_sign)
-                ops.load(0, 0, 0, -self.eb * e * ecc_sign)
-                #ops.integrator('DisplacementControl', dof, 1, dU)
             else:
                 ecc_sign = sgn_et
-                dU = self.length * disp_incr_factor
-                ops.load(self.ops_n_elem, 0, -1, self.et * e * ecc_sign)
-                ops.load(0, 0, 0, -self.eb * e * ecc_sign)
-                #ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+            # endregion
 
-            # Define recorder
+            # region Define recorder
             def record(lam=0):
-                #time = ops.getTime()
                 section_strains = self.ops_get_section_strains()
 
-                time = ops.getLoadFactor(200)
-                #ops.reactions()
-                #lam = 0
-                #time = abs(ops.nodeReaction(0,2))
+                # Backup the original stderr
+                original_stderr = sys.stderr
+                try:
+                    # Redirect stderr to nowhere
+                    sys.stderr = io.StringIO()
+                    time = ops.getLoadFactor(200) + ops.getLoadFactor(2000)
+                except:
+                    try:
+                        time = ops.getLoadFactor(200)
+                    except:
+                        time = 0
+                finally:
+                    # Restore stderr
+                    sys.stderr = original_stderr
+
                 results.applied_axial_load.append(time + lam)
-                results.applied_moment_top.append(self.et * e * (time+lam) * ecc_sign)
-                results.applied_moment_bot.append(-self.eb * e * (time+lam) * ecc_sign)
+                results.applied_moment_top.append(self.et * e * (time + lam) * ecc_sign)
+                results.applied_moment_bot.append(-self.eb * e * (time + lam) * ecc_sign)
                 results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
                 results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp())
                 results.lowest_eigenvalue.append(ops.eigen('-fullGenLapack', 1)[0])
@@ -416,66 +417,60 @@ class NonSwayColumn2d:
                     results.curvature.append(section_strains[3])
                 else:
                     raise ValueError(f'The value of axis ({self.axis}) is not supported.')
+            # endregion
 
-            record()
+            # region Do one analysis with no load
+            ops.setTime(self.section.tD)
+            ops.setCreep(1)
 
-            ops.integrator('LoadControl',0)
-
-            ops.constraints('Plain')
-            ops.numberer('RCM')
+            ops.integrator('LoadControl', 0.0)
             ops.system('UmfPack')
-            ops.test('NormDispIncr', 1e-3, 10)
-            ops.algorithm('Newton')
-            ops.analysis('Static')
-            
-            # Analysis for sustained load
-            ops.analyze(1)
-            
-            record()
+            ops.test('NormUnbalance', 1e-3, 10, 1)
+            ops.analysis('Static', '-noWarnings')
+            ok = ops.analyze(1)
+            # endregion
 
-            # Shrinkage analysis
-            ops.setTime(28)
-            ops.setCreep(1)
-            ops.analyze(1)
+            # region Run the sustained load phase
+            t = self.section.Tcr
+            tfinish = self.t_sus
 
+            ops.timeSeries('Constant', 100)
+            ops.pattern('Plain', 200, 100, '-factor', self.P_sus)
+            if sgn_et != sgn_eb:
+                ops.load(self.ops_n_elem, 0, -1, self.et * e * ecc_sign)
+                ops.load(0, 0, 0, -self.eb * e * ecc_sign)
+            else:
+                ops.load(self.ops_n_elem, 0, -1, self.et * e * ecc_sign)
+                ops.load(0, 0, 0, -self.eb * e * ecc_sign)
 
-            
-            
+            breakflag = 0
+            while t < tfinish:
+                ops.setTime(t)
 
-            # Creep it out
-            ops.setCreep(1)
-            tstart = 28
-            ops.loadConst('-time',tstart)
-            tsus = self.tsus
-            if tsus < 100:
-                tsus = 100
-            tfinish = tsus-100
-            logt = log10(tstart)
-            t0 = tstart
-            while logt <= log10(tfinish):
-                logt = logt + 0.01
-                t1 = 10**logt
-                dt = t1-t0
-                ops.integrator('LoadControl',dt)
                 ok = ops.analyze(1)
-                ops.setTime(t1)
                 if ok < 0:
+                    print(f'Analysis failed at sustained load phase, time: {t}')
+                    breakflag = 1
                     break
                 record()
-                t0=t1
 
-            if ok < 0:
-                results.exit_message = 'Analysis Failed in Hold Phase'
-                find_limit_point()
+                logt0 = log10(t)
+                logt1 = logt0 + 0.01
+                t1 = 10 ** logt1
+                t = t1
+
+            # endregion
+
+            if breakflag == 1:
+                results.exit_message = 'Analysis Failed at Sustained Load Phase'
+                # find_limit_point()
                 return results
 
-            # One analysis for equilibrium after creep
-            ops.integrator('LoadControl',0)
+
+            # region run final loading phase
+            ops.setCreep(0)
             ops.analyze(1)
-            
-            ops.setCreep(0)            
-            ops.integrator('LoadControl',0)
-            ops.analyze(1)
+
             record()
 
             ops.setTime(0)
@@ -484,7 +479,13 @@ class NonSwayColumn2d:
 
             sgn_et = int(np.sign(self.et))
             sgn_eb = int(np.sign(self.eb))
-            if sgn_et != sgn_eb:
+
+            if e == 0:
+                dU = self.length * disp_incr_factor / 20
+                ops.load(self.ops_n_elem, 0, -1, 0)
+                ops.load(0, 0, 0, 0)
+                ops.integrator('LoadControl', 4, 2, dU)
+            elif sgn_et != sgn_eb:
                 if max(self.et, self.eb, key=abs) == self.et:
                     dof = 3 * self.ops_n_elem // 4
                     ecc_sign = sgn_et
@@ -502,6 +503,13 @@ class NonSwayColumn2d:
                 ops.load(self.ops_n_elem, 0, -1, self.et * e * ecc_sign)
                 ops.load(0, 0, 0, -self.eb * e * ecc_sign)
                 ops.integrator('DisplacementControl', self.ops_mid_node, 1, dU)
+
+            ops.constraints('Plain')
+            ops.numberer('RCM')
+            ops.system('UmfPack')
+            ops.test('NormUnbalance', 1e-3, 10, 1)
+            ops.algorithm('ModifiedNewton')
+            ops.analysis('Static', '-noWarnings')
 
             maximum_applied_axial_load = 0.
             while True:
@@ -529,13 +537,15 @@ class NonSwayColumn2d:
 
                 if ok == 0:
                     reset_analysis_options(disp_incr_factor)
+
                 elif ok != 0:
                     results.exit_message = 'Analysis Failed'
                     warnings.warn('Analysis Failed')
                     break
 
-                record(ops.getTime())
+                record()
 
+                # region Check the exit conditions
                 # Check for drop in applied load
                 if percent_load_drop_limit is not None:
                     current_applied_axial_load = results.applied_axial_load[-1]
@@ -567,8 +577,10 @@ class NonSwayColumn2d:
                     if results.maximum_steel_strain[-1] > steel_strain_limit:
                         results.exit_message = 'Extreme Steel Fiber Strain Limit Reached'
                         break
+                # endregion
 
             find_limit_point()
+            # endregion
             return results
 
         elif analysis_type.lower() == 'nonproportional_limit_point':
@@ -875,7 +887,7 @@ class NonSwayColumn2d:
                 num_points (int, optional): The number of points to use in the interaction diagram. Default is 10.
                 section_factored (bool, optional): Whether to use factored section properties. Default is True.
                 Pc_factor (float, optional): The factor to use in calculating the buckling load. Default is 0.75.
-                beta_dns (float, optional): The ratio of the maximum factored sustained axial load to the total factored axial load
+                betadns (float, optional): The ratio of the maximum factored sustained axial load to the total factored axial load
                                         for the same load combination. Default is 0 (short-term loading).
                 minimum_eccentricity (bool, optional): Whether to consider minimum eccentricity in the analysis. Default is False.
 
@@ -1004,7 +1016,7 @@ class NonSwayColumn2d:
         maximum_concrete_compression_strain = []
         maximum_tensile_steel_strain = []
         for i in range(self.ops_n_elem):
-            for j  in range(self.ops_integration_points):
+            for j in range(self.ops_integration_points):
                 axial_strain, curvatureX, curvatureY = 0, 0, 0
                 if self.axis == 'x':
                     axial_strain, curvatureX = ops.eleResponse(i,  # element tag
