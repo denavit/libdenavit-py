@@ -6,6 +6,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import warnings
 from scipy.optimize import fsolve
+import io
+import sys
 
 
 class NonSwayColumn2d:
