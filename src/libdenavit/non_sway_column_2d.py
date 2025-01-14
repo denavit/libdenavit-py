@@ -110,6 +110,8 @@ class NonSwayColumn2d:
             self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs, axis=self.axis,
                                                  creep=self.creep, creep_props_dict=creep_props_dict,
                                                  shrikage_props_dict=shrinkage_props_dict)
+        elif type(self.section).__name__ == "CCFT":
+            self.section.build_ops_fiber_section(section_id, *section_args, **section_kwargs, axis=self.axis)
         else:
             raise ValueError(f'Unknown cross section type {type(self.section).__name__}')
         # endregion
