@@ -131,14 +131,21 @@ class CCFT:
     def Is(self,axis='x'):
         return pi/64*(self.D**4 - (self.D-2*self.t)**4)
 
-    def Isr(self,axis='x'):
-        if self.num_bars == 0:
-            return 0.0
-        else:
-            i = 0
-            for j in self.reinforcement:
-                i += j.I(axis)
-            return i
+    def Isr(self, axis='x'):
+        I_bars = 0.0
+        if self.num_bars > 0:
+            x, y = self.reinforcing_coordinates()
+            if axis.lower() == 'x':
+                # Iy = sum(Ab * y^2)
+                for i in range(self.num_bars):
+                    I_bars += self.Ab * (y[i] ** 2)
+            elif axis.lower() == 'y':
+                # Ix = sum(Ab * x^2)
+                for i in range(self.num_bars):
+                    I_bars += self.Ab * (x[i] ** 2)
+            else:
+                raise ValueError("axis must be 'x' or 'y'")
+        return I_bars
             
     def Ic(self,axis='x'):
         return pi/64*(self.D-2*self.t)**4 - self.Isr(axis)
@@ -159,46 +166,7 @@ class CCFT:
         return 0.25*pi*self.D**2
 
     def Ig(self, axis='x'):
-        """
-        Compute the gross moment of inertia of the CCFT cross-section about the specified axis.
-
-        Parameters
-        ----------
-        axis : str, optional
-            Axis about which to compute the moment of inertia. Options: 'x' or 'y'.
-            For a circular section with symmetrically placed bars, Ig_x = Ig_y.
-
-        Returns
-        -------
-        float
-            Approximate moment of inertia about the specified axis.
-        """
-        # Steel tube moment of inertia
-        I_steel = (pi / 64) * (self.D ** 4 - (self.D - 2 * self.t) ** 4)
-
-        # Concrete: approximate by scaling a full inner circle by area ratio
-        # Full inner circle inertia
-        I_inner_circle = (pi / 64) * (self.D - 2 * self.t) ** 4
-        full_inner_area = 0.25 * pi * (self.D - 2 * self.t) ** 2
-        area_ratio = self.Ac / full_inner_area
-        I_conc = I_inner_circle * area_ratio
-
-        # Bars as discrete points
-        I_bars = 0.0
-        if self.num_bars > 0:
-            x, y = self.reinforcing_coordinates()
-            if axis.lower() == 'x':
-                # Iy = sum(Ab * y^2)
-                for i in range(self.num_bars):
-                    I_bars += self.Ab * (y[i] ** 2)
-            elif axis.lower() == 'y':
-                # Ix = sum(Ab * x^2)
-                for i in range(self.num_bars):
-                    I_bars += self.Ab * (x[i] ** 2)
-            else:
-                raise ValueError("axis must be 'x' or 'y'")
-
-        return I_steel + I_conc + I_bars
+        return self.Is() + self.Ic() + self.Isr(axis)
 
     @eps_c.setter
     def eps_c(self, x):
