@@ -1,3 +1,4 @@
+import warnings
 from math import sqrt, pi, ceil, exp, sin, log10
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,7 +10,7 @@ import bennycloth as benny
 
 
 class RC:
-
+    _default_age_warn = False
     def __init__(self, conc_cross_section, reinforcement, fc, fy, units, dbt=None, s=None, fyt=None, lat_config="A",
                  transverse_reinf_type='ties', tD=5, Tcr=28, tcast=0):
         self._treat_reinforcement_as_point = True
@@ -890,6 +891,14 @@ class RC:
         if creep:
             creepdata = self.get_creep_props_for_uniaxial_material(**creep_props_dict)
             shrinkagedata = self.get_shrinkage_props_for_uniaxial_material(**shrikage_props_dict)
+
+            if self._default_age_warn:
+                if self.tD == 5:
+                    warnings.warn("Default value of tD (5) used for creep and shrinkage material")
+                if self.Tcr == 28:
+                    warnings.warn("Default value of Tcr (28) used for creep and shrinkage material")
+                if self.tcast == 0:
+                    warnings.warn("Default value of tcast (0) used for creep and shrinkage material")
 
             if confinement:
                 ops.uniaxialMaterial('Creep', cover_concrete_creep_material_id, cover_concrete_material_id,
