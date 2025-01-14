@@ -54,7 +54,7 @@ class RC:
     def Ec(self, x):
         self._Ec = x
 
-    def get_shrinkage_props_for_uniaxial_material(self, **kwargs):
+    def get_shrinkage_props_for_uniaxial_material(self, print_factors=False, **kwargs):
         # Define default values for 'si' and 'us' units
         default_values = {'si':
                               {'eps_sh_u0': 780e-6,  # ultimate shrinkage strain
@@ -153,8 +153,9 @@ class RC:
 
         # Global correction for ultimate shrinkage strain
         gamma_sh = gamma_sh_tc * gamma_sh_RH * gamma_sh_VS * gamma_sh_s * gamma_sh_psi * gamma_sh_c * gamma_sh_a
-        print(
-            f'gamma_sh = {gamma_sh}, gamma_sh_tc = {gamma_sh_tc}, gamma_sh_RH = {gamma_sh_RH}, gamma_sh_VS = {gamma_sh_VS}, gamma_sh_s = {gamma_sh_s}, gamma_sh_psi = {gamma_sh_psi}, gamma_sh_c = {gamma_sh_c}, gamma_sh_a = {gamma_sh_a}')
+        if print_factors:
+            print(
+                f'gamma_sh = {gamma_sh}, gamma_sh_tc = {gamma_sh_tc}, gamma_sh_RH = {gamma_sh_RH}, gamma_sh_VS = {gamma_sh_VS}, gamma_sh_s = {gamma_sh_s}, gamma_sh_psi = {gamma_sh_psi}, gamma_sh_c = {gamma_sh_c}, gamma_sh_a = {gamma_sh_a}')
         gamma_sh = max(gamma_sh, min_gamma_sh)
 
         if self.units == 'si':
@@ -165,7 +166,7 @@ class RC:
         eps_sh_u = -eps_sh_u0 * gamma_sh
         return {'eps_sh_u': eps_sh_u, 'f': f, 'psish': f}
 
-    def get_creep_props_for_uniaxial_material(self, **kwargs):
+    def get_creep_props_for_uniaxial_material(self, print_factors=False, **kwargs):
         # Define default values for 'si' and 'us' units
         default_values = {'si':
                               {'phi_u_0': 2.35,  # ultimate creep coefficient
@@ -249,8 +250,9 @@ class RC:
 
         # Global correction for ultimate shrinkage strain
         gamma_c = gamma_c_t0 * gamma_c_RH * gamma_c_VS * gamma_c_s * gamma_c_psi * gamma_c_a
-        print(f'gamma_c = {gamma_c}, gamma_c_t0 = {gamma_c_t0}, gamma_c_RH = {gamma_c_RH}, gamma_c_VS = {gamma_c_VS},'
-              f'gamma_c_s = {gamma_c_s}, gamma_c_psi = {gamma_c_psi}, gamma_c_a = {gamma_c_a}')
+        if print_factors:
+            print(f'gamma_c = {gamma_c}, gamma_c_t0 = {gamma_c_t0}, gamma_c_RH = {gamma_c_RH}, gamma_c_VS = {gamma_c_VS},'
+                  f'gamma_c_s = {gamma_c_s}, gamma_c_psi = {gamma_c_psi}, gamma_c_a = {gamma_c_a}')
 
         phi_u = gamma_c * phi_u_0
 
