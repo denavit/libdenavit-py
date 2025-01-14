@@ -25,7 +25,7 @@ class RC:
         self.reinforcement = reinforcement
         self.fc = fc
         self.fy = fy
-        self.units = units
+        self.units = units.lower()
         self.dbt = dbt
         self.s = s
         self.fyt = fyt
@@ -43,10 +43,10 @@ class RC:
         if self._Ec is not None:
             return self._Ec
 
-        if self.units.lower() == 'us':
+        if self.units == 'us':
             return 57 * sqrt(self.fc * 1000)
 
-        if self.units.lower() == 'si':
+        if self.units == 'si':
             return 4700 * sqrt(self.fc)
 
         raise ValueError(f'Ec is not set and default is not implemented for {self.units = }')
@@ -92,7 +92,6 @@ class RC:
         slump = kwargs['slump']
         cement_content = kwargs['cement_content']
 
-        ### Shrinkage
         # Correction for curing time
         if tc == default_values[self.units]['tc']:
             gamma_sh_tc = 1.0
@@ -149,7 +148,7 @@ class RC:
         else:
             gamma_sh_a = max(1.0, 0.95 + 0.008 * air)
 
-        # Apply minimum gamma_sh
+        # minimum gamma_sh
         min_gamma_sh = 0.2
 
         # Global correction for ultimate shrinkage strain
@@ -206,7 +205,6 @@ class RC:
         fine_agg_ratio = kwargs['fine_agg_ratio']
         air = kwargs['air_content']
 
-        ### Creep
         # Correction for curing time
         if 0 <= t0 <= 7:
             gamma_c_t0 = 1.0
@@ -279,10 +277,10 @@ class RC:
         if self._Es is not None:
             return self._Es
 
-        if self.units.lower() == 'us':
+        if self.units == 'us':
             return 29000
 
-        if self.units.lower() == 'si':
+        if self.units == 'si':
             return 2e5
 
         raise ValueError(f'Es is not set and default is not implemented for {self.units = }')
@@ -294,9 +292,9 @@ class RC:
     def eps_c(self):
         if self._eps_c is not None:
             return self._eps_c
-        if self.units.lower() == 'us':
+        if self.units == 'us':
             return (self.fc * 1000) ** (1 / 4) / 4000
-        if self.units.lower() == 'si':
+        if self.units == 'si':
             return (self.fc * 145.038) ** (1 / 4) / 4000
 
         raise ValueError(f'eps_c is not set and default is not impleted for {self.units = }')
@@ -731,6 +729,7 @@ class RC:
 
             # fcc = confined concrete strength
             fcc = self.fc * (-1.254 + 2.254 * sqrt(1 + 7.94 * fl / self.fc) - 2 * fl / self.fc)
+
             # Confinement Effect on Ductility (Section 3.4.4 of Chang and Mander 1994)
             k1 = (fcc - self.fc) / fl
             k2 = 5 * k1
@@ -809,7 +808,7 @@ class RC:
         core_concrete_creep_material_id = start_material_id + 4
         # endregion
 
-        # region Define ops Section
+        # region Define OpenSees Section
         ops.section('Fiber', section_id, '-GJ', GJ)
         # endregion
 
@@ -854,8 +853,10 @@ class RC:
                 raise ValueError("s must be defined")
 
         confinement = False
+
         if conc_mat_type == "Concrete04":
-            ''' Defined based on Mander, J. B., Priestley, M. J. N., and Park, R. (1988). 
+            ''' 
+                Defined based on Mander, J. B., Priestley, M. J. N., and Park, R. (1988). 
                 “Theoretical Stress-Strain Model for Confined Concrete.” Journal of Structural 
                 Engineering, ASCE, 114(8), 1804―1826.
             '''
