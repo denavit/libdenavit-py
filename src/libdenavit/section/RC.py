@@ -55,6 +55,8 @@ class RC:
         self._Ec = x
 
     def get_shrinkage_props_for_uniaxial_material(self, print_factors=False, **kwargs):
+        if kwargs is None:
+            kwargs = {}
         # Define default values for 'si' and 'us' units
         default_values = {'si':
                               {'eps_sh_u0': 780e-6,  # ultimate shrinkage strain
@@ -88,7 +90,10 @@ class RC:
         RH = kwargs['RH']
         fine_agg_ratio = kwargs['fine_agg_ratio']
         air = kwargs['air_content']
-        VoverS = kwargs['VoverS']
+        try:
+            VoverS = self.conc_cross_section.A / self.conc_cross_section.perimeter
+        except:
+            VoverS = kwargs['VoverS']
         slump = kwargs['slump']
         cement_content = kwargs['cement_content']
 
@@ -167,6 +172,8 @@ class RC:
         return {'eps_sh_u': eps_sh_u, 'f': f, 'psish': f}
 
     def get_creep_props_for_uniaxial_material(self, print_factors=False, **kwargs):
+        if kwargs is None:
+            kwargs = {}
         # Define default values for 'si' and 'us' units
         default_values = {'si':
                               {'phi_u_0': 2.35,  # ultimate creep coefficient
@@ -188,11 +195,6 @@ class RC:
                                }
                           }
 
-        try:
-            kwargs['VoverS'] = self.conc_cross_section.A / self.conc_cross_section.perimeter
-        except:
-            pass
-
         # Set default values
         for key, value in default_values[self.units].items():
             kwargs.setdefault(key, value)
@@ -201,7 +203,10 @@ class RC:
         phi_u_0 = kwargs['phi_u_0']
         t0 = kwargs['t0']
         RH = kwargs['RH']
-        VoverS = kwargs['VoverS']
+        try:
+            VoverS = self.conc_cross_section.A / self.conc_cross_section.perimeter
+        except:
+            VoverS = kwargs['VoverS']
         slump = kwargs['slump']
         fine_agg_ratio = kwargs['fine_agg_ratio']
         air = kwargs['air_content']
@@ -770,7 +775,7 @@ class RC:
             return fcc, eps_prime_cc
 
     def build_ops_fiber_section(self, section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx, GJ=1.0e6,
-                                axis=None, creep=False, creep_props_dict=None, shrikage_props_dict=None):
+                                axis=None, creep=False, creep_props_dict=dict(), shrikage_props_dict=dict()):
         """ Builds the fiber section object
 
         Parameters
