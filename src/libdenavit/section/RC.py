@@ -82,6 +82,8 @@ class RC:
 
         # Set default values for missing kwargs
         for key, value in default_values[self.units].items():
+            if key == 'VoverS':
+                continue
             kwargs.setdefault(key, value)
 
         # Extract parameters from kwargs
@@ -90,10 +92,12 @@ class RC:
         RH = kwargs['RH']
         fine_agg_ratio = kwargs['fine_agg_ratio']
         air = kwargs['air_content']
+
         try:
-            VoverS = self.conc_cross_section.A / self.conc_cross_section.perimeter
-        except:
             VoverS = kwargs['VoverS']
+        except:
+            VoverS = self.conc_cross_section.A / self.conc_cross_section.perimeter
+
         slump = kwargs['slump']
         cement_content = kwargs['cement_content']
 
@@ -197,6 +201,8 @@ class RC:
 
         # Set default values
         for key, value in default_values[self.units].items():
+            if key == 'VoverS':
+                continue
             kwargs.setdefault(key, value)
 
         # Extract parameters from kwargs
@@ -204,9 +210,9 @@ class RC:
         t0 = kwargs['t0']
         RH = kwargs['RH']
         try:
-            VoverS = self.conc_cross_section.A / self.conc_cross_section.perimeter
-        except:
             VoverS = kwargs['VoverS']
+        except:
+            VoverS = self.conc_cross_section.A / self.conc_cross_section.perimeter
         slump = kwargs['slump']
         fine_agg_ratio = kwargs['fine_agg_ratio']
         air = kwargs['air_content']
