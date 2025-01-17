@@ -112,7 +112,9 @@ class CCFT:
 
     @reinforcement.setter
     def reinforcement(self, x):
-        if type(x) == list:
+        if x is None:
+            self._reinforcement = None
+        elif type(x) == list:
             self._reinforcement = x
         else:
             self._reinforcement = [x]
@@ -133,18 +135,25 @@ class CCFT:
 
     def Isr(self, axis='x'):
         I_bars = 0.0
-        if self.num_bars > 0:
-            x, y = self.reinforcing_coordinates()
-            if axis.lower() == 'x':
-                # Iy = sum(Ab * y^2)
-                for i in range(self.num_bars):
-                    I_bars += self.Ab * (y[i] ** 2)
-            elif axis.lower() == 'y':
-                # Ix = sum(Ab * x^2)
-                for i in range(self.num_bars):
-                    I_bars += self.Ab * (x[i] ** 2)
-            else:
-                raise ValueError("axis must be 'x' or 'y'")
+        if self.reinforcement is None:
+            if self.num_bars > 0:
+                x, y = self.reinforcing_coordinates()
+                if axis.lower() == 'x':
+                    # Iy = sum(Ab * y^2)
+                    for i in range(self.num_bars):
+                        I_bars += self.Ab * (y[i] ** 2)
+                elif axis.lower() == 'y':
+                    # Ix = sum(Ab * x^2)
+                    for i in range(self.num_bars):
+                        I_bars += self.Ab * (x[i] ** 2)
+                else:
+                    raise ValueError("axis must be 'x' or 'y'")
+        else:
+            i = 0
+            for j in self.reinforcement:
+                i += j.I(axis)
+            return i
+
         return I_bars
             
     def Ic(self,axis='x'):
@@ -166,7 +175,7 @@ class CCFT:
         return 0.25*pi*self.D**2
 
     def Ig(self, axis='x'):
-        return self.Is() + self.Ic() + self.Isr(axis)
+        return pi/64*(self.D**4)
 
     @eps_c.setter
     def eps_c(self, x):
