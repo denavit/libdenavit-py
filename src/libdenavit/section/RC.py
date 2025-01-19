@@ -5,8 +5,6 @@ import numpy as np
 import openseespy.opensees as ops
 from libdenavit.OpenSees import circ_patch_2d, obround_patch_2d, obround_patch_2d_confined
 from libdenavit.section import AciStrainCompatibility, FiberSection, ACI_phi
-from libdenavit.unit_convert import unit_convert
-#import bennycloth as benny
 
 
 class RC:
