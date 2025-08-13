@@ -368,6 +368,7 @@ class CrossSection2d:
                     curvatureY = curvature
                 else:
                     raise ValueError(f'axis {self.axis} not supported')
+                ### This needs change
                 results.maximum_concrete_compression_strain.append(
                     self.section.maximum_concrete_compression_strain(axial_strain, curvatureX, curvatureY))
                 results.maximum_steel_strain.append(
