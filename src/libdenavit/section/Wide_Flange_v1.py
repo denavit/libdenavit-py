@@ -4,44 +4,44 @@ from libdenavit.section.geometric_shape import *
 from libdenavit.OpenSees.get_fiber_data import *
 from math import pi, ceil
 import openseespy.opensees as ops
-from Units import *
+# from Units import *
 import matplotlib.pyplot as plt
 import opsvis as opsv
+################# Please ignore the first two classes. They are being used by Moment_Frame_2D #####################
+# class WF_Database:
+#     def __init__(self,Section_name,unit=inch):
 
-class WF_Database:
-    def __init__(self,Section_name,unit=inch):
+#         self.section=Section_name
+#         self.d=section.wide_flange_database[self.section]['d']*unit
+#         self.tw=section.wide_flange_database[self.section]['tw']*unit
+#         self.bf=section.wide_flange_database[self.section]['bf']*unit
+#         self.tf=section.wide_flange_database[self.section]['tf']*unit
+#         self.A=section.wide_flange_database[self.section]['A']*(unit**2)
+#         self.Ix=section.wide_flange_database[self.section]['Ix']*(unit**4)
+#         self.Iy=section.wide_flange_database[self.section]['Iy']*(unit**4)
 
-        self.section=Section_name
-        self.d=section.wide_flange_database[self.section]['d']*unit
-        self.tw=section.wide_flange_database[self.section]['tw']*unit
-        self.bf=section.wide_flange_database[self.section]['bf']*unit
-        self.tf=section.wide_flange_database[self.section]['tf']*unit
-        self.A=section.wide_flange_database[self.section]['A']*(unit**2)
-        self.Ix=section.wide_flange_database[self.section]['Ix']*(unit**4)
-        self.Iy=section.wide_flange_database[self.section]['Iy']*(unit**4)
-
-class wf_Database:
-        def __init__(self,Section_name,unit=inch):
+# class wf_Database:
+#         def __init__(self,Section_name,unit=inch):
         
-            db = database.WideFlangeDB(Section_name)
-            self.d   = db.d   * unit
-            self.tw  = db.tw  * unit
-            self.bf  = db.bf  * unit
-            self.tf  = db.tf  * unit
-            self.A   = db.A   * unit**2
-            self.Ix  = db.Ix  * unit**4
-            self.Zx  = db.Zx  * unit**3
-            self.Sx  = db.Sx  * unit**3
-            self.rx  = db.rx  * unit
-            self.Iy  = db.Iy  * unit**4
-            self.Zy  = db.Zy  * unit**3
-            self.Sy  = db.Sy  * unit**3
-            self.ry  = db.ry  * unit
-            self.J   = db.J   * unit**4
-            self.Cw  = db.Cw  * unit**6
-            self.rts = db.rts * unit
-            self.ho  = db.ho  * unit
-
+#             db = database.WideFlangeDB(Section_name)
+#             self.d   = db.d   * unit
+#             self.tw  = db.tw  * unit
+#             self.bf  = db.bf  * unit
+#             self.tf  = db.tf  * unit
+#             self.A   = db.A   * unit**2
+#             self.Ix  = db.Ix  * unit**4
+#             self.Zx  = db.Zx  * unit**3
+#             self.Sx  = db.Sx  * unit**3
+#             self.rx  = db.rx  * unit
+#             self.Iy  = db.Iy  * unit**4
+#             self.Zy  = db.Zy  * unit**3
+#             self.Sy  = db.Sy  * unit**3
+#             self.ry  = db.ry  * unit
+#             self.J   = db.J   * unit**4
+#             self.Cw  = db.Cw  * unit**6
+#             self.rts = db.rts * unit
+#             self.ho  = db.ho  * unit
+#########################################################################################################################
 
 class I_shape(GeometricShape):
         
@@ -571,5 +571,5 @@ class I_shape(GeometricShape):
         return max(s1, s2, s3, s4)
 
     def plot_fiber_section(section_id):
-        get_fiber_data(section_tag=section_id,plot_fibers=True,keep_json=True)
+        get_fiber_data(section_tag=section_id,plot_fibers=True,keep_json=False)
      
