@@ -4,7 +4,6 @@ from math import sqrt,pi,ceil
 from ..design import available_strength
 from . import database
 import libdenavit.section.database.aisc as section
-# import libdenavit.section.wide_flange as database
 from libdenavit.section.geometric_shape import *
 from libdenavit.OpenSees.get_fiber_data import *
 import openseespy.opensees as ops
