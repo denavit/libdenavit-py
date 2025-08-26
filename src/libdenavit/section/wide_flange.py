@@ -130,6 +130,7 @@ class I_shape(GeometricShape):
         self.num_elements = 20
         self.num_steps = 100
 
+        self.has_concrete=False
 
     @classmethod
     def from_database(cls, section_name,fy,E,Hk):
@@ -285,6 +286,13 @@ class I_shape(GeometricShape):
     def p0(self):
         # Nominal axial yield strength (short steel section)
         return self.fy * self.A
+    
+    def depth(self, axis):
+        if axis=='x' or axis==None:
+            return self.d
+        else:
+            return self.bf
+        
     
 
     def build_ops_fiber_section(self, section_id, start_material_id, mat_type, nfy, nfx, frc, GJ=1.0e6,axis=None):
@@ -563,14 +571,14 @@ class I_shape(GeometricShape):
             raise ValueError("Please give valid axis, 'x' or 'y' or set it to None to use a 3d fiber section")
 
 
-    def maximum_compression_strain(self, axial_strain, curvatureX=0, curvatureY=0):
+    def maximum_compression_steel_strain(self, axial_strain, curvatureX=0, curvatureY=0):
        
         extreme_strain = axial_strain - self.d/2 * abs(curvatureX) \
                             - self.bf/2 * abs(curvatureY)
         return extreme_strain
 
 
-    def maximum_tensile_strain(self, axial_strain, curvatureX=0.0, curvatureY=0.0):
+    def maximum_tensile_steel_strain(self, axial_strain, curvatureX=0.0, curvatureY=0.0):
         bf = self.bf
         d  = self.d
         xh = bf / 2.0
