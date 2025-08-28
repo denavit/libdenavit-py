@@ -446,11 +446,12 @@ class I_shape(GeometricShape):
                 # Web patch
                 ops.patch('rect', start_material_id, Nfw, 1, -self.tw/2, -self.dw/2, self.tw/2, self.dw/2)
 
-                region_width = self.bf / self.num_regions
-                Nff = ceil(region_width * (self.num_fiber / self.bf))
+                half_flange_width = self.bf / 2.0
+                region_width = half_flange_width / self.num_regions
+                Nff_region = ceil(region_width * (self.num_fiber / self.bf))
 
                 for i in range(self.num_regions):
-                    fri = self.frc + ((i + 0.5) / self.num_regions) * (frt - self.frc)
+                    fri = frc + ((i + 0.5) / self.num_regions) * (frt - frc)
                     start_material_idi = start_material_id + 2 * (i + 1)
 
                     if mat_type == 'ElasticPP':
@@ -470,11 +471,16 @@ class I_shape(GeometricShape):
                         raise Exception(
                             'Input Error - unknown material type (%s)' % mat_type)
 
-                    # Top flange segment
-                    ops.patch('rect', start_material_idi, Nff, 1, -region_width / 2, self.dw/2, region_width / 2, self.d/2)
-                    # Bottom flange segment
-                    ops.patch('rect', start_material_idi, Nff, 1, -region_width / 2, -self.d/2, region_width / 2, -self.dw/2)
+                    y_start_right = half_flange_width - (i + 1) * region_width
+                    y_end_right   = half_flange_width - i * region_width
+                    y_start_left = -y_end_right
+                    y_end_left   = -y_start_right
 
+                    ops.patch('rect', start_material_idi, Nff_region, 1, y_start_right, self.dw/2, y_end_right, self.d/2)
+                    ops.patch('rect', start_material_idi, Nff_region, 1, y_start_left,  self.dw/2, y_end_left,  self.d/2)
+                    ops.patch('rect', start_material_idi, Nff_region, 1, y_start_right, -self.d/2, y_end_right, -self.dw/2)
+                    ops.patch('rect', start_material_idi, Nff_region, 1, y_start_left,  -self.d/2, y_end_left,  -self.dw/2)
+                    
         elif axis is None:
 
 
