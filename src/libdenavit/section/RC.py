@@ -549,10 +549,10 @@ class RC:
             except:
                 raise ValueError(f'Unknown EI_type {EI_type}')
 
-    def interaction_diagram_object(self, axis, num_points, factored=False, only_compressive=True):
+    def interaction_diagram_object(self, axis, num_points=20, factored=False, only_compressive=True):
         if self._CS_id2d is None:
             from libdenavit import InteractionDiagram2d
-            P_CS, M_CS, _ = self.section_interaction_2d(axis, 20, factored=False, only_compressive=True)
+            P_CS, M_CS, _ = self.section_interaction_2d(axis, num_points=num_points, factored=factored, only_compressive=only_compressive)
             CS_id2d = InteractionDiagram2d(M_CS, P_CS, is_closed=True)
             self._CS_id2d = CS_id2d
         return self._CS_id2d
@@ -765,7 +765,7 @@ class RC:
             ke = (1 - sp / (2 * ds)) / (1 - ρcc)
 
             # flx and fly = lateral confining stress in x and y directions
-            ρs = 4 * self.Abt / ds * self.s  # Equation 17
+            ρs = 4 * self.Abt / (ds * self.s)  # Equation 17
             fl = 0.5 * ke * ρs * self.fyt  # Equation 19
 
             # fcc = confined concrete strength
@@ -957,7 +957,7 @@ class RC:
                 B = self.conc_cross_section.B
                 cdb = (H - self.reinforcement[0].By) / 2 - self.reinforcement[0].db / 2
                 if self.dbt is not None:
-                    cdb = cdb - self.dbt / 2
+                    cdb -= self.dbt / 2
 
                 if confinement:
                     nfy_cover = ceil(cdb * nfy / H)
@@ -1096,6 +1096,7 @@ class RC:
                 raise ValueError(f'3D option not supported for obround cross-sections yet')
 
             elif axis == 'x' or axis == 'y':
+                ds = self.reinforcement[0].D + self.reinforcement[0].db + self.dbt
 
                 if confinement:
                     negative_area_material_id = core_concrete_material_id
