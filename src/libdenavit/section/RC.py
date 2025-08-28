@@ -881,9 +881,24 @@ class RC:
             confinement = True
 
         elif conc_mat_type == "Concrete04_no_confinement":
+            validate_section_reinf(self)
             ops.uniaxialMaterial("Concrete04", concrete_material_id, -self.fc, -self.eps_c, -1.0, self.Ec)
-
+        
+        elif conc_mat_type == "Concrete02":
+            validate_section_reinf(self)
+            
+            fcc, eps_prime_cc = self.confined_concrete_props()
+            
+            ops.uniaxialMaterial('Concrete02', cover_concrete_material_id, -self.fc, -self.eps_c, -self.fc/1.5, -0.01)
+            ops.uniaxialMaterial('Concrete02', core_concrete_material_id, -fcc, -eps_prime_cc, -fcc/1.5, -0.01)
+            confinement = True
+        
+        elif conc_mat_type == "Concrete02_no_confinement":
+            validate_section_reinf(self)
+            ops.uniaxialMaterial('Concrete02', concrete_material_id, -self.fc, -self.eps_c, -self.fc/1.5, -0.01)
+        
         elif conc_mat_type == "Concrete01_no_confinement":
+            validate_section_reinf(self)
             ops.uniaxialMaterial("Concrete01", concrete_material_id, -self.fc, -2 * self.fc / self.Ec, 0, 0.006)
 
         elif conc_mat_type == "ENT":
