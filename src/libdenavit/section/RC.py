@@ -779,7 +779,7 @@ class RC:
             return fcc, eps_prime_cc
 
     def build_ops_fiber_section(self, section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx, GJ=1.0e6,
-                                axis=None, creep=False, creep_props_dict=dict(), shrikage_props_dict=dict()):
+                                axis=None, creep=False, creep_props_dict=None, shrinkage_props_dict=None):
         """ Builds the fiber section object
 
         Parameters
@@ -914,7 +914,7 @@ class RC:
         # region Define Creep Material
         if creep:
             creepdata = self.get_creep_props_for_uniaxial_material(**creep_props_dict)
-            shrinkagedata = self.get_shrinkage_props_for_uniaxial_material(**shrikage_props_dict)
+            shrinkagedata = self.get_shrinkage_props_for_uniaxial_material(**shrinkage_props_dict)
 
             if self._default_age_warn:
                 if self.tD == 5:
