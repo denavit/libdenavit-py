@@ -549,10 +549,10 @@ class RC:
             except:
                 raise ValueError(f'Unknown EI_type {EI_type}')
 
-    def interaction_diagram_object(self, axis, num_points, factored=False, only_compressive=True):
+    def interaction_diagram_object(self, axis, num_points=20, factored=False, only_compressive=True):
         if self._CS_id2d is None:
             from libdenavit import InteractionDiagram2d
-            P_CS, M_CS, _ = self.section_interaction_2d(axis, 20, factored=False, only_compressive=True)
+            P_CS, M_CS, _ = self.section_interaction_2d(axis, num_points=num_points, factored=factored, only_compressive=only_compressive)
             CS_id2d = InteractionDiagram2d(M_CS, P_CS, is_closed=True)
             self._CS_id2d = CS_id2d
         return self._CS_id2d
@@ -765,7 +765,7 @@ class RC:
             ke = (1 - sp / (2 * ds)) / (1 - ρcc)
 
             # flx and fly = lateral confining stress in x and y directions
-            ρs = 4 * self.Abt / ds * self.s  # Equation 17
+            ρs = 4 * self.Abt / (ds * self.s)  # Equation 17
             fl = 0.5 * ke * ρs * self.fyt  # Equation 19
 
             # fcc = confined concrete strength
@@ -779,7 +779,7 @@ class RC:
             return fcc, eps_prime_cc
 
     def build_ops_fiber_section(self, section_id, start_material_id, steel_mat_type, conc_mat_type, nfy, nfx, GJ=1.0e6,
-                                axis=None, creep=False, creep_props_dict=dict(), shrikage_props_dict=dict()):
+                                axis=None, creep=False, creep_props_dict=None, shrinkage_props_dict=None):
         """ Builds the fiber section object
 
         Parameters
@@ -881,9 +881,24 @@ class RC:
             confinement = True
 
         elif conc_mat_type == "Concrete04_no_confinement":
+            validate_section_reinf(self)
             ops.uniaxialMaterial("Concrete04", concrete_material_id, -self.fc, -self.eps_c, -1.0, self.Ec)
-
+        
+        elif conc_mat_type == "Concrete02":
+            validate_section_reinf(self)
+            
+            fcc, eps_prime_cc = self.confined_concrete_props()
+            
+            ops.uniaxialMaterial('Concrete02', cover_concrete_material_id, -self.fc, -self.eps_c, -self.fc/1.5, -0.01)
+            ops.uniaxialMaterial('Concrete02', core_concrete_material_id, -fcc, -eps_prime_cc, -fcc/1.5, -0.01)
+            confinement = True
+        
+        elif conc_mat_type == "Concrete02_no_confinement":
+            validate_section_reinf(self)
+            ops.uniaxialMaterial('Concrete02', concrete_material_id, -self.fc, -self.eps_c, -self.fc/1.5, -0.01)
+        
         elif conc_mat_type == "Concrete01_no_confinement":
+            validate_section_reinf(self)
             ops.uniaxialMaterial("Concrete01", concrete_material_id, -self.fc, -2 * self.fc / self.Ec, 0, 0.006)
 
         elif conc_mat_type == "ENT":
@@ -899,7 +914,7 @@ class RC:
         # region Define Creep Material
         if creep:
             creepdata = self.get_creep_props_for_uniaxial_material(**creep_props_dict)
-            shrinkagedata = self.get_shrinkage_props_for_uniaxial_material(**shrikage_props_dict)
+            shrinkagedata = self.get_shrinkage_props_for_uniaxial_material(**shrinkage_props_dict)
 
             if self._default_age_warn:
                 if self.tD == 5:
@@ -942,7 +957,7 @@ class RC:
                 B = self.conc_cross_section.B
                 cdb = (H - self.reinforcement[0].By) / 2 - self.reinforcement[0].db / 2
                 if self.dbt is not None:
-                    cdb = cdb - self.dbt / 2
+                    cdb -= self.dbt / 2
 
                 if confinement:
                     nfy_cover = ceil(cdb * nfy / H)
@@ -1081,6 +1096,7 @@ class RC:
                 raise ValueError(f'3D option not supported for obround cross-sections yet')
 
             elif axis == 'x' or axis == 'y':
+                ds = self.reinforcement[0].D + self.reinforcement[0].db + self.dbt
 
                 if confinement:
                     negative_area_material_id = core_concrete_material_id

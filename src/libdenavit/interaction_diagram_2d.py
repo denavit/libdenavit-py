@@ -159,6 +159,18 @@ class InteractionDiagram2d():
         _, Y = self.find_intersection(pathX, pathY)
         return Y
 
+    def is_outside(self, x, y):
+        if x <= 0 or y <= 0:
+            raise ValueError("Coordinates must be positive (x > 0, y > 0)")
+
+        # compute polar coords of the point
+        r_p, theta = cart2pol(x, y)
+
+        # find boundary radius at angle theta
+        r_b = self.radial_distance(theta)
+
+        # 4) compare
+        return r_p > r_b
 
     def plot(self, *args, **kwargs):
         if len(args) == 0 and len(kwargs) == 0:

@@ -425,6 +425,7 @@ class CrossSection2d:
                     curvatureY=0
                 else:
                     raise ValueError(f'axis {self.axis} not supported')
+
                 
                 ##store the curvature 
                 results.curvatureX.append(curvatureX)
@@ -443,6 +444,7 @@ class CrossSection2d:
                         self.section.maximum_compression_steel_strain(axial_strain, curvatureX, curvatureY))
                     results.maximum_steel_tensile_strain.append(
                         self.section.maximum_tensile_steel_strain(axial_strain, curvatureX, curvatureY))
+
             # endregion
 
             record()
