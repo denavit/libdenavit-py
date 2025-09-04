@@ -216,14 +216,14 @@ class CrossSection2d:
                     results.maximum_concrete_compression_strain.append(
                         self.section.maximum_concrete_compression_strain(axial_strain, curvatureX, curvatureY))
                     results.maximum_steel_strain.append(
-                        self.section.maximum_tensile_steel_strain(axial_strain, curvatureX, curvatureY))
+                        self.section.maximum_tensile_strain(axial_strain, curvatureX, curvatureY))
                 
                 ## if steel section
                 else:
                     results.maximum_steel_compression_strain.append(
-                        self.section.maximum_compression_steel_strain(axial_strain, curvatureX, curvatureY))
+                        self.section.maximum_compression_strain(axial_strain, curvatureX, curvatureY))
                     results.maximum_steel_tensile_strain.append(
-                        self.section.maximum_tensile_steel_strain(axial_strain, curvatureX, curvatureY))
+                        self.section.maximum_tensile_strain(axial_strain, curvatureX, curvatureY))
 
             record()
 
@@ -373,14 +373,14 @@ class CrossSection2d:
                     results.maximum_concrete_compression_strain.append(
                         self.section.maximum_concrete_compression_strain(axial_strain, curvatureX, curvatureY))
                     results.maximum_steel_strain.append(
-                        self.section.maximum_tensile_steel_strain(axial_strain, curvatureX, curvatureY))
+                        self.section.maximum_tensile_strain(axial_strain, curvatureX, curvatureY))
                 
                 ## if steel section
                 else:
                     results.maximum_steel_compression_strain.append(
-                        self.section.maximum_compression_steel_strain(axial_strain, curvatureX, curvatureY))
+                        self.section.maximum_compression_strain(axial_strain, curvatureX, curvatureY))
                     results.maximum_steel_tensile_strain.append(
-                        self.section.maximum_tensile_steel_strain(axial_strain, curvatureX, curvatureY))
+                        self.section.maximum_tensile_strain(axial_strain, curvatureX, curvatureY))
                 
             # endregion
 
@@ -436,14 +436,14 @@ class CrossSection2d:
                     results.maximum_concrete_compression_strain.append(
                         self.section.maximum_concrete_compression_strain(axial_strain, curvatureX, curvatureY))
                     results.maximum_steel_strain.append(
-                        self.section.maximum_tensile_steel_strain(axial_strain, curvatureX, curvatureY))
+                        self.section.maximum_tensile_strain(axial_strain, curvatureX, curvatureY))
                 
                 ## if steel section
                 else:
                     results.maximum_steel_compression_strain.append(
-                        self.section.maximum_compression_steel_strain(axial_strain, curvatureX, curvatureY))
+                        self.section.maximum_compression_strain(axial_strain, curvatureX, curvatureY))
                     results.maximum_steel_tensile_strain.append(
-                        self.section.maximum_tensile_steel_strain(axial_strain, curvatureX, curvatureY))
+                        self.section.maximum_tensile_strain(axial_strain, curvatureX, curvatureY))
 
             # endregion
 
