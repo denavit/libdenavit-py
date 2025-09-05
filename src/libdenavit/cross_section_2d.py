@@ -133,6 +133,7 @@ class CrossSection2d:
         percent_load_drop_limit = kwargs.get('percent_load_drop_limit', 0.05)
         concrete_strain_limit = kwargs.get('concrete_strain_limit', -0.01)
         steel_strain_limit = kwargs.get('steel_strain_limit', 0.05)
+        steel_compression_strain_limit=kwargs.get('steel_strain_compression_limit', -0.03)
         try_smaller_steps = kwargs.get('try_smaller_steps', True)
 
         # Build OpenSees model
@@ -141,7 +142,8 @@ class CrossSection2d:
         # Initialize analysis results
         results = AnalysisResults()
         attributes = ['applied_axial_load', 'maximum_abs_moment', 'lowest_eigenvalue',
-                      'extreme_comp_strain', 'maximum_concrete_compression_strain', 'maximum_steel_strain']
+                      'extreme_comp_strain', 'maximum_concrete_compression_strain', 'maximum_steel_strain','maximum_steel_compression_strain','maximum_steel_tensile_strain',
+                      'curvatureX','curvatureY']
         for attr in attributes:
             setattr(results, attr, [])
 
@@ -156,6 +158,8 @@ class CrossSection2d:
                 ind, x = find_limit_point_in_list(results.lowest_eigenvalue, eigenvalue_limit)
             elif 'Extreme Compressive Concrete Fiber Strain Limit Reached' in results.exit_message:
                 ind, x = find_limit_point_in_list(results.maximum_concrete_compression_strain, concrete_strain_limit)
+            elif 'Extreme Compressive Steel Fiber Strain Limit Reached' in results.exit_message:
+                ind, x = find_limit_point_in_list(results.maximum_steel_compression_strain, steel_compression_strain_limit)
             elif 'Extreme Steel Fiber Strain Limit Reached' in results.exit_message:
                 ind, x = find_limit_point_in_list(results.maximum_steel_strain, steel_strain_limit)
             elif 'Load Drop Limit Reached' in results.exit_message:
@@ -197,12 +201,29 @@ class CrossSection2d:
                 elif self.axis == 'y':
                     curvatureX = 0
                     curvatureY = ops.nodeDisp(2, 3)
+                elif self.axis== None:
+                    curvatureX=curvature
+                    curvatureY=0
                 else:
                     raise ValueError(f'axis {self.axis} not supported')
-                results.maximum_concrete_compression_strain.append(
-                    self.section.maximum_concrete_compression_strain(axial_strain, curvatureX, curvatureY))
-                results.maximum_steel_strain.append(
-                    self.section.maximum_tensile_steel_strain(axial_strain, curvatureX, curvatureY))
+                
+                ##store the curvature 
+                results.curvatureX.append(curvatureX)
+                results.curvatureY.append(curvatureY)
+
+                ## if concrete section
+                if self.section.has_concrete==True:
+                    results.maximum_concrete_compression_strain.append(
+                        self.section.maximum_concrete_compression_strain(axial_strain, curvatureX, curvatureY))
+                    results.maximum_steel_strain.append(
+                        self.section.maximum_tensile_strain(axial_strain, curvatureX, curvatureY))
+                
+                ## if steel section
+                else:
+                    results.maximum_steel_compression_strain.append(
+                        self.section.maximum_compression_strain(axial_strain, curvatureX, curvatureY))
+                    results.maximum_steel_tensile_strain.append(
+                        self.section.maximum_tensile_strain(axial_strain, curvatureX, curvatureY))
 
             record()
 
@@ -278,22 +299,37 @@ class CrossSection2d:
                         results.exit_message = 'Eigenvalue Limit Reached'
                         break
 
+                ## Concrete section   
+                if self.section.has_concrete==True:
                 # Check for strain in extreme compressive concrete fiber
-                if concrete_strain_limit is not None:
-                    if results.maximum_concrete_compression_strain[-1] < concrete_strain_limit:
-                        results.exit_message = 'Extreme Compressive Concrete Fiber Strain Limit Reached'
-                        break
+                    if concrete_strain_limit is not None:
+                        if results.maximum_concrete_compression_strain[-1] < concrete_strain_limit:
+                            results.exit_message = 'Extreme Compressive Concrete Fiber Strain Limit Reached'
+                            break
 
                 # Check for strain in extreme steel fiber
-                if steel_strain_limit is not None:
-                    if results.maximum_steel_strain[-1] > steel_strain_limit:
-                        results.exit_message = 'Extreme Steel Fiber Strain Limit Reached'
-                        break
+                    if steel_strain_limit is not None:
+                        if results.maximum_steel_tensile_strain[-1] > steel_strain_limit:
+                            results.exit_message = 'Extreme Steel Fiber Strain Limit Reached'
+                            break
+                ### Steel section
+                else:
+                # Check for strain in extreme compressive steel fiber
+                    if steel_compression_strain_limit is not None:
+                        if results.maximum_steel_compression_strain[-1] < steel_compression_strain_limit:
+                            results.exit_message = 'Extreme Compressive Steel Fiber Strain Limit Reached'
+                            break
+                # Check for strain in extreme steel fiber
+                    if steel_strain_limit is not None:
+                        if results.maximum_steel_tensile_strain[-1] > steel_strain_limit:
+                            results.exit_message = 'Extreme Steel Fiber Strain Limit Reached'
+                            break
 
             find_limit_point()
             return results
 
         elif analysis_type.lower() == 'nonproportional_limit_point':
+
             basic_curvature_incr = disp_incr_factor / self.section.depth(self.axis)
         
             # region Run vertical load (time = LFV)
@@ -322,12 +358,30 @@ class CrossSection2d:
                 elif self.axis == 'y':
                     curvatureX = 0
                     curvatureY = curvature
+                elif self.axis== None:
+                    curvatureX=curvature
+                    curvatureY=0
                 else:
                     raise ValueError(f'axis {self.axis} not supported')
-                results.maximum_concrete_compression_strain.append(
-                    self.section.maximum_concrete_compression_strain(axial_strain, curvatureX, curvatureY))
-                results.maximum_steel_strain.append(
-                    self.section.maximum_tensile_steel_strain(axial_strain, curvatureX, curvatureY))
+                                
+                ##store the curvature 
+                results.curvatureX.append(curvatureX)
+                results.curvatureY.append(curvatureY)
+                
+                ## if concrete section
+                if self.section.has_concrete==True:
+                    results.maximum_concrete_compression_strain.append(
+                        self.section.maximum_concrete_compression_strain(axial_strain, curvatureX, curvatureY))
+                    results.maximum_steel_strain.append(
+                        self.section.maximum_tensile_strain(axial_strain, curvatureX, curvatureY))
+                
+                ## if steel section
+                else:
+                    results.maximum_steel_compression_strain.append(
+                        self.section.maximum_compression_strain(axial_strain, curvatureX, curvatureY))
+                    results.maximum_steel_tensile_strain.append(
+                        self.section.maximum_tensile_strain(axial_strain, curvatureX, curvatureY))
+                
             # endregion
 
             record()
@@ -366,13 +420,30 @@ class CrossSection2d:
                 elif self.axis == 'y':
                     curvatureX = 0
                     curvatureY = curvature
+                elif self.axis== None:
+                    curvatureX=curvature
+                    curvatureY=0
                 else:
                     raise ValueError(f'axis {self.axis} not supported')
-                ### This needs change
-                results.maximum_concrete_compression_strain.append(
-                    self.section.maximum_concrete_compression_strain(axial_strain, curvatureX, curvatureY))
-                results.maximum_steel_strain.append(
-                    self.section.maximum_tensile_steel_strain(axial_strain, curvatureX, curvatureY))
+
+                
+                ##store the curvature 
+                results.curvatureX.append(curvatureX)
+                results.curvatureY.append(curvatureY)
+                
+                ## if concrete section
+                if self.section.has_concrete==True:
+                    results.maximum_concrete_compression_strain.append(
+                        self.section.maximum_concrete_compression_strain(axial_strain, curvatureX, curvatureY))
+                    results.maximum_steel_strain.append(
+                        self.section.maximum_tensile_strain(axial_strain, curvatureX, curvatureY))
+                
+                ## if steel section
+                else:
+                    results.maximum_steel_compression_strain.append(
+                        self.section.maximum_compression_strain(axial_strain, curvatureX, curvatureY))
+                    results.maximum_steel_tensile_strain.append(
+                        self.section.maximum_tensile_strain(axial_strain, curvatureX, curvatureY))
 
             # endregion
 
@@ -468,17 +539,31 @@ class CrossSection2d:
                         results.exit_message = 'Eigenvalue Limit Reached'
                         break
 
+                ## Concrete section   
+                if self.section.has_concrete==True:
                 # Check for strain in extreme compressive concrete fiber
-                if concrete_strain_limit is not None:
-                    if results.maximum_concrete_compression_strain[-1] < concrete_strain_limit:
-                        results.exit_message = 'Extreme Compressive Concrete Fiber Strain Limit Reached'
-                        break
+                    if concrete_strain_limit is not None:
+                        if results.maximum_concrete_compression_strain[-1] < concrete_strain_limit:
+                            results.exit_message = 'Extreme Compressive Concrete Fiber Strain Limit Reached'
+                            break
 
                 # Check for strain in extreme steel fiber
-                if steel_strain_limit is not None:
-                    if results.maximum_steel_strain[-1] > steel_strain_limit:
-                        results.exit_message = 'Extreme Steel Fiber Strain Limit Reached'
-                        break
+                    if steel_strain_limit is not None:
+                        if results.maximum_steel_tensile_strain[-1] > steel_strain_limit:
+                            results.exit_message = 'Extreme Steel Fiber Strain Limit Reached'
+                            break
+                ### Steel section
+                else:
+                # Check for strain in extreme compressive steel fiber
+                    if steel_compression_strain_limit is not None:
+                        if results.maximum_steel_compression_strain[-1] < steel_compression_strain_limit:
+                            results.exit_message = 'Extreme Compressive Steel Fiber Strain Limit Reached'
+                            break
+                # Check for strain in extreme steel fiber
+                    if steel_strain_limit is not None:
+                        if results.maximum_steel_tensile_strain[-1] > steel_strain_limit:
+                            results.exit_message = 'Extreme Steel Fiber Strain Limit Reached'
+                            break
 
             find_limit_point()
             return results
