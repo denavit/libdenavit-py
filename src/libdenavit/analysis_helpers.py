@@ -58,6 +58,37 @@ def ops_get_section_strains(column):
 
         return min(maximum_concrete_compression_strain), max(maximum_tensile_steel_strain), max_kx, max_ky
 
+    elif type(column.section).__name__ == "I_shape":
+        # I_shape implementation using section methods
+        maximum_compression_strains = []
+        maximum_tensile_strains = []
+        max_kx = 0.0
+        max_ky = 0.0
+
+        for i in range(column.ops_n_elem):
+            for j in range(column.ops_integration_points):
+                axial_strain, curvatureX, curvatureY = 0, 0, 0
+                if column.axis == 'x':
+                    axial_strain, curvatureX = ops.eleResponse(i,  # element tag
+                                                              'section', j+1,  # select integration point
+                                                              'deformation')  # response type
+                elif column.axis == 'y':
+                    axial_strain, curvatureY = ops.eleResponse(i,  # element tag
+                                                              'section', j+1,  # select integration point
+                                                              'deformation')  # response type
+                else:
+                    raise ValueError("The axis is not supported.")
+                
+                # Use I_shape methods
+                maximum_compression_strains.append(column.section.maximum_compression_strain(
+                                                  axial_strain, curvatureX=curvatureX, curvatureY=curvatureY))
+                maximum_tensile_strains.append(column.section.maximum_tensile_strain(
+                                              axial_strain, curvatureX=curvatureX, curvatureY=curvatureY))
+                max_kx = max(max_kx, abs(curvatureX))
+                max_ky = max(max_ky, abs(curvatureY))
+
+        return min(maximum_compression_strains), max(maximum_tensile_strains), max_kx, max_ky
+
 
 def ops_get_maximum_abs_moment(column) -> float:
     """
