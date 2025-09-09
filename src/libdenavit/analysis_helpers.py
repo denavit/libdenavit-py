@@ -120,32 +120,44 @@ def ops_get_maximum_abs_disp(column) -> float:
 
 
 def check_analysis_limits(results, **limits):
-        """
-        Checks if the analysis has reached a predefined limit.
+    """
+    Checks if the analysis has reached a predefined limit.
 
-        Args:
-            results: The AnalysisResults object containing the current state.
-            limits (dict): A dictionary of limit values.
+    Args:
+        results: The AnalysisResults object containing the current state.
+        limits (dict): A dictionary of limit values.
 
-        Returns:
-            str or None: An exit message string if a limit is reached, otherwise None.
-        """
-        # Unpack limits from the dictionary
-        eigenvalue_limit = limits.get('eigenvalue_limit')
-        deformation_limit = limits.get('deformation_limit')
-        concrete_strain_limit = limits.get('concrete_strain_limit')
-        steel_strain_limit = limits.get('steel_strain_limit')
+    Returns:
+        str or None: An exit message string if a limit is reached, otherwise None.
+    """
+    # Unpack limits from the dictionary
+    eigenvalue_limit = limits.get('eigenvalue_limit')
+    deformation_limit = limits.get('deformation_limit')
+    concrete_strain_limit = limits.get('concrete_strain_limit')
+    steel_strain_limit = limits.get('steel_strain_limit')
+    
+    # Optional; defaults to RC so existing callers keep working.
+    section_type = limits.get('section_type', 'RC')
 
-        if eigenvalue_limit is not None and results.lowest_eigenvalue[-1] < eigenvalue_limit:
-            return 'Eigenvalue Limit Reached'
+    if eigenvalue_limit is not None and results.lowest_eigenvalue[-1] < eigenvalue_limit:
+        return 'Eigenvalue Limit Reached'
 
-        if deformation_limit is not None and results.maximum_abs_disp[-1] > deformation_limit:
-                return 'Deformation Limit Reached'
-
+    if deformation_limit is not None and results.maximum_abs_disp[-1] > deformation_limit:
+            return 'Deformation Limit Reached'
+    
+    if section_type == "RC":
+        # For RC: Check concrete compression and steel tension
         if concrete_strain_limit is not None and results.maximum_concrete_compression_strain[-1] < concrete_strain_limit:
-            return 'Extreme Compressive Concrete Fiber Strain Limit Reached'
-
+            return 'Concrete Compression Strain Limit Reached'
+        
         if steel_strain_limit is not None and results.maximum_steel_strain[-1] > steel_strain_limit:
-            return 'Extreme Steel Fiber Strain Limit Reached'
+            return 'Steel Tensile Strain Limit Reached'
+        
+    elif section_type == "I_shape":
+        # compression strains are negative; exceed limit if magnitude > steel_strain_limit
+        if steel_strain_limit is not None and results.maximum_compression_strain[-1] < -steel_strain_limit:
+            return 'Steel Compression Strain Limit Reached'
+        if steel_strain_limit is not None and results.maximum_tensile_strain[-1] > steel_strain_limit:
+            return 'Steel Tensile Strain Limit Reached'
 
-        return None
+    return None
