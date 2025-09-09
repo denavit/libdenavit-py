@@ -25,26 +25,38 @@ def try_analysis_options():
 
 
 def ops_get_section_strains(column):
+    """
+    Get section strains for both RC and I_shape sections
+    Returns: [maximum_compression_strain, maximum_tensile_strain, curvatureX, curvatureY]
+    """
+    if type(column.section).__name__ == "RC":
+        # Original RC implementation
         maximum_concrete_compression_strain = []
         maximum_tensile_steel_strain = []
+        max_kx = 0.0
+        max_ky = 0.0
         for i in range(column.ops_n_elem):
-            for j  in range(column.ops_integration_points):
+            for j in range(column.ops_integration_points):
                 axial_strain, curvatureX, curvatureY = 0, 0, 0
                 if column.axis == 'x':
                     axial_strain, curvatureX = ops.eleResponse(i,  # element tag
-                                                   'section', j+1, # select integration point
-                                                   'deformation')  # response type
+                                                              'section', j+1,  # select integration point
+                                                              'deformation')  # response type
                 elif column.axis == 'y':
                     axial_strain, curvatureY = ops.eleResponse(i,  # element tag
-                                                   'section', j+1, # select integration point
-                                                   'deformation')  # response type
+                                                              'section', j+1,  # select integration point
+                                                              'deformation')  # response type
                 else:
-                        raise ValueError("The axis is not supported.")
+                    raise ValueError("The axis is not supported.")
+                
                 maximum_concrete_compression_strain.append(column.section.maximum_concrete_compression_strain(
-                                                           axial_strain, curvatureX=curvatureX, curvatureY=curvatureY))
+                                                          axial_strain, curvatureX=curvatureX, curvatureY=curvatureY))
                 maximum_tensile_steel_strain.append(column.section.maximum_tensile_steel_strain(
-                                                           axial_strain, curvatureX=curvatureX, curvatureY=curvatureY))
-        return min(maximum_concrete_compression_strain), max(maximum_tensile_steel_strain), curvatureX, curvatureY
+                                                   axial_strain, curvatureX=curvatureX, curvatureY=curvatureY))
+                max_kx = max(max_kx, abs(curvatureX))
+                max_ky = max(max_ky, abs(curvatureY))
+
+        return min(maximum_concrete_compression_strain), max(maximum_tensile_steel_strain), max_kx, max_ky
 
 
 def ops_get_maximum_abs_moment(column) -> float:
