@@ -8,9 +8,11 @@ import warnings
 from scipy.optimize import fsolve
 import io
 import sys
+from libdenavit.analysis_helpers import try_analysis_options, ops_get_section_strains, ops_get_maximum_abs_moment, ops_get_maximum_abs_disp, check_analysis_limits
+from libdenavit.column_2d import Column2d
 
 
-class NonSwayColumn2d:
+class NonSwayColumn2d(Column2d):
     def __init__(self, section, length, et, eb, **kwargs):
         """
             Represents a non-sway 2D column
@@ -33,23 +35,16 @@ class NonSwayColumn2d:
                           ops_integration_points (int, optional): Number of integration points for OpenSees analysis. Default is 3.
         """
 
+        super().__init__(section, length, **kwargs)
+        
         # Physical parameters
-        self.section = section
-        self.length = length
         self.et = et
         self.eb = eb
-        defaults = {'dxo': 0.0,
-                    'axis': None,
-                    'ops_n_elem': 8,
-                    'ops_element_type': 'mixedBeamColumn',
-                    'ops_geom_transf_type': 'Corotational',
-                    'ops_integration_points': 3,
-                    'creep': False,
-                    'P_sus': 0.0,
-                    't_sus': 10000
-                    }
-        for key, value in defaults.items():
-            setattr(self, key, kwargs.get(key, value))
+        
+        # Specific defaults for non-sway analysis
+        self.creep = kwargs.get('creep', False)
+        self.P_sus = kwargs.get('P_sus', 0.0)
+        self.t_sus = kwargs.get('t_sus', 10000)
 
     @property
     def ops_mid_node(self):
