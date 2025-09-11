@@ -65,3 +65,41 @@ class Column2d:
             
         return config
     
+    def _initialize_results(self):
+        """Initialize analysis results object with required attributes. Override in subclasses."""
+        # Base attributes that most column types will need
+        attrs = [
+            'applied_axial_load', 'maximum_abs_moment', 'maximum_abs_disp', 'lowest_eigenvalue',
+            'maximum_concrete_compression_strain', 'maximum_steel_strain', 
+            'maximum_compression_strain', 'maximum_tensile_strain', 'curvature'
+        ]
+        return self._init_results(attrs)
+    
+    def _set_limit_point_values(self, results, ind, x):
+        """Set limit point values. Override in subclasses for additional values."""
+        results.applied_axial_load_at_limit_point = interpolate_list(results.applied_axial_load, ind, x)
+        results.maximum_abs_moment_at_limit_point = interpolate_list(results.maximum_abs_moment, ind, x)
+        results.maximum_abs_disp_at_limit_point = interpolate_list(results.maximum_abs_disp, ind, x)
+    
+    def _find_limit_point(self, results, config, analysis_type=None):
+        """Find and set limit point values."""
+        if 'Analysis Failed' in results.exit_message:
+            ind, x = find_limit_point_in_list(results.applied_axial_load, max(results.applied_axial_load))
+            warnings.warn('Analysis failed')
+        elif 'Eigenvalue Limit' in results.exit_message:
+            ind, x = find_limit_point_in_list(results.lowest_eigenvalue, config['eigenvalue_limit'])
+        elif 'Extreme Compressive Concrete Fiber Strain Limit Reached' in results.exit_message:
+            ind, x = find_limit_point_in_list(results.maximum_concrete_compression_strain, config['concrete_strain_limit'])
+        elif 'Extreme Steel Fiber Strain Limit Reached' in results.exit_message:
+            ind, x = find_limit_point_in_list(results.maximum_steel_strain, config['steel_strain_limit'])
+        elif 'Deformation Limit Reached' in results.exit_message:
+            ind, x = find_limit_point_in_list(results.maximum_abs_disp, config['deformation_limit'])
+        elif 'Load Drop Limit Reached' in results.exit_message:
+            ind, x = find_limit_point_in_list(results.applied_axial_load, max(results.applied_axial_load))
+        else:
+            # No message at all → set one & fallback
+            results.exit_message = 'Analysis Ended Without Explicit Limit'
+            ind, x = find_limit_point_in_list(results.applied_axial_load, max(results.applied_axial_load))
+
+        self._set_limit_point_values(results, ind, x)
+    
