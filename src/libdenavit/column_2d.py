@@ -103,3 +103,34 @@ class Column2d:
 
         self._set_limit_point_values(results, ind, x)
     
+    def run_ops_analysis(self, analysis_type, **kwargs):
+        """Template method for running OpenSees analysis."""
+        config = self._extract_analysis_config(**kwargs)
+        
+        self.build_ops_model(config['section_id'], config['section_args'], config['section_kwargs'], 
+                            creep_props_dict=config['creep_props_dict'],
+                            shrinkage_props_dict=config['shrinkage_props_dict'])
+        
+        results = self._initialize_results()
+        
+        # Delegate to specific analysis implementation
+        if analysis_type.lower() == 'proportional_limit_point':
+            results = self._run_proportional_analysis(config, results)
+        elif analysis_type.lower() == 'nonproportional_limit_point':
+            results = self._run_nonproportional_analysis(config, results)
+        else:
+            raise ValueError(f'Analysis type {analysis_type} not implemented')
+        
+        self._find_limit_point(results, config, analysis_type)
+        return results
+
+    @abstractmethod
+    def _run_proportional_analysis(self, config, results):
+        """Run proportional analysis. Must be implemented by subclasses."""
+        pass
+
+    @abstractmethod  
+    def _run_nonproportional_analysis(self, config, results):
+        """Run nonproportional analysis. Must be implemented by subclasses."""
+        pass
+    
