@@ -7,29 +7,73 @@ from libdenavit.OpenSees import AnalysisResults
 import openseespy.opensees as ops
 import numpy as np
 from scipy.optimize import fsolve
+from libdenavit.analysis_helpers import try_analysis_options, ops_get_section_strains, ops_get_maximum_abs_moment, ops_get_maximum_abs_disp, check_analysis_limits
+from libdenavit.column_2d import Column2d
 
 
-class SwayColumn2d:   
+class SwayColumn2d(Column2d):   
     def __init__(self, section, length, k_bot, k_top, gamma, **kwargs):
+        """
+            Represents a sway 2D column
+
+            This class defines a sway column element with physical parameters such as section properties,
+            length, and boundary conditions. It also allows customization of analysis options.
+
+            Parameters:
+                section: The section object representing the cross-sectional properties.
+                length: The length of the entire column.
+                k_bot: The rotational spring stiffness at the bottom of the column.
+                k_top: The rotational spring stiffness at the top of the column.
+                gamma: The gravity load ratio for leaning column effect.
+                kwargs: Additional keyword arguments for customization.
+                          Dxo (float, optional): Lateral displacement at the top. Default is 0.0.
+                          effective_length_factor_override (float or None, optional): Override for effective length factor. Default is None.
+                          axis (str, optional): Axis. Default is None.
+                          n_elem (int, optional): Number of elements for OpenSees analysis. Default is 8.
+                          element_type (str, optional): Type of OpenSees element. Default is 'mixedBeamColumn'.
+                          ops_geom_transf_type (str, optional): OpenSees geometric transformation type. Default is 'Corotational'.
+                          ops_integration_points (int, optional): Number of integration points for OpenSees analysis. Default is 3.
+        """
+
+        super().__init__(section, length, **kwargs)
+        
         # Physical parameters
-        # Note that the rotational spring stiffnesses (k_top and b_bot) 
+        # Note that the rotational spring stiffnesses (k_top and k_bot) 
         # can be defined from G using k = (6*EI_col)/(G*L)
-        self.section = section
-        self.length = length
         self.k_top = k_top
         self.k_bot = k_bot
         self.gamma = gamma
-        defaults = {'dxo': 0.0,
-                    'Dxo': 0.0,
-                    'ops_n_elem': 8,
-                    'axis': None,
-                    'effective_length_factor_override': None,
-                    'ops_element_type': "mixedBeamColumn",
-                    'ops_geom_transf_type': "Corotational",
-                    'ops_integration_points': 3
-                    }
-        for key, value in defaults.items():
-            setattr(self, key, kwargs.get(key, value))
+        
+        # Specific defaults for sway analysis
+        self.Dxo = kwargs.get('Dxo', 0.0)
+        self.effective_length_factor_override = kwargs.get('effective_length_factor_override', None)
+
+
+    def _initialize_results(self):
+        """Initialize analysis results object with required attributes."""
+        # Get base attributes and add Sway-specific ones
+        results = super()._initialize_results()
+        # Add Sway-specific attributes
+        for attr in ['applied_horizontal_load', 'moment_at_top', 'moment_at_bottom']:
+            setattr(results, attr, [])
+        return results
+
+
+    def _set_limit_point_values(self, results, ind, x):
+        """Override to include horizontal load values."""
+        super()._set_limit_point_values(results, ind, x)
+        results.applied_horizontal_load_at_limit_point = interpolate_list(results.applied_horizontal_load, ind, x)
+
+
+    def _extract_analysis_config(self, **kwargs):
+        """Override to adjust default values for sway analysis."""
+        config = super()._extract_analysis_config(**kwargs)
+        # Adjust defaults for sway analysis if not explicitly provided
+        if 'num_steps_vertical' not in kwargs:
+            config['num_steps_vertical'] = 10
+        if 'disp_incr_factor' not in kwargs:
+            config['disp_incr_factor'] = 5e-05
+        return config
 
 
     @property
@@ -42,6 +86,16 @@ class SwayColumn2d:
             return self.length/2
         else:
             raise ValueError(f'lever_arm not implemented for k_bot = {self.k_bot} and k_top = {self.k_top}')
+
+
+    def _initialize_results(self):
+        """Initialize analysis results object with required attributes."""
+        # Get base attributes and add Sway-specific ones
+        results = super()._initialize_results()
+        # Add Sway-specific attributes
+        for attr in ['applied_horizontal_load', 'moment_at_top', 'moment_at_bottom']:
+            setattr(results, attr, [])
+        return results
 
 
     def build_ops_model(self, section_id, section_args, section_kwargs, **kwargs):
@@ -113,405 +167,10 @@ class SwayColumn2d:
             ops.element(self.ops_element_type, index, index, index + 1, 100, 1)
 
 
-    def run_ops_analysis(self, analysis_type, **kwargs):
-        """ Run an OpenSees analysis of the column
-        
-        Parameters
-        ----------
-        analysis_type : str
-            The type of analysis to run, options are
-                - 'proportional_limit_point'
-                - 'nonproportional_limit_point'
-                - 'proportional_target_force' (not yet implemented)
-                - 'nonproportional_target_force' (not yet implemented)
-                - 'proportional_target_disp' (not yet implemented)
-                - 'nonproportional_target_disp' (not yet implemented)
-        section_args : list or tuple
-            Non-keyworded arguments for the section's build_ops_fiber_section
-        section_kwargs : dict
-            Keyworded arguments for the section's build_ops_fiber_section
-        
-        Loading Notes
-        -------------
-        - The vertical load applied to column is P = LFV
-        - The Horizontal load applied at the top of the column is H that is dependent on the boundary conditions
-        - For proportional analyses, LFV and LFH are increased simultaneously
-          with a ratio (P is ignored)
-        - For non-proportional analyses, LFV is increased to P first then held
-          constant, then LFH is increased (e is ignored)
-        """
-        section_id = kwargs.get('section_id', 1)
-        section_args = kwargs.get('section_args', ())
-        section_kwargs = kwargs.get('section_kwargs', {})
-        e = kwargs.get('e', 1.0)
-        P = kwargs.get('P', 0)
-        num_steps_vertical = kwargs.get('num_steps_vertical', 10)
-        disp_incr_factor = kwargs.get('disp_incr_factor', 5e-05)
-        eigenvalue_limit = kwargs.get('eigenvalue_limit', 0)
-        percent_load_drop_limit = kwargs.get('percent_load_drop_limit', 0.05)
-        concrete_strain_limit = kwargs.get('concrete_strain_limit', -0.01)
-        steel_strain_limit = kwargs.get('steel_strain_limit', 0.05)
-        deformation_limit = kwargs.get('deformation_limit', "default")
-        try_smaller_steps = kwargs.get('try_smaller_steps', True)
-
-        if deformation_limit == "default":
-            deformation_limit = 0.1 * self.length
-
-        self.build_ops_model(section_id, section_args, section_kwargs)
-
-        # region Initialize analysis results
-        results = AnalysisResults()
-        attributes = [
-            "applied_axial_load", "applied_horizonal_load", "maximum_abs_moment", "maximum_abs_disp",
-            "lowest_eigenvalue", "moment_at_top", "moment_at_bottom", "maximum_concrete_compression_strain",
-            "maximum_steel_strain", "curvature"]
-
-        for attribute in attributes:
-            setattr(results, attribute, [])
-        # endregion
-
-        # Define a function to find limit point
-        def find_limit_point():
-            if 'Analysis Failed' in results.exit_message:
-                if analysis_type.lower() == 'proportional_limit_point':
-                    ind, x = find_limit_point_in_list(results.applied_axial_load, max(results.applied_axial_load))
-                elif analysis_type.lower() == 'nonproportional_limit_point':
-                    ind, x = find_limit_point_in_list(results.applied_horizonal_load, max(results.applied_horizonal_load))
-                warnings.warn(f'Analysis failed')
-            elif 'Eigenvalue Limit' in results.exit_message:
-                ind,x = find_limit_point_in_list(results.lowest_eigenvalue, eigenvalue_limit)
-            elif 'Extreme Compressive Concrete Fiber Strain Limit Reached' in results.exit_message:
-                ind, x = find_limit_point_in_list(results.maximum_concrete_compression_strain, concrete_strain_limit)
-            elif 'Extreme Steel Fiber Strain Limit Reached' in results.exit_message:
-                ind, x = find_limit_point_in_list(results.maximum_steel_strain, steel_strain_limit)
-            elif 'Deformation Limit Reached' in results.exit_message:
-                ind, x = find_limit_point_in_list(results.maximum_abs_disp, deformation_limit)
-            elif 'Load Drop Limit Reached' in results.exit_message:
-                if analysis_type.lower() == 'proportional_limit_point':
-                    ind, x = find_limit_point_in_list(results.applied_axial_load, max(results.applied_axial_load))
-                elif analysis_type.lower() == 'nonproportional_limit_point':
-                    ind, x = find_limit_point_in_list(results.applied_horizonal_load, max(results.applied_horizonal_load))
-            else:
-                raise Exception('Unknown limit point')
-
-            results.applied_axial_load_at_limit_point = interpolate_list(results.applied_axial_load, ind, x)
-            results.applied_horizontal_load_at_limit_point = interpolate_list(results.applied_horizonal_load, ind, x)
-            results.maximum_abs_moment_at_limit_point = interpolate_list(results.maximum_abs_moment, ind, x)
-            results.maximum_abs_disp_at_limit_point   = interpolate_list(results.maximum_abs_disp, ind, x)
-
-        def update_dU(disp_incr_factor, div_factor=1, analysis_type=analysis_type):
-                if analysis_type == "proportional_limit_point":
-                    dU = self.length * disp_incr_factor / div_factor
-                    ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
-                elif analysis_type == "nonproportional_limit_point":
-                    dU = self.length * disp_incr_factor / div_factor
-                    ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
-
-        def try_analysis_options():
-            options = [('ModifiedNewton', 1e-3),
-                       ('KrylovNewton', 1e-3),
-                       ('KrylovNewton', 1e-2)]
-
-            for algorithm, tolerance in options:
-                ops.algorithm(algorithm)
-                ops.test('NormUnbalance', tolerance, 10)
-                ok = ops.analyze(1)
-                if ok == 0:
-                    break
-            return ok
-
-        def reset_analysis_options(disp_incr_factor):
-            update_dU(disp_incr_factor)
-            ops.algorithm('Newton')
-            ops.test('NormUnbalance', 1e-3, 10)
-
-        # Run analysis
-        if analysis_type.lower() == 'proportional_limit_point':
-
-            # time = LFV
-            ops.timeSeries('Linear', 100)
-            ops.pattern('Plain', 200, 100)
-
-            ops.load(self.ops_n_elem, e / self.lever_arm, -1, 0)
-            if self.gamma != 0:
-                ops.load(1003, 0, -self.gamma, 0)
-
-            ops.constraints('Plain')
-            ops.numberer('RCM')
-            ops.system('UmfPack')
-            ops.test('NormUnbalance', 1e-3, 10)
-            ops.algorithm('Newton')
-
-            # Axial only analysis
-            dU = self.length * disp_incr_factor
-            ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
-
-            ops.analysis('Static')
-
-            # Define recorder
-            def record():
-                time = ops.getTime()
-                section_strains = self.ops_get_section_strains()
-
-                results.applied_axial_load.append(time)
-                results.applied_horizonal_load.append(time * e / self.lever_arm)
-                results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
-                results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp()[0])
-                results.lowest_eigenvalue.append(ops.eigen(1)[0])
-                results.moment_at_top.append(ops.eleForce(self.ops_n_elem - 1, 6))
-                results.moment_at_bottom.append(ops.eleForce(0, 3))
-                results.maximum_concrete_compression_strain.append(section_strains[0])
-                results.maximum_steel_strain.append(section_strains[1])
-                if self.axis == 'x':
-                    results.curvature.append(section_strains[2])
-                elif self.axis == 'y':
-                    results.curvature.append(section_strains[3])
-
-            record()
-
-            maximum_applied_axial_load = 0.
-            while True:
-                ok = ops.analyze(1)
-
-                if ok != 0 and try_smaller_steps:
-                    for div_factor in [1e1, 1e2, 1e3, 1e4, 1e5, 1e6]:
-                        update_dU(disp_incr_factor, div_factor, analysis_type=analysis_type)
-                        ok = ops.analyze(1)
-                        if ok == 0 and div_factor in [1e3, 1e4, 1e5, 1e6]:
-                            disp_incr_factor /= 10
-                            break
-                        elif ok == 0:
-                            break
-                        else:
-                            ok = try_analysis_options()
-                            if ok == 0 and div_factor in [1e3, 1e4, 1e5, 1e6]:
-                                disp_incr_factor /= 10
-                                break
-                            elif ok == 0:
-                                break
-
-                if ok != 0 and not try_smaller_steps:
-                    ok = try_analysis_options()
-
-                if ok == 0:
-                    reset_analysis_options(disp_incr_factor)
-
-                elif ok != 0:
-                    results.exit_message = 'Analysis Failed'
-                    warnings.warn('Analysis Failed')
-                    break
-
-                record()
-
-                # Check for drop in applied load
-                if percent_load_drop_limit is not None:
-                    current_applied_axial_load = results.applied_axial_load[-1]
-                    maximum_applied_axial_load = max(maximum_applied_axial_load, current_applied_axial_load)
-                    load_drop_limit = (1 - percent_load_drop_limit) * maximum_applied_axial_load
-
-                    if abs(current_applied_axial_load) < abs(load_drop_limit):
-                        results.exit_message = 'Load Drop Limit Reached'
-                        break
-
-                # Check for lowest eigenvalue less than zero
-                if eigenvalue_limit is not None:
-                    if results.lowest_eigenvalue[-1] < eigenvalue_limit:
-                        results.exit_message = 'Eigenvalue Limit Reached'
-                        break
-
-                # Check for maximum displacement
-                if deformation_limit is not None:
-                    if results.maximum_abs_disp[-1] > deformation_limit:
-                        results.exit_message = 'Deformation Limit Reached'
-                        break
-
-                # Check for strain in extreme compressive concrete fiber
-                if concrete_strain_limit is not None:
-                    if results.maximum_concrete_compression_strain[-1] < concrete_strain_limit:
-                        results.exit_message = 'Extreme Compressive Concrete Fiber Strain Limit Reached'
-                        break
-
-                # Check for strain in extreme steel fiber
-                if steel_strain_limit is not None:
-                    if results.maximum_steel_strain[-1] > steel_strain_limit:
-                        results.exit_message = 'Extreme Steel Fiber Strain Limit Reached'
-                        break
-
-            find_limit_point()
-            return results
-
-        elif analysis_type.lower() == 'nonproportional_limit_point':
-            # region Run vertical load (time = LFV)
-            ops.timeSeries('Linear', 100)
-            ops.pattern('Plain', 200, 100)
-            ops.load(self.ops_n_elem, 0, -1, 0)
-            if self.gamma != 0:
-                ops.load(1003, 0, -self.gamma, 0)
-            ops.constraints('Plain')
-            ops.numberer('RCM')
-            ops.system('UmfPack')
-            ops.test('NormUnbalance', 1e-3, 10)
-            ops.algorithm('Newton')
-            ops.integrator('LoadControl', P / num_steps_vertical)
-            ops.analysis('Static')
-
-            # Define recorder
-            def record():
-                time = ops.getTime()
-                section_strains = self.ops_get_section_strains()
-
-                results.applied_axial_load.append(time)
-                results.applied_horizonal_load.append(0.)
-                results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
-                results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp()[0])
-                results.lowest_eigenvalue.append(ops.eigen(1)[0])
-                results.moment_at_top.append(ops.eleForce(self.ops_n_elem - 1, 6))
-                results.moment_at_bottom.append(ops.eleForce(0, 3))
-                results.maximum_concrete_compression_strain.append(section_strains[0])
-                results.maximum_steel_strain.append(section_strains[1])
-                if self.axis == 'x':
-                    results.curvature.append(section_strains[2])
-                elif self.axis == 'y':
-                    results.curvature.append(section_strains[3])
-
-            record()
-
-            for i in range(num_steps_vertical):
-                ok = ops.analyze(1)
-
-                if ok != 0:
-                    results.exit_message = 'Analysis Failed In Vertical Loading'
-                    warnings.warn('Analysis Failed In Vertical Loading')
-                    return results
-
-                record()
-
-                if deformation_limit is not None:
-                    if results.maximum_abs_disp[-1] > deformation_limit:
-                        results.exit_message = 'Deformation Limit Reached In Vertical Loading'
-                        return results
-
-                # Check for lowest eigenvalue less than zero
-                if eigenvalue_limit is not None:
-                    if results.lowest_eigenvalue[-1] < eigenvalue_limit:
-                        results.exit_message = 'Eigenvalue Limit Reached In Vertical Loading'
-                        return results
-
-                # Check for strain in extreme compressive concrete fiber
-                if concrete_strain_limit is not None:
-                    if results.maximum_concrete_compression_strain[-1] < concrete_strain_limit:
-                        results.exit_message = 'Extreme Compressive Concrete Fiber Strain Limit Reached In Vertical Loading'
-                        return results
-
-                # Check for strain in extreme steel fiber
-                if steel_strain_limit is not None:
-                    if results.maximum_steel_strain[-1] > steel_strain_limit:
-                        results.exit_message = 'Extreme Steel Fiber Strain Limit Reached In Vertical Loading'
-                        return results
-            # endregion
-
-            # region Run lateral load (time = LFH)
-            ops.loadConst('-time', 0.0)
-            ops.timeSeries('Linear', 101)
-            ops.pattern('Plain', 201, 101)
-            ops.load(self.ops_n_elem, 1, 0, 0)
-            dU = self.length * disp_incr_factor
-            ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
-            ops.analysis('Static')
-
-            # Define recorder
-            def record():
-                results.applied_axial_load.append(P)
-                section_strains = self.ops_get_section_strains()
-
-                results.applied_horizonal_load.append(ops.getTime())
-                results.maximum_abs_moment.append(self.ops_get_maximum_abs_moment())
-                results.maximum_abs_disp.append(self.ops_get_maximum_abs_disp()[0])
-                results.lowest_eigenvalue.append(ops.eigen(1)[0])
-                results.moment_at_top.append(ops.eleForce(self.ops_n_elem - 1, 6))
-                results.moment_at_bottom.append(ops.eleForce(0, 3))
-                results.maximum_concrete_compression_strain.append(section_strains[0])
-                results.maximum_steel_strain.append(section_strains[1])
-                if self.axis == 'x':
-                    results.curvature.append(section_strains[2])
-                elif self.axis == 'y':
-                    results.curvature.append(section_strains[3])
-
-            record()
-
-            maximum_time = 0
-            while True:
-                ok = ops.analyze(1)
-
-                if ok != 0 and try_smaller_steps:
-                    if ok != 0 and try_smaller_steps:
-                        for div_factor in [1e1, 1e2, 1e3, 1e4, 1e5, 1e6]:
-                            update_dU(disp_incr_factor, div_factor, analysis_type=analysis_type)
-                            ok = ops.analyze(1)
-                            if ok == 0 and div_factor in [1e3, 1e4, 1e5, 1e6]:
-                                disp_incr_factor /= 10
-                                break
-                            elif ok == 0:
-                                break
-                            else:
-                                ok = try_analysis_options()
-                                if ok == 0 and div_factor in [1e3, 1e4, 1e5, 1e6]:
-                                    disp_incr_factor /= 10
-                                    break
-                                elif ok == 0:
-                                    break
-
-                if ok != 0 and not try_smaller_steps:
-                    ok = try_analysis_options()
-
-                if ok == 0:
-                    reset_analysis_options(disp_incr_factor)
-
-                elif ok != 0:
-                    results.exit_message = 'Analysis Failed'
-                    warnings.warn('Analysis Failed')
-                    break
-
-                record()
-
-                # Check for drop in applied load (time = the horizontal load factor)
-                if percent_load_drop_limit is not None:
-                    current_time = ops.getTime()
-                    maximum_time = max(maximum_time, current_time)
-                    load_drop_limit = (1 - percent_load_drop_limit) * maximum_time
-                    if current_time < load_drop_limit:
-                        results.exit_message = 'Load Drop Limit Reached'
-                        break
-
-                # Check for lowest eigenvalue less than zero
-                if eigenvalue_limit is not None:
-                    if results.lowest_eigenvalue[-1] < eigenvalue_limit:
-                        results.exit_message = 'Eigenvalue Limit Reached'
-                        break
-
-                # Check for maximum displacement
-                if deformation_limit is not None:
-                    if results.maximum_abs_disp[-1] > deformation_limit:
-                        results.exit_message = 'Deformation Limit Reached'
-                        break
-
-                # Check for strain in extreme compressive fiber
-                if concrete_strain_limit is not None:
-                    if results.maximum_concrete_compression_strain[-1] < concrete_strain_limit:
-                        results.exit_message = 'Extreme Compressive Concrete Fiber Strain Limit Reached'
-                        break
-
-                # Check for strain in extreme steel fiber
-                if steel_strain_limit is not None:
-                    if results.maximum_steel_strain[-1] > steel_strain_limit:
-                        results.exit_message = 'Extreme Steel Fiber Strain Limit Reached'
-                        break
-
-            find_limit_point()
-            return results
-
-        else:
-            raise ValueError(f'Analysis type {analysis_type} not implemented')
+    def _set_limit_point_values(self, results, ind, x):
+        """Override to include horizontal load values."""
+        super()._set_limit_point_values(results, ind, x)
+        results.applied_horizontal_load_at_limit_point = interpolate_list(results.applied_horizontal_load, ind, x)
 
 
     def run_ops_interaction(self, **kwargs):
@@ -581,7 +240,7 @@ class SwayColumn2d:
                     M1t_path.append(results.moment_at_top)
                     M1b_path.append(results.moment_at_bottom)
                     M2_path.append(results.maximum_abs_moment)
-                    applied_h_path.append(results.applied_horizonal_load)
+                    applied_h_path.append(results.applied_horizontal_load)
                     abs_disp_path.append(results.maximum_abs_disp)
 
                 exit_message.append(results.exit_message)
@@ -589,7 +248,7 @@ class SwayColumn2d:
             if plot_load_deformation:
                 if iP==0:
                     continue
-                ax_at_step[0].plot(results.maximum_abs_disp, np.array(results.applied_horizonal_load) * self.lever_arm, '-o', label=f'{iP:,.0f}', markersize=5)
+                ax_at_step[0].plot(results.maximum_abs_disp, np.array(results.applied_horizontal_load) * self.lever_arm, '-o', label=f'{iP:,.0f}', markersize=5)
                 ax_at_step[0].legend()
 
                 ax_at_step[1].plot(results.maximum_abs_disp, results.lowest_eigenvalue, label=f'{iP:,.0f}', markersize=5)
@@ -611,46 +270,292 @@ class SwayColumn2d:
         else:
             return {'P': np.array(P), 'M1': np.array(M1), 'M2': np.array(M2), 'exit_message': exit_message}
 
+    
+    def _run_sway_proportional_limit_point(self, config, results):
+        """Run proportional limit point analysis for sway column."""
+        
+        def update_dU(disp_incr_factor, div_factor=1, analysis_type='proportional_limit_point'):
+            if analysis_type == "proportional_limit_point":
+                dU = self.length * disp_incr_factor / div_factor
+                ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
+            elif analysis_type == "nonproportional_limit_point":
+                dU = self.length * disp_incr_factor / div_factor
+                ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
 
-    def ops_get_section_strains(self):
-        maximum_concrete_compression_strain = []
-        maximum_tensile_steel_strain = []
-        for i in range(self.ops_n_elem):
-            for j  in range(self.ops_integration_points):
-                if self.axis == 'x':
-                    axial_strain, curvatureX = ops.eleResponse(i,  # element tag
-                                                   'section', j+1, # select integration point
-                                                   'deformation')  # response type
-                    curvatureY = 0
-                elif self.axis == 'y':
-                    axial_strain, curvatureY = ops.eleResponse(i,  # element tag
-                                                   'section', j+1, # select integration point
-                                                   'deformation')  # response type
-                    curvatureX = 0
+        def reset_analysis_options(disp_incr_factor):
+            update_dU(disp_incr_factor)
+            ops.algorithm('Newton')
+            ops.test('NormUnbalance', 1e-3, 10)
 
-                maximum_concrete_compression_strain.append(self.section.maximum_concrete_compression_strain(
-                                                           axial_strain, curvatureX=curvatureX, curvatureY=curvatureY))
-                maximum_tensile_steel_strain.append(self.section.maximum_tensile_steel_strain(
-                                                           axial_strain, curvatureX=curvatureX, curvatureY=curvatureY))
-        return min(maximum_concrete_compression_strain), max(maximum_tensile_steel_strain), curvatureX, curvatureY
+        # time = LFV
+        ops.timeSeries('Linear', 100)
+        ops.pattern('Plain', 200, 100)
+
+        ops.load(self.ops_n_elem, config['e'] / self.lever_arm, -1, 0)
+        if self.gamma != 0:
+            ops.load(1003, 0, -self.gamma, 0)
+
+        ops.constraints('Plain')
+        ops.numberer('RCM')
+        ops.system('UmfPack')
+        ops.test('NormUnbalance', 1e-3, 10)
+        ops.algorithm('Newton')
+
+        # Axial only analysis
+        dU = self.length * config['disp_incr_factor']
+        ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
+
+        ops.analysis('Static')
+
+        # Define recorder
+        def record():
+            time = ops.getTime()
+            section_strains = ops_get_section_strains(self)
+
+            results.applied_axial_load.append(time)
+            results.applied_horizontal_load.append(time * config['e'] / self.lever_arm)
+            results.maximum_abs_moment.append(ops_get_maximum_abs_moment(self))
+            results.maximum_abs_disp.append(ops_get_maximum_abs_disp(self))
+            results.lowest_eigenvalue.append(ops.eigen('-fullGenLapack', 1)[0])
+            results.moment_at_top.append(ops.eleForce(self.ops_n_elem - 1, 6))
+            results.moment_at_bottom.append(ops.eleForce(0, 3))
+            results.maximum_concrete_compression_strain.append(section_strains[0])
+            results.maximum_steel_strain.append(section_strains[1])
+            if self.axis == 'x':
+                results.curvature.append(section_strains[2])
+            elif self.axis == 'y':
+                results.curvature.append(section_strains[3])
+
+        record()
+
+        maximum_applied_axial_load = 0.
+        disp_incr_factor = config['disp_incr_factor']
+        
+        while True:
+            ok = ops.analyze(1)
+
+            if ok != 0 and config['try_smaller_steps']:
+                for div_factor in [1e1, 1e2, 1e3, 1e4, 1e5, 1e6]:
+                    update_dU(disp_incr_factor, div_factor, analysis_type='proportional_limit_point')
+                    ok = ops.analyze(1)
+                    if ok == 0 and div_factor in [1e3, 1e4, 1e5, 1e6]:
+                        disp_incr_factor /= 10
+                        break
+                    elif ok == 0:
+                        break
+                    else:
+                        ok = try_analysis_options()
+                        if ok == 0 and div_factor in [1e3, 1e4, 1e5, 1e6]:
+                            disp_incr_factor /= 10
+                            break
+                        elif ok == 0:
+                            break
+
+            if ok != 0 and not config['try_smaller_steps']:
+                ok = try_analysis_options()
+
+            if ok == 0:
+                reset_analysis_options(disp_incr_factor)
+
+            elif ok != 0:
+                results.exit_message = 'Analysis Failed'
+                warnings.warn('Analysis Failed')
+                break
+
+            record()
+
+            # Check for drop in applied load
+            if config['percent_load_drop_limit'] is not None:
+                current_applied_axial_load = results.applied_axial_load[-1]
+                maximum_applied_axial_load = max(maximum_applied_axial_load, current_applied_axial_load)
+                load_drop_limit = (1 - config['percent_load_drop_limit']) * maximum_applied_axial_load
+
+                if abs(current_applied_axial_load) < abs(load_drop_limit):
+                    results.exit_message = 'Load Drop Limit Reached'
+                    break
+
+            # Check for limits
+            exit_message = check_analysis_limits(results, eigenvalue_limit=config['eigenvalue_limit'], 
+                                   deformation_limit=config['deformation_limit'],
+                                   concrete_strain_limit=config['concrete_strain_limit'], 
+                                   steel_strain_limit=config['steel_strain_limit'],
+                                   section_type=type(self.section).__name__)
+            if exit_message:
+                results.exit_message = exit_message
+                break
+        
+        return results
 
 
-    def ops_get_maximum_abs_moment(self):
-        # This code assumed (but does not check) that moment at j-end of 
-        # one element equals the moment at the i-end of the next element.
-        moment = [abs(ops.eleForce(0, 3))]
-        for i in range(self.ops_n_elem):
-            moment.append(abs(ops.eleForce(i, 6)))
-
-        return max(moment)
+    def _run_proportional_analysis(self, config, results):
+        """Run proportional analysis for sway column."""
+        return self._run_sway_proportional_limit_point(config, results)
 
 
-    def ops_get_maximum_abs_disp(self):
-        disp = []
-        for i in range(self.ops_n_elem + 1):
-            disp.append(abs(ops.nodeDisp(i, 1)))
-            max_disp = max(disp)
-        return max_disp, disp.index(max_disp)
+    def _run_sway_nonproportional_limit_point(self, config, results):
+        """Run nonproportional limit point analysis for sway column."""
+        
+        def update_dU(disp_incr_factor, div_factor=1, analysis_type='nonproportional_limit_point'):
+            if analysis_type == "proportional_limit_point":
+                dU = self.length * disp_incr_factor / div_factor
+                ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
+            elif analysis_type == "nonproportional_limit_point":
+                dU = self.length * disp_incr_factor / div_factor
+                ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
+
+        def reset_analysis_options(disp_incr_factor):
+            update_dU(disp_incr_factor)
+            ops.algorithm('Newton')
+            ops.test('NormUnbalance', 1e-3, 10)
+
+        # region Run vertical load (time = LFV)
+        ops.timeSeries('Linear', 100)
+        ops.pattern('Plain', 200, 100)
+        ops.load(self.ops_n_elem, 0, -1, 0)
+        if self.gamma != 0:
+            ops.load(1003, 0, -self.gamma, 0)
+        ops.constraints('Plain')
+        ops.numberer('RCM')
+        ops.system('UmfPack')
+        ops.test('NormUnbalance', 1e-3, 10)
+        ops.algorithm('Newton')
+        ops.integrator('LoadControl', config['P'] / config['num_steps_vertical'])
+        ops.analysis('Static')
+
+        # Define recorder
+        def record():
+            time = ops.getTime()
+            section_strains = ops_get_section_strains(self)
+
+            results.applied_axial_load.append(time)
+            results.applied_horizontal_load.append(0.)
+            results.maximum_abs_moment.append(ops_get_maximum_abs_moment(self))
+            results.maximum_abs_disp.append(ops_get_maximum_abs_disp(self))
+            results.lowest_eigenvalue.append(ops.eigen('-fullGenLapack', 1)[0])
+            results.moment_at_top.append(ops.eleForce(self.ops_n_elem - 1, 6))
+            results.moment_at_bottom.append(ops.eleForce(0, 3))
+            results.maximum_concrete_compression_strain.append(section_strains[0])
+            results.maximum_steel_strain.append(section_strains[1])
+            if self.axis == 'x':
+                results.curvature.append(section_strains[2])
+            elif self.axis == 'y':
+                results.curvature.append(section_strains[3])
+
+        record()
+
+        for i in range(config['num_steps_vertical']):
+            ok = ops.analyze(1)
+
+            if ok != 0:
+                results.exit_message = 'Analysis Failed In Vertical Loading'
+                warnings.warn('Analysis Failed In Vertical Loading')
+                return results
+
+            record()
+
+            # Check for limits
+            exit_message = check_analysis_limits(results, eigenvalue_limit=config['eigenvalue_limit'], 
+                                            deformation_limit=config['deformation_limit'],
+                                            concrete_strain_limit=config['concrete_strain_limit'], 
+                                            steel_strain_limit=config['steel_strain_limit'],
+                                            section_type=type(self.section).__name__)
+            if exit_message:
+                results.exit_message = exit_message
+                break
+            
+        # endregion
+
+        # region Run lateral load (time = LFH)
+        ops.loadConst('-time', 0.0)
+        ops.timeSeries('Linear', 101)
+        ops.pattern('Plain', 201, 101)
+        ops.load(self.ops_n_elem, 1, 0, 0)
+        dU = self.length * config['disp_incr_factor']
+        ops.integrator('DisplacementControl', self.ops_n_elem, 1, dU)
+        ops.analysis('Static')
+
+        # Define recorder
+        def record():
+            results.applied_axial_load.append(config['P'])
+            section_strains = ops_get_section_strains(self)
+
+            results.applied_horizontal_load.append(ops.getTime())
+            results.maximum_abs_moment.append(ops_get_maximum_abs_moment(self))
+            results.maximum_abs_disp.append(ops_get_maximum_abs_disp(self))
+            results.lowest_eigenvalue.append(ops.eigen('-fullGenLapack', 1)[0])
+            results.moment_at_top.append(ops.eleForce(self.ops_n_elem - 1, 6))
+            results.moment_at_bottom.append(ops.eleForce(0, 3))
+            results.maximum_concrete_compression_strain.append(section_strains[0])
+            results.maximum_steel_strain.append(section_strains[1])
+            if self.axis == 'x':
+                results.curvature.append(section_strains[2])
+            elif self.axis == 'y':
+                results.curvature.append(section_strains[3])
+
+        record()
+
+        maximum_time = 0
+        disp_incr_factor = config['disp_incr_factor']
+        
+        while True:
+            ok = ops.analyze(1)
+
+            if ok != 0 and config['try_smaller_steps']:
+                if ok != 0 and config['try_smaller_steps']:
+                    for div_factor in [1e1, 1e2, 1e3, 1e4, 1e5, 1e6]:
+                        update_dU(disp_incr_factor, div_factor, analysis_type='nonproportional_limit_point')
+                        ok = ops.analyze(1)
+                        if ok == 0 and div_factor in [1e3, 1e4, 1e5, 1e6]:
+                            disp_incr_factor /= 10
+                            break
+                        elif ok == 0:
+                            break
+                        else:
+                            ok = try_analysis_options()
+                            if ok == 0 and div_factor in [1e3, 1e4, 1e5, 1e6]:
+                                disp_incr_factor /= 10
+                                break
+                            elif ok == 0:
+                                break
+
+            if ok != 0 and not config['try_smaller_steps']:
+                ok = try_analysis_options()
+
+            if ok == 0:
+                reset_analysis_options(disp_incr_factor)
+
+            elif ok != 0:
+                results.exit_message = 'Analysis Failed'
+                warnings.warn('Analysis Failed')
+                break
+
+            record()
+
+            # Check for drop in applied load (time = the horizontal load factor)
+            if config['percent_load_drop_limit'] is not None:
+                current_time = ops.getTime()
+                maximum_time = max(maximum_time, current_time)
+                load_drop_limit = (1 - config['percent_load_drop_limit']) * maximum_time
+                if current_time < load_drop_limit:
+                    results.exit_message = 'Load Drop Limit Reached'
+                    break
+
+            # Check for limits
+            exit_message = check_analysis_limits(results, eigenvalue_limit=config['eigenvalue_limit'], 
+                                            deformation_limit=config['deformation_limit'],
+                                            concrete_strain_limit=config['concrete_strain_limit'], 
+                                            steel_strain_limit=config['steel_strain_limit'],
+                                            section_type=type(self.section).__name__)
+            if exit_message:
+                results.exit_message = exit_message
+                break
+            
+        return results
+
+
+    def _run_nonproportional_analysis(self, config, results):
+        """Run nonproportional analysis for sway column."""
+        return self._run_sway_nonproportional_limit_point(config, results)
 
 
     @property
@@ -870,7 +775,7 @@ class SwayColumn2d:
             M2 = np.interp(P, np.flip(P_design), np.flip(M2_design))
             M2_list.append(M2)
 
-            if P < min(P_design) or P > max(M2_design) or M1 > M2:
+            if P < min(P_design) or P > max(P_design) or M1 > M2:
                 EI_list_AASHTO.append(float("nan"))
                 continue
 
@@ -883,3 +788,43 @@ class SwayColumn2d:
             EI_list_AASHTO.append(EI)
         return {"P": np.array(P_list), "M1": np.array(M1_list), "M2":np.array(M2_list), "EI_AASHTO": np.array(EI_list_AASHTO),
                 "EIgross": EIgross}
+
+
+    def _extract_analysis_config(self, **kwargs):
+        """Override to adjust default values for sway analysis."""
+        config = super()._extract_analysis_config(**kwargs)
+        # Adjust defaults for sway analysis if not explicitly provided
+        if 'num_steps_vertical' not in kwargs:
+            config['num_steps_vertical'] = 10
+        if 'disp_incr_factor' not in kwargs:
+            config['disp_incr_factor'] = 5e-05
+        return config
+    
+    
+    def _find_limit_point(self, results, config, analysis_type):
+        """Find and set limit point values with sway-specific logic."""
+        if 'Analysis Failed' in results.exit_message:
+            if analysis_type.lower() == 'proportional_limit_point':
+                ind, x = find_limit_point_in_list(results.applied_axial_load, max(results.applied_axial_load))
+            elif analysis_type.lower() == 'nonproportional_limit_point':
+                ind, x = find_limit_point_in_list(results.applied_horizontal_load, max(results.applied_horizontal_load))
+            warnings.warn('Analysis failed')
+        elif 'Eigenvalue Limit' in results.exit_message:
+            ind, x = find_limit_point_in_list(results.lowest_eigenvalue, config['eigenvalue_limit'])
+        elif 'Extreme Compressive Concrete Fiber Strain Limit Reached' in results.exit_message:
+            ind, x = find_limit_point_in_list(results.maximum_concrete_compression_strain, config['concrete_strain_limit'])
+        elif 'Extreme Steel Fiber Strain Limit Reached' in results.exit_message:
+            ind, x = find_limit_point_in_list(results.maximum_steel_strain, config['steel_strain_limit'])
+        elif 'Deformation Limit Reached' in results.exit_message:
+            ind, x = find_limit_point_in_list(results.maximum_abs_disp, config['deformation_limit'])
+        elif 'Load Drop Limit Reached' in results.exit_message:
+            if analysis_type.lower() == 'proportional_limit_point':
+                ind, x = find_limit_point_in_list(results.applied_axial_load, max(results.applied_axial_load))
+            elif analysis_type.lower() == 'nonproportional_limit_point':
+                ind, x = find_limit_point_in_list(results.applied_horizontal_load, max(results.applied_horizontal_load))
+        else:
+            raise Exception('Unknown limit point')
+
+        self._set_limit_point_values(results, ind, x)
+        
+    
