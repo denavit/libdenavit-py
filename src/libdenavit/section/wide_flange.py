@@ -94,11 +94,7 @@ class WideFlangeDB:
 
 class I_shape(GeometricShape):
         
-<<<<<<< HEAD
-    def __init__(self, d, tw, bf, tf, Fy, E, Hk,
-=======
     def __init__(self, d, tw, bf, tf, Fy, E,
->>>>>>> 7fb071ad52f6498a294c024152a33fca92effe4e
                  A=None, Ix=None, Zx=None, Sx=None, rx=None,
                  Iy=None, Zy=None, Sy=None, ry=None,
                  J=None, Cw=None, rts=None, ho=None):
@@ -335,45 +331,56 @@ class I_shape(GeometricShape):
             return self.d
     
 
-<<<<<<< HEAD
-    def build_ops_fiber_section(self, section_id, start_material_id, mat_type, nfy, nfx, frc,num_regions = 10, GJ=1.0e6,axis=None):
-=======
     def build_ops_fiber_section(self, section_id, start_material_id=1, mat_type=None, 
         nfy=20, nfx=20, frc=0, num_regions=10, 
         stiffness_reduction=1.0,strength_reduction=1.0, 
         GJ=1.0e6, axis=None, 
         hardening_ratio=0.001, MultiLinearPts=None):
->>>>>>> 7fb071ad52f6498a294c024152a33fca92effe4e
 
-        self.num_regions=num_regions  ## For now, setting num_regions as class attribute is required by Moment Frame 2D.
+        E_reduced=self.E*stiffness_reduction
+        Fy_reduced=self.Fy*strength_reduction
+
+        ## Define Base Material
+        def define_base_material(start_material_id,add_tag):
+            if mat_type == 'Elastic':
+                if add_tag!=0:             ## add_tag=0 if frc == 0 or mat_type == 'Elastic'
+                    raise ValueError('Material type is Elastic. Do not use residual stresses.')
+                else:
+                    ops.uniaxialMaterial('Elastic', start_material_id+add_tag, E_reduced)
+            elif mat_type == 'ElasticPP':
+                ops.uniaxialMaterial('ElasticPP', start_material_id+add_tag, E_reduced, Fy_reduced/E_reduced)
+                # ops.uniaxialMaterial('ElasticPP', start_material_id+add_tag, E_reduced, Fy_reduced/E_reduced,-Fy_reduced/E_reduced)
+            elif mat_type == 'Steel01':
+                b = hardening_ratio / (1 + hardening_ratio)
+                ops.uniaxialMaterial('Steel01', start_material_id+add_tag, Fy_reduced, E_reduced, b)
+            elif mat_type == 'Hardening':
+                ops.uniaxialMaterial('Hardening', start_material_id+add_tag, E_reduced, Fy_reduced, 0.0, hardening_ratio*E_reduced)
+            else:
+                raise Exception(
+                    'Input Error - unknown material type (%s)' % mat_type)
+
+        ops.section('Fiber', section_id, '-GJ', GJ)
         if axis=='x':
             Nfw = ceil(self.dw * (nfy / self.d))
             Nff = ceil(self.tf * (nfy / self.d))
 
             if frc == 0 or mat_type == 'Elastic':
+                define_base_material(start_material_id=start_material_id,add_tag=0)
 
-                if mat_type == 'Elastic':
-                    ops.uniaxialMaterial('Elastic', start_material_id, self.E)
-                elif mat_type == 'ElasticPP':
-<<<<<<< HEAD
-                    ops.uniaxialMaterial('ElasticPP', start_material_id,self.E, self.Fy/self.E)
-=======
-                    ops.uniaxialMaterial('ElasticPP', start_material_id, self.E, self.Fy/self.E)
->>>>>>> 7fb071ad52f6498a294c024152a33fca92effe4e
-                elif mat_type == 'Steel01':
-                    b = hardening_ratio / (1 + hardening_ratio)
-                    ops.uniaxialMaterial('Steel01', start_material_id, self.Fy, self.E, b)
-                elif mat_type == 'Hardening':
-<<<<<<< HEAD
-                    ops.uniaxialMaterial('Hardening', start_material_id,self.E, self.Fy, 0.0, self.Hk)
-=======
-                    ops.uniaxialMaterial('Hardening', start_material_id, self.E, self.Fy, 0.0, hardening_ratio*self.E)
->>>>>>> 7fb071ad52f6498a294c024152a33fca92effe4e
-                else:
-                    raise Exception(
-                        'Input Error - unknown material type (%s)' % mat_type)
+                # if mat_type == 'Elastic':
+                #     ops.uniaxialMaterial('Elastic', start_material_id, E_reduced)
+                # elif mat_type == 'ElasticPP':
+                #     ops.uniaxialMaterial('ElasticPP', start_material_id, E_reduced, Fy_reduced/E_reduced)
+                # elif mat_type == 'Steel01':
+                #     b = hardening_ratio / (1 + hardening_ratio)
+                #     ops.uniaxialMaterial('Steel01', start_material_id, Fy_reduced, E_reduced, b)
+                # elif mat_type == 'Hardening':
+                #     ops.uniaxialMaterial('Hardening', start_material_id, E_reduced, Fy_reduced, 0.0, hardening_ratio*E_reduced)
+                # else:
+                #     raise Exception(
+                #         'Input Error - unknown material type (%s)' % mat_type)
                 
-                ops.section('Fiber', section_id, '-GJ', GJ)
+                # ops.section('Fiber', section_id, '-GJ', GJ)
 
                 # Web patch
                 ops.patch('rect', start_material_id, Nfw, 1, -self.dw / 2, -self.tw / 2, self.dw / 2, self.tw / 2)
@@ -383,36 +390,26 @@ class I_shape(GeometricShape):
 
             
             else:
-                ops.section('Fiber', section_id, '-GJ', GJ)
+                # ops.section('Fiber', section_id, '-GJ', GJ)
                 
                 frt = -frc * (self.bf * self.tf) / (self.bf * self.tf + self.tw * self.dw)
-
+                define_base_material(start_material_id=start_material_id,add_tag=1)
                 ## web patch
-                if mat_type == 'ElasticPP':
-                    ops.uniaxialMaterial('ElasticPP', start_material_id, self.E, self.Fy/self.E, -self.Fy/self.E, frt/self.E)
-                elif mat_type == 'Steel01':
-<<<<<<< HEAD
-                    ops.uniaxialMaterial('Steel01', start_material_id+1, self.Fy, self.E, self.b)
-                    ops.uniaxialMaterial('InitStressMaterial',start_material_id, start_material_id+1, frt)
-                elif mat_type == 'Hardening':
-                    ops.uniaxialMaterial('Hardening', start_material_id+1,self.E, self.Fy, 0.0, self.Hk)
-                    ops.uniaxialMaterial('InitStressMaterial',start_material_id, start_material_id+1, frt) 
-                elif mat_type == 'ElasticMultiLinear':
-                    ops.uniaxialMaterial('ElasticMultiLinear', start_material_id, 0, '-strain', *self.strain, '-stress', *self.stress)
-                
-=======
-                    b = hardening_ratio / (1 + hardening_ratio)
-                    ops.uniaxialMaterial('Steel01', start_material_id+1, self.Fy, self.E, b)
-                    ops.uniaxialMaterial('InitStressMaterial',start_material_id, start_material_id+1, frt)
-                elif mat_type == 'Hardening':
-                    ops.uniaxialMaterial('Hardening', start_material_id+1,self.E, self.Fy, 0.0, hardening_ratio*self.E)
-                    ops.uniaxialMaterial('InitStressMaterial',start_material_id, start_material_id+1, frt)                
->>>>>>> 7fb071ad52f6498a294c024152a33fca92effe4e
-                else:
-                    raise Exception(
-                        'Input Error - unknown material type (%s)' % mat_type)
+                # if mat_type == 'ElasticPP':
+                #     ops.uniaxialMaterial('ElasticPP', start_material_id, E_reduced, Fy_reduced/E_reduced, -Fy_reduced/E_reduced, frt/E_reduced)
+                #     ops.uniaxialMaterial('InitStressMaterial',start_material_id, start_material_id+1, frt)
+                # elif mat_type == 'Steel01':
+                #     b = hardening_ratio / (1 + hardening_ratio)
+                #     ops.uniaxialMaterial('Steel01', start_material_id+1, Fy_reduced, E_reduced, b)
+                #     ops.uniaxialMaterial('InitStressMaterial',start_material_id, start_material_id+1, frt)
+                # elif mat_type == 'Hardening':
+                #     ops.uniaxialMaterial('Hardening', start_material_id+1,E_reduced, Fy_reduced, 0.0, hardening_ratio*E_reduced)
+                #     ops.uniaxialMaterial('InitStressMaterial',start_material_id, start_material_id+1, frt)                
+                # else:
+                #     raise Exception(
+                #         'Input Error - unknown material type (%s)' % mat_type)
 
-
+                ops.uniaxialMaterial('InitStressMaterial',start_material_id, start_material_id+1, frt)
                 ops.patch('rect', start_material_id, Nfw, 1, -self.dw / 2, -self.tw / 2, self.dw / 2, self.tw / 2)
 
                 region_width = self.bf / num_regions
@@ -420,31 +417,21 @@ class I_shape(GeometricShape):
                 for i in range(num_regions):
                     fri = frc + ((i + 0.5) / num_regions) * (frt - frc)
                     start_material_idi = start_material_id + 2 * (i + 1)
+                    define_base_material(start_material_id=start_material_idi,add_tag=1)
+                    # if mat_type == 'ElasticPP':
+                    #     ops.uniaxialMaterial('ElasticPP', start_material_idi, E_reduced, Fy_reduced/E_reduced, -Fy_reduced/E_reduced, fri/E_reduced)
+                    # elif mat_type == 'Steel01':
+                    #     b = hardening_ratio / (1 + hardening_ratio)
+                    #     ops.uniaxialMaterial('Steel01', start_material_idi+1, Fy_reduced, E_reduced, b)
+                    #     ops.uniaxialMaterial('InitStressMaterial', start_material_idi, start_material_idi+1, fri)
+                    # elif mat_type == 'Hardening':
+                    #     ops.uniaxialMaterial('Hardening', start_material_idi+1, E_reduced, Fy_reduced, 0.0, hardening_ratio*E_reduced)
+                    #     ops.uniaxialMaterial('InitStressMaterial', start_material_idi, start_material_idi+1, fri)                       
+                    # else:
+                    #     raise Exception(
+                    #         'Input Error - unknown material type (%s)' % mat_type)
 
-                    if mat_type == 'ElasticPP':
-                        ops.uniaxialMaterial('ElasticPP', start_material_idi, self.E, self.Fy/self.E, -self.Fy/self.E, fri/self.E)
-                    elif mat_type == 'Steel01':
-<<<<<<< HEAD
-                        ops.uniaxialMaterial('Steel01', start_material_idi+1, self.Fy, self.E, self.b)
-                        ops.uniaxialMaterial('InitStressMaterial', start_material_idi, start_material_idi+1, fri)
-                    elif mat_type == 'Hardening':
-                        ops.uniaxialMaterial('Hardening', start_material_idi+1, self.E, self.Fy, 0.0, self.Hk)
-                        ops.uniaxialMaterial('InitStressMaterial', start_material_idi, start_material_idi+1, fri)
-                    elif mat_type == 'ElasticMultiLinear':
-                        ops.uniaxialMaterial('ElasticMultiLinear', start_material_idi, 0, '-strain', *self.strain, '-stress', *self.stress)
-                        
-=======
-                        b = hardening_ratio / (1 + hardening_ratio)
-                        ops.uniaxialMaterial('Steel01', start_material_idi+1, self.Fy, self.E, b)
-                        ops.uniaxialMaterial('InitStressMaterial', start_material_idi, start_material_idi+1, fri)
-                    elif mat_type == 'Hardening':
-                        ops.uniaxialMaterial('Hardening', start_material_idi+1, self.E, self.Fy, 0.0, hardening_ratio*self.E)
-                        ops.uniaxialMaterial('InitStressMaterial', start_material_idi, start_material_idi+1, fri)                       
->>>>>>> 7fb071ad52f6498a294c024152a33fca92effe4e
-                    else:
-                        raise Exception(
-                            'Input Error - unknown material type (%s)' % mat_type)
-
+                    ops.uniaxialMaterial('InitStressMaterial', start_material_idi, start_material_idi+1, fri)
                     # Top flange
                     ops.patch('rect', start_material_idi, Nff, 1, self.dw / 2, -region_width / 2, self.d / 2, region_width / 2)
                     # Bottom flange
@@ -463,39 +450,33 @@ class I_shape(GeometricShape):
             if frc == 0 or mat_type == 'Elastic':
 
                 if mat_type == 'Elastic':
-                    ops.uniaxialMaterial('Elastic', start_material_id, self.E)
+                    ops.uniaxialMaterial('Elastic', start_material_id, E_reduced)
                 elif mat_type == 'ElasticPP':
-                    ops.uniaxialMaterial('ElasticPP', start_material_id,self.E, self.Fy/self.E)
+                    ops.uniaxialMaterial('ElasticPP', start_material_id,E_reduced, Fy_reduced/E_reduced)
                 elif mat_type == 'Steel01':
                     b = hardening_ratio / (1 + hardening_ratio)
-                    ops.uniaxialMaterial('Steel01', start_material_id, strength_reduction*self.Fy, stiffness_reduction*self.E, b)
+                    ops.uniaxialMaterial('Steel01', start_material_id, Fy_reduced, E_reduced, b)
                 elif mat_type == 'Hardening':
-<<<<<<< HEAD
-                    ops.uniaxialMaterial('Hardening', start_material_id,self.E, self.Fy, 0.0, self.Hk)
-                elif mat_type == 'ElasticMultiLinear':
-                    ops.uniaxialMaterial('ElasticMultiLinear', start_material_id, 0, '-strain', *self.strain, '-stress', *self.stress)
-=======
-                    ops.uniaxialMaterial('Hardening', start_material_id,self.E, self.Fy, 0.0, hardening_ratio*self.E)
+                    ops.uniaxialMaterial('Hardening', start_material_id,E_reduced, Fy_reduced, 0.0, hardening_ratio*E_reduced)
                 elif mat_type == 'MultiLinear':
                     if MultiLinearPts == None:
-                        Fy = strength_reduction*self.Fy
-                        ey = Fy/(stiffness_reduction*self.E)
+                        Fy_reduced = Fy_reduced
+                        ey = Fy_reduced/(E_reduced)
                         MultiLinearPts = [
-                            0.5000*ey,0.5*Fy,
-                            0.7222*ey,0.7*Fy,
-                            0.8556*ey,0.8*Fy,
-                            1.0556*ey,0.9*Fy,
-                            1.7222*ey,Fy,                            
-                            101.7222*ey,1.1*Fy,
+                            0.5000*ey,0.5*Fy_reduced,
+                            0.7222*ey,0.7*Fy_reduced,
+                            0.8556*ey,0.8*Fy_reduced,
+                            1.0556*ey,0.9*Fy_reduced,
+                            1.7222*ey,Fy_reduced,                            
+                            101.7222*ey,1.1*Fy_reduced,
                         ]
                     ops.uniaxialMaterial('MultiLinear', start_material_id, *MultiLinearPts)
->>>>>>> 7fb071ad52f6498a294c024152a33fca92effe4e
 
                 else:
                     raise Exception(
                         'Input Error - unknown material type (%s)' % mat_type)
                 
-                ops.section('Fiber', section_id, '-GJ', GJ)
+                # ops.section('Fiber', section_id, '-GJ', GJ)
 
 
                 # Web patch
@@ -510,30 +491,19 @@ class I_shape(GeometricShape):
                 frt = -frc * (self.bf * self.tf) / (self.bf * self.tf + self.tw * self.dw)
                 ## web patch
                 if mat_type == 'ElasticPP':
-                    ops.uniaxialMaterial('ElasticPP', start_material_id, self.E, self.Fy/self.E, -self.Fy/self.E, frt/self.E)
+                    ops.uniaxialMaterial('ElasticPP', start_material_id, E_reduced, Fy_reduced/E_reduced, -Fy_reduced/E_reduced, frt/E_reduced)
                 elif mat_type == 'Steel01':
-<<<<<<< HEAD
-                    ops.uniaxialMaterial('Steel01', start_material_id+1, self.Fy, self.E, self.b)
-                    ops.uniaxialMaterial('InitStressMaterial',start_material_id, start_material_id+1, frt)
-                elif mat_type == 'Hardening':
-                    ops.uniaxialMaterial('Hardening', start_material_id+1,self.E, self.Fy, 0.0, self.Hk)
-                    ops.uniaxialMaterial('InitStressMaterial',start_material_id, start_material_id+1, frt)      
-                elif mat_type == 'ElasticMultiLinear':
-                    ops.uniaxialMaterial('ElasticMultiLinear', start_material_id, 0, '-strain', *self.strain, '-stress', *self.stress)
-                    
-=======
                     b = hardening_ratio / (1 + hardening_ratio)
-                    ops.uniaxialMaterial('Steel01', start_material_id+1, strength_reduction*self.Fy, stiffness_reduction*self.E, b)
+                    ops.uniaxialMaterial('Steel01', start_material_id+1, Fy_reduced, E_reduced, b)
                     ops.uniaxialMaterial('InitStressMaterial',start_material_id, start_material_id+1, frt)
                 elif mat_type == 'Hardening':
-                    ops.uniaxialMaterial('Hardening', start_material_id+1,self.E, self.Fy, 0.0, hardening_ratio*self.E)
+                    ops.uniaxialMaterial('Hardening', start_material_id+1,E_reduced, Fy_reduced, 0.0, hardening_ratio*E_reduced)
                     ops.uniaxialMaterial('InitStressMaterial',start_material_id, start_material_id+1, frt)      
->>>>>>> 7fb071ad52f6498a294c024152a33fca92effe4e
                 else:
                     raise Exception(
                         'Input Error - unknown material type (%s)' % mat_type)
                 
-                ops.section('Fiber', section_id, '-GJ', GJ)                
+                # ops.section('Fiber', section_id, '-GJ', GJ)                
                 # Web patch
                 ops.patch('rect', start_material_id, Nfw, 1, -self.tw/2, -self.dw/2, self.tw/2, self.dw/2)
 
@@ -546,24 +516,14 @@ class I_shape(GeometricShape):
                     start_material_idi = start_material_id + 2 * (i + 1)
 
                     if mat_type == 'ElasticPP':
-                        ops.uniaxialMaterial('ElasticPP', start_material_idi, self.E, self.Fy/self.E, -self.Fy/self.E, fri/self.E)
+                        ops.uniaxialMaterial('ElasticPP', start_material_idi, E_reduced, Fy_reduced/E_reduced, -Fy_reduced/E_reduced, fri/E_reduced)
                     elif mat_type == 'Steel01':
-<<<<<<< HEAD
-                        ops.uniaxialMaterial('Steel01', start_material_idi+1, self.Fy, self.E, self.b)
-                        ops.uniaxialMaterial('InitStressMaterial', start_material_idi, start_material_idi+1, fri)
-                    elif mat_type == 'Hardening':
-                        ops.uniaxialMaterial('Hardening', start_material_idi+1, self.E, self.Fy, 0.0, self.Hk)
-                        ops.uniaxialMaterial('InitStressMaterial', start_material_idi, start_material_idi+1, fri)
-                    elif mat_type == 'ElasticMultiLinear':
-                        ops.uniaxialMaterial('ElasticMultiLinear', start_material_idi, 0, '-strain', *self.strain, '-stress', *self.stress)
-=======
                         b = hardening_ratio / (1 + hardening_ratio)
-                        ops.uniaxialMaterial('Steel01', start_material_idi+1, strength_reduction*self.Fy, stiffness_reduction*self.E, b)
+                        ops.uniaxialMaterial('Steel01', start_material_idi+1, Fy_reduced, E_reduced, b)
                         ops.uniaxialMaterial('InitStressMaterial', start_material_idi, start_material_idi+1, fri)
                     elif mat_type == 'Hardening':
-                        ops.uniaxialMaterial('Hardening', start_material_idi+1, self.E, self.Fy, 0.0, hardening_ratio*self.E)
+                        ops.uniaxialMaterial('Hardening', start_material_idi+1, E_reduced, Fy_reduced, 0.0, hardening_ratio*E_reduced)
                         ops.uniaxialMaterial('InitStressMaterial', start_material_idi, start_material_idi+1, fri)
->>>>>>> 7fb071ad52f6498a294c024152a33fca92effe4e
                     else:
                         raise Exception(
                             'Input Error - unknown material type (%s)' % mat_type)
@@ -589,24 +549,20 @@ class I_shape(GeometricShape):
             if frc == 0 or mat_type == 'Elastic':
 
                 if mat_type == 'Elastic':
-                    ops.uniaxialMaterial('Elastic', start_material_id, self.E)
+                    ops.uniaxialMaterial('Elastic', start_material_id, E_reduced)
                 elif mat_type == 'ElasticPP':
-                    ops.uniaxialMaterial('ElasticPP', start_material_id,self.E, self.Fy/self.E)
+                    ops.uniaxialMaterial('ElasticPP', start_material_id,E_reduced, Fy_reduced/E_reduced)
                 elif mat_type == 'Steel01':
                     b = hardening_ratio / (1 + hardening_ratio)
-                    ops.uniaxialMaterial('Steel01', start_material_id, self.Fy, self.E, b)
+                    ops.uniaxialMaterial('Steel01', start_material_id, Fy_reduced, E_reduced, b)
                 elif mat_type == 'Hardening':
-<<<<<<< HEAD
-                    ops.uniaxialMaterial('Hardening', start_material_id,self.E, self.Fy, 0.0, self.Hk)
-=======
-                    ops.uniaxialMaterial('Hardening', start_material_id,self.E, self.Fy, 0.0, hardening_ratio*self.E)
->>>>>>> 7fb071ad52f6498a294c024152a33fca92effe4e
+                    ops.uniaxialMaterial('Hardening', start_material_id,E_reduced, Fy_reduced, 0.0, hardening_ratio*E_reduced)
 
                 else:
                     raise Exception(
                         'Input Error - unknown material type (%s)' % mat_type)
                 
-                ops.section('Fiber', section_id, '-GJ', GJ)
+                # ops.section('Fiber', section_id, '-GJ', GJ)
 
                 # Web patch
                 ops.patch('rect', start_material_id, Nfw_y, Nfw_x, -self.dw / 2, -self.tw / 2, self.dw / 2, self.tw / 2)
@@ -616,30 +572,20 @@ class I_shape(GeometricShape):
 
             else:
 
-                ops.section('Fiber', section_id, '-GJ', GJ)
+                # ops.section('Fiber', section_id, '-GJ', GJ)
                 
                 frt = -frc * (self.bf * self.tf) / (self.bf * self.tf + self.tw * self.dw)
 
                 ## web patch
                 if mat_type == 'ElasticPP':
-                    ops.uniaxialMaterial('ElasticPP', start_material_id, self.E, self.Fy/self.E, -self.Fy/self.E, frt/self.E)
+                    ops.uniaxialMaterial('ElasticPP', start_material_id, E_reduced, Fy_reduced/E_reduced, -Fy_reduced/E_reduced, frt/E_reduced)
                 elif mat_type == 'Steel01':
-<<<<<<< HEAD
-                    ops.uniaxialMaterial('Steel01', start_material_id+1, self.Fy, self.E, self.b)
-                    ops.uniaxialMaterial('InitStressMaterial',start_material_id, start_material_id+1, frt)
-                elif mat_type == 'Hardening':
-                    ops.uniaxialMaterial('Hardening', start_material_id+1,self.E, self.Fy, 0.0, self.Hk)
-                    ops.uniaxialMaterial('InitStressMaterial',start_material_id, start_material_id+1, frt)
-                elif mat_type == 'ElasticMultiLinear':
-                    ops.uniaxialMaterial('ElasticMultiLinear', start_material_id, 0, '-strain', *self.strain, '-stress', *self.stress)
-=======
                     b = hardening_ratio / (1 + hardening_ratio)
-                    ops.uniaxialMaterial('Steel01', start_material_id+1, self.Fy, self.E, b)
+                    ops.uniaxialMaterial('Steel01', start_material_id+1, Fy_reduced, E_reduced, b)
                     ops.uniaxialMaterial('InitStressMaterial',start_material_id, start_material_id+1, frt)
                 elif mat_type == 'Hardening':
-                    ops.uniaxialMaterial('Hardening', start_material_id+1,self.E, self.Fy, 0.0, hardening_ratio*self.E)
+                    ops.uniaxialMaterial('Hardening', start_material_id+1,E_reduced, Fy_reduced, 0.0, hardening_ratio*E_reduced)
                     ops.uniaxialMaterial('InitStressMaterial',start_material_id, start_material_id+1, frt)
->>>>>>> 7fb071ad52f6498a294c024152a33fca92effe4e
                 else:
                     raise Exception(
                         'Input Error - unknown material type (%s)' % mat_type)
@@ -656,24 +602,14 @@ class I_shape(GeometricShape):
                     start_material_idi = start_material_id + 2 * (i + 1)
 
                     if mat_type == 'ElasticPP':
-                        ops.uniaxialMaterial('ElasticPP', start_material_idi, self.E, self.Fy/self.E, -self.Fy/self.E, fri/self.E)
+                        ops.uniaxialMaterial('ElasticPP', start_material_idi, E_reduced, Fy_reduced/E_reduced, -Fy_reduced/E_reduced, fri/E_reduced)
                     elif mat_type == 'Steel01':
-<<<<<<< HEAD
-                        ops.uniaxialMaterial('Steel01', start_material_idi+1, self.Fy, self.E, self.b)
-                        ops.uniaxialMaterial('InitStressMaterial', start_material_idi, start_material_idi+1, fri)
-                    elif mat_type == 'Hardening':
-                        ops.uniaxialMaterial('Hardening', start_material_idi+1, self.E, self.Fy, 0.0, self.Hk)
-                        ops.uniaxialMaterial('InitStressMaterial', start_material_idi, start_material_idi+1, fri)
-                    elif mat_type == 'ElasticMultiLinear':
-                        ops.uniaxialMaterial('ElasticMultiLinear', start_material_idi, 0, '-strain', *self.strain, '-stress', *self.stress)
-=======
                         b = hardening_ratio / (1 + hardening_ratio)
-                        ops.uniaxialMaterial('Steel01', start_material_idi+1, self.Fy, self.E, b)
+                        ops.uniaxialMaterial('Steel01', start_material_idi+1, Fy_reduced, E_reduced, b)
                         ops.uniaxialMaterial('InitStressMaterial', start_material_idi, start_material_idi+1, fri)
                     elif mat_type == 'Hardening':
-                        ops.uniaxialMaterial('Hardening', start_material_idi+1, self.E, self.Fy, 0.0, hardening_ratio*self.E)
+                        ops.uniaxialMaterial('Hardening', start_material_idi+1, E_reduced, Fy_reduced, 0.0, hardening_ratio*E_reduced)
                         ops.uniaxialMaterial('InitStressMaterial', start_material_idi, start_material_idi+1, fri)
->>>>>>> 7fb071ad52f6498a294c024152a33fca92effe4e
                     else:
                         raise Exception(
                             'Input Error - unknown material type (%s)' % mat_type)

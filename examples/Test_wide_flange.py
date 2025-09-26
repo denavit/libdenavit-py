@@ -1,6 +1,6 @@
 import math as math
-from libdenavit.cross_section_2d import *
-from libdenavit.section.wide_flange import *
+from libdenavit import CrossSection2d
+from libdenavit.section.wide_flange import I_shape
 import matplotlib.pyplot as plt
 
 
@@ -31,7 +31,7 @@ Initial_slope=E*Ix
 def Moment_curvature_analysis(P_value, residual_stress, axis):
     frc = -0.3 * fy if residual_stress else 0
     beam = I_shape(d, tw, bf, tf,
-                   Fy=fy, E=E, Hk=Hk,
+                   Fy=fy, E=E,
                    A=A, Ix=Ix, Iy=Iy)
     member = CrossSection2d(beam, axis=axis)
     results = member.run_ops_analysis(
