@@ -97,7 +97,7 @@ class I_shape(GeometricShape):
     def __init__(self, d, tw, bf, tf, Fy, E,
                  A=None, Ix=None, Zx=None, Sx=None, rx=None,
                  Iy=None, Zy=None, Sy=None, ry=None,
-                 J=None, Cw=None, rts=None, ho=None):
+                 J=None, Cw=None, rts=None, ho=None, h_over_tw=None):
         self.d = d
         self.tw = tw
         self.bf = bf
@@ -119,9 +119,11 @@ class I_shape(GeometricShape):
         self._Cw = Cw
         self._rts = rts
         self._ho = ho
+        self._h_over_tw = h_over_tw
 
         self.has_steel=True
         self.has_concrete=False
+
     @classmethod
     def from_database(cls, section_name,Fy,E):
 
@@ -146,6 +148,7 @@ class I_shape(GeometricShape):
             Cw=db.Cw,
             rts=db.rts,
             ho=db.ho,
+            h_over_tw=db.h_over_tw,
         )
 
 
@@ -310,7 +313,14 @@ class I_shape(GeometricShape):
     
     @property
     def h_over_tw(self):
-        return self.dw /self.tw
+        if self._h_over_tw is not None:
+            return self._h_over_tw
+        else:
+            return self.dw /self.tw
+
+    @h_over_tw.setter
+    def h_over_tw(self, x):
+        self._h_over_tw = x
 
     @property
     def dw(self):
@@ -343,6 +353,7 @@ class I_shape(GeometricShape):
 
         E_reduced=self.E*stiffness_reduction
         Fy_reduced=self.Fy*strength_reduction
+        
         ## Define Base Material
         base_material_id = start_material_id
         if mat_type == 'Elastic':
