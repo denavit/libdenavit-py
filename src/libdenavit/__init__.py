@@ -11,3 +11,4 @@ from .effective_length_factor import sidesway_uninhibited_effective_length_facto
 from .cross_section_2d import CrossSection2d
 from .non_sway_column_2d import NonSwayColumn2d
 from .sway_column_2d import SwayColumn2d
+from .MASTAN2 import save_MASTAN2
