@@ -89,13 +89,13 @@ def save_MASTAN2(**attrs):
             mat_name.append([f'Material {i}'])
             
     if nload_info is None:
-        nload_info = np.array([0, 0, 0, 0, 0, 0] * len(node_info))
+        nload_info = np.zeros([len(node_info),6])
         
     if uniload_info is None:
-        uniload_info = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] * len(elem_info))
+        uniload_info = np.zeros([len(elem_info),3])
 
     if thermal_info is None:
-        thermal_info = np.array([0, 0, 0, 0] * len(node_info))
+        thermal_info = np.zeros([len(elem_info),4])
 
     if ground_motion_data is None:
         # Set default ground motion data
