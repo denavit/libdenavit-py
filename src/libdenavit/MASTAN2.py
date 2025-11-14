@@ -2,6 +2,7 @@ import numpy as np
 from numpy.linalg import norm
 from math import sin, cos
 from scipy.io import savemat
+from pathlib import Path
 
 def el_webdir(nele, ends, beta_ang, coord, coord_end, defl_total):
 	y=np.zeros(3)
@@ -77,6 +78,10 @@ def save_MASTAN2(**attrs):
     yldsurfval_settings = attrs.get('yldsurfval_settings', np.array([]))
     normincr_settings = attrs.get('normincr_settings', np.array([]))
     
+    # Save Name
+    save_name = attrs.get('save_name', 'Model')
+    save_path = attrs.get('save_path', Path('.'))
+    
     ### Set more advanced defaults
     if sect_name is None:
         sect_name = []
@@ -89,13 +94,13 @@ def save_MASTAN2(**attrs):
             mat_name.append([f'Material {i}'])
             
     if nload_info is None:
-        nload_info = np.array([0, 0, 0, 0, 0, 0] * len(node_info))
+        nload_info = np.zeros([len(node_info),6])
         
     if uniload_info is None:
-        uniload_info = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] * len(elem_info))
+        uniload_info = np.zeros([len(elem_info),3])
 
     if thermal_info is None:
-        thermal_info = np.array([0, 0, 0, 0] * len(node_info))
+        thermal_info = np.zeros([len(elem_info),4])
 
     if ground_motion_data is None:
         # Set default ground motion data
@@ -178,7 +183,7 @@ def save_MASTAN2(**attrs):
                       normincr_settings = normincr_settings,
                      )    
 
-    savemat(model_title + '.mat', model_data)
+    savemat(Path(save_path,save_name + '.mat'), model_data)
                                  
 
 if __name__ == "__main__":
