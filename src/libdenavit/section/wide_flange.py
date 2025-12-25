@@ -1,11 +1,9 @@
 import dataclasses
 import warnings
 from math import sqrt,pi,ceil
-from ..design import available_strength
-from . import GeometricShape,database
-import openseespy.opensees as ops
-
-
+from libdenavit import opensees as ops
+from libdenavit.design import available_strength
+from libdenavit.section import GeometricShape,database
 
 class WideFlangeDB:
 

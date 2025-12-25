@@ -1,4 +1,4 @@
-import openseespy.opensees as ops
+from libdenavit import opensees as ops
 import json
 import os
 

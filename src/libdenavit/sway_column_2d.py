@@ -1,10 +1,10 @@
 import warnings
 from math import inf, pi, sin
 import matplotlib.pyplot as plt
+from libdenavit import opensees as ops
 from libdenavit import find_limit_point_in_list, interpolate_list, InteractionDiagram2d
 from libdenavit import sidesway_uninhibited_effective_length_factor, CrossSection2d
 from libdenavit.OpenSees import AnalysisResults
-import openseespy.opensees as ops
 import numpy as np
 from scipy.optimize import fsolve
 from libdenavit.analysis_helpers import try_analysis_options, ops_get_section_strains, ops_get_maximum_abs_moment, ops_get_maximum_abs_disp, check_analysis_limits

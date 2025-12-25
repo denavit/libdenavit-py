@@ -2,7 +2,7 @@ import warnings
 from math import sqrt, pi, ceil, exp, sin, log10
 import matplotlib.pyplot as plt
 import numpy as np
-import openseespy.opensees as ops
+from libdenavit import opensees as ops
 from libdenavit.OpenSees import circ_patch_2d, obround_patch_2d, obround_patch_2d_confined
 from libdenavit.section import AciStrainCompatibility, FiberSection, ACI_phi
 

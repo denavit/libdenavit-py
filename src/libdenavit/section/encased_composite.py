@@ -1,7 +1,7 @@
 from math import ceil, pi, sqrt
 import matplotlib.pyplot as plt
 import numpy as np
-import openseespy.opensees as ops
+from libdenavit import opensees as ops
 from libdenavit.section import AciStrainCompatibility, FiberSingle, FiberCirclePatch, FiberSection, Rectangle, FiberQuadPatch, RectangularTube
 from libdenavit.section.database import reinforcing_bar_database
 

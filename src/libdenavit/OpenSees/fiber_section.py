@@ -1,4 +1,4 @@
-import openseespy.opensees as ops
+from libdenavit import opensees as ops
 from libdenavit import area_of_circular_segment, centroid_of_circular_segment
 from math import ceil, tan, acos
 

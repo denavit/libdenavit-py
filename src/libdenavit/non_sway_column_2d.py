@@ -1,7 +1,7 @@
 from math import pi, sin, log10
+from libdenavit import opensees as ops
 from libdenavit import find_limit_point_in_list, interpolate_list, InteractionDiagram2d, CrossSection2d
 from libdenavit.OpenSees import AnalysisResults
-import openseespy.opensees as ops
 import numpy as np
 import matplotlib.pyplot as plt
 import warnings

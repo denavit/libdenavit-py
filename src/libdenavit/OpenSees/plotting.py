@@ -1,10 +1,11 @@
-import openseespy.opensees as ops
+from libdenavit import opensees as ops
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.colors import Normalize
 import matplotlib.cm as color
 from matplotlib.colors import Normalize
 from matplotlib.animation import FuncAnimation, FFMpegWriter, PillowWriter
+import numpy as np
 import os
 
 def get_node_coords():
@@ -134,9 +135,6 @@ def plot_sfd(scale=0.002, axis_equal=False, annotate=True, show=True):
     -------
     fig, ax : matplotlib Figure and Axes
     """
-    import openseespy.opensees as ops
-    import matplotlib.pyplot as plt
-    import numpy as np
 
     # --- Get model geometry ---
     node_coords = get_node_coords()
@@ -229,9 +227,6 @@ def plot_bmd(scale=0.001, axis_equal=True, annotate=True, show=True, save_path=N
     save_path : str or None
         File path to save the figure (e.g., 'Frame_1/BMD.png'). If None, figure is not saved.
     """
-    import openseespy.opensees as ops
-    import matplotlib.pyplot as plt
-    import numpy as np
 
     node_coords = get_node_coords()
     element_nodes = get_element_nodes()
@@ -321,9 +316,6 @@ def plot_afd(scale=0.05, axis_equal=True, annotate=True, show=True, save_path=No
     save_path : str or None
         File path to save the figure (e.g., 'Frame_1/AFD.png').
     """
-    import openseespy.opensees as ops
-    import matplotlib.pyplot as plt
-    import numpy as np
 
     # --- Get geometry ---
     node_coords = get_node_coords()

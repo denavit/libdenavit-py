@@ -1,6 +1,6 @@
 from math import sqrt
+from libdenavit import opensees as ops
 from libdenavit.OpenSees import get_fiber_data
-import openseespy.opensees as ops
 
 '''
 This is an example showing how to use libdenavit.OpenSees.get_fiber_data

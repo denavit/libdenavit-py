@@ -1,5 +1,5 @@
 from math import pi, sqrt, ceil
-import openseespy.opensees as ops
+from libdenavit import opensees as ops
 from libdenavit.OpenSees import circ_patch_2d
 from libdenavit.section import AciStrainCompatibility, FiberSingle, FiberCirclePatch, FiberSection
 from libdenavit.section.database import reinforcing_bar_database
