@@ -962,14 +962,15 @@ class RC:
                     warnings.warn("Default value of tcast (0) used for creep and shrinkage material")
 
             if confinement:
-                ops.uniaxialMaterial('Creep', cover_concrete_creep_material_id, cover_concrete_material_id,
+                ops.uniaxialMaterial('CreepShrinkageACI209', cover_concrete_creep_material_id, cover_concrete_material_id,
                                      self.tD, shrinkagedata['eps_sh_u'], shrinkagedata['psish'], self.Tcr,
                                      creepdata['phi_u'], creepdata['psicr1'], creepdata['psicr2'], self.tcast)
-                ops.uniaxialMaterial('Creep', core_concrete_creep_material_id, core_concrete_material_id,
+                
+                ops.uniaxialMaterial('CreepShrinkageACI209', core_concrete_creep_material_id, core_concrete_material_id,
                                      self.tD, shrinkagedata['eps_sh_u'], shrinkagedata['psish'], self.Tcr,
                                      creepdata['phi_u'], creepdata['psicr1'], creepdata['psicr2'], self.tcast)
             else:
-                ops.uniaxialMaterial('Creep', concrete_creep_material_id, concrete_material_id,
+                ops.uniaxialMaterial('CreepShrinkageACI209', concrete_creep_material_id, concrete_material_id,
                                      self.tD, shrinkagedata['eps_sh_u'], shrinkagedata['psish'], self.Tcr,
                                      creepdata['phi_u'], creepdata['psicr1'], creepdata['psicr2'], self.tcast)
 
