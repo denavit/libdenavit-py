@@ -33,6 +33,8 @@ class RC:
         self.tD = tD
         self.Tcr = Tcr
         self.tcast = tcast
+        self.has_concrete = True
+        self.has_steel = True
 
 
 
