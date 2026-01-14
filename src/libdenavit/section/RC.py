@@ -540,6 +540,41 @@ class RC:
         elif EI_type.lower() == "gross":
             return self.EIgross(axis)
 
+        if EI_type == "proposed_1_1":
+            Mn = self.Mn(axis)
+            if M / Mn <= 0.95:
+                return 0.4 * self.Ec * self.Ig(axis) / (1 + betadns)
+            else:
+                return 1 * self.Es * self.Isr(axis) / (1 + betadns)
+
+        if EI_type == "proposed_1_2":
+            Mn = self.Mn(axis)
+            if M / Mn <= 0.95:
+                return (0.2 * self.Ec * self.Ig(axis) + self.Es * self.Isr(axis)) / (1 + betadns)
+            else:
+                return 1 * self.Es * self.Isr(axis) / (1 + betadns)
+
+        elif EI_type == "proposed_2":
+            EI_gross = self.Ec * self.Ig(axis)
+            P_P0 = P / self.p0
+            P0 = self.p0
+            As_Ag = self.Asr / self.Ag
+            r = np.sqrt(self.Ig(axis) / self.Ag)
+            L = col.length
+
+            if type(col).__name__ == 'NonSwayColumn2d':
+                K = 1
+                EI = (0.45 * P / P0 + 0.35 * ((K * L / r) / 100) ** 1.85 * np.sin(
+                    np.pi * P / P0)) * EI_gross + 0.3* self.Es * self.Isr(axis) / (1 + betadns)
+                return EI
+
+            elif type(col).__name__ == 'SwayColumn2d':
+                K = col.effective_length_factor(0.4 * EI_gross)
+                EI = (0.45 * P / P0 + 0.35 * ((K * L / r) / 100) ** 1.85 * np.sin(
+                    np.pi * P / P0)) * EI_gross + 0.3* self.Es * self.Isr(axis) / (1 + betadns)
+                return EI
+
+        
         else:
             try:
                 import importlib
