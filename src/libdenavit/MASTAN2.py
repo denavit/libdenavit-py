@@ -79,7 +79,7 @@ def save_MASTAN2(**attrs):
     normincr_settings = attrs.get('normincr_settings', np.array([]))
     
     # Save Name
-    save_name = attrs.get('save_name', 'Model')
+    save_name = attrs.get('save_name', model_title)
     save_path = attrs.get('save_path', Path('.'))
     
     ### Set more advanced defaults
