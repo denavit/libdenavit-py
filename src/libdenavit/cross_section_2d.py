@@ -545,7 +545,7 @@ class CrossSection2d:
             print("Running cross-section axial only analysis...")
         results = self.run_ops_analysis('proportional_limit_point', e=0, 
                                         section_args=section_args, section_kwargs=section_kwargs,
-                                        disp_incr_factor=prop_disp_incr_factor)
+                                        load_incr_factor=prop_disp_incr_factor)
         if CrossSection2d.print_ops_status:
             print("Axial only analysis is completed.")
         P = [max(results.applied_axial_load)]
