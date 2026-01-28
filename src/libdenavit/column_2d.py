@@ -70,7 +70,7 @@ class Column2d:
         # Base attributes that most column types will need
         attrs = [
             'applied_axial_load', 'maximum_abs_moment', 'maximum_abs_disp', 'lowest_eigenvalue',
-            'maximum_concrete_compression_strain', 'maximum_steel_strain', 
+            'maximum_concrete_compression_strain', 'maximum_steel_strain', 'time_in_longterm_analysis', 'deformation_in_longterm_analysis',
             'maximum_compression_strain', 'maximum_tensile_strain', 'curvature'
         ]
         return self._init_results(attrs)
@@ -95,6 +95,12 @@ class Column2d:
         elif 'Deformation Limit Reached' in results.exit_message:
             ind, x = find_limit_point_in_list(results.maximum_abs_disp, config['deformation_limit'])
         elif 'Load Drop Limit Reached' in results.exit_message:
+            ind, x = find_limit_point_in_list(results.applied_axial_load, max(results.applied_axial_load))
+        elif 'Analysis failed while maintaining sustained load' in results.exit_message:
+            ind, x = find_limit_point_in_list(results.applied_axial_load, max(results.applied_axial_load))
+        elif 'Analysis failed before full sustained load is reached' in results.exit_message:
+            ind, x = find_limit_point_in_list(results.applied_axial_load, max(results.applied_axial_load))
+        elif 'Analysis failed on the first step of maintaining sustained load' in results.exit_message:
             ind, x = find_limit_point_in_list(results.applied_axial_load, max(results.applied_axial_load))
         else:
             # No message at all → set one & fallback
