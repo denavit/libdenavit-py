@@ -97,29 +97,69 @@ class InteractionDiagram2d():
         if self.is_closed:
             polin = Polygon(np.column_stack((self.idx, self.idy)))
             line_1 = LineString(list(polin.exterior.coords))
-            line_2 = LineString(np.column_stack((pathX, pathY)))
-            intersection = line_1.intersection(line_2)
-            if intersection.geom_type not in ['Point', 'MultiPoint']:
-                raise Exception('could not find an intersection')
-
         else:
             line_1 = LineString(np.column_stack((self.idx, self.idy)))
-            line_2 = LineString(np.column_stack((pathX, pathY)))
-            intersection = line_1.intersection(line_2)
-            if intersection.geom_type not in ['Point', 'MultiPoint']:
-                raise Exception('could not find an intersection')
-
-        # @todo get ind and x from as output
+        
+        line_2 = LineString(np.column_stack((pathX, pathY)))
+        
+        if len(pathX) == 2:  # If it's just a simple line segment
+            # Calculate direction and extend the line
+            dx = pathX[-1] - pathX[0]
+            dy = pathY[-1] - pathY[0]
+            length = np.sqrt(dx**2 + dy**2)
+            
+            if length > 0:
+                # Normalize direction
+                dx_norm = dx / length
+                dy_norm = dy / length
+                
+                # Extend the line by a large factor
+                max_boundary_extent = max(np.max(np.abs(self.idx)), np.max(np.abs(self.idy))) * 2
+                
+                extended_x = pathX[0] + dx_norm * max_boundary_extent
+                extended_y = pathY[0] + dy_norm * max_boundary_extent
+                
+                line_2 = LineString([(pathX[0], pathY[0]), (extended_x, extended_y)])
+        
+        intersection = line_1.intersection(line_2)
+        
+        # Handle empty intersection
+        if intersection.is_empty:
+            raise Exception('No intersection found between the two paths')
+        
+        # Handle Point
         if intersection.geom_type == 'Point':
             return intersection.x, intersection.y
+        
+        # Handle MultiPoint
         elif intersection.geom_type == 'MultiPoint':
+            x = [pt.x for pt in intersection.geoms]
+            y = [pt.y for pt in intersection.geoms]
+            return x, y
+        
+        # Handle LineString (overlapping segments)
+        elif intersection.geom_type == 'LineString':
+            coords = list(intersection.coords)
+            x = [coord[0] for coord in coords]
+            y = [coord[1] for coord in coords]
+            return x, y
+        
+        # Handle MultiLineString or GeometryCollection
+        elif intersection.geom_type in ['MultiLineString', 'GeometryCollection']:
             x = []
             y = []
-            for i in intersection.geoms:
-                x.append(i.x)
-                y.append(i.y)
-
+            for geom in intersection.geoms:
+                if geom.geom_type == 'Point':
+                    x.append(geom.x)
+                    y.append(geom.y)
+                elif geom.geom_type == 'LineString':
+                    coords = list(geom.coords)
+                    x.extend([coord[0] for coord in coords])
+                    y.extend([coord[1] for coord in coords])
             return x, y
+        
+        else:
+            raise Exception(f'Unexpected intersection type: {intersection.geom_type}')
 
 
     def find_x_given_y(self, Y, signX):
