@@ -548,6 +548,14 @@ class WideFlangeMember_AISC2022:
         
         return Ae
 
+    def Lp(self):
+        Lp = 1.76*self.section.ry*sqrt(self.E/self.Fy)
+        return Lp
+        
+    def Lr(self):
+        Lr = 1.95*self.section.rts*(self.E/(0.7*self.Fy))*sqrt((self.section.J/(self.section.Sx*self.section.ho))+sqrt(((self.section.J/(self.section.Sx*self.section.ho))**2)+(6.76*((0.7*self.Fy)/self.E)**2)))
+        return Lr
+
     def Mnx(self,Lb,Cb):
         """Moment strength of member for major-axis bending.
 
@@ -591,8 +599,8 @@ class WideFlangeMember_AISC2022:
             Mn = min(Mn,Mn_CFLB)
 
         # Lateral-Torsional Buckling
-        Lp = 1.76*self.section.ry*sqrt(self.E/self.Fy)
-        Lr = 1.95*self.section.rts*(self.E/(0.7*self.Fy))*sqrt((self.section.J/(self.section.Sx*self.section.ho))+sqrt(((self.section.J/(self.section.Sx*self.section.ho))**2)+(6.76*((0.7*self.Fy)/self.E)**2)))
+        Lp = self.Lp()
+        Lr = self.Lr()
         
         if Lb <= Lp:
             pass
