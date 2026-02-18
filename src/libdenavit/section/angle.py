@@ -42,14 +42,14 @@ class Angle:
         return A
 
     @property
+    def Asx(self):
+        Asx = self.b*self.t
+        return Asx
+
+    @property
     def Asy(self):
         Asy = self.d*self.t
         return Asy
-    
-    @property
-    def Asz(self):
-        Asz = self.b*self.t
-        return Asz
 
     @property
     def x_bar(self):
