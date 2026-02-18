@@ -42,6 +42,16 @@ class Angle:
         return A
 
     @property
+    def Asx(self):
+        Asx = self.b*self.t
+        return Asx
+
+    @property
+    def Asy(self):
+        Asy = self.d*self.t
+        return Asy
+
+    @property
     def x_bar(self):
         x_bar =  (((self.b)*(self.t**2))-(self.t**3)+((self.d**2)*(self.t)))/(2*((self.d+self.b-self.t)*self.t))
         return x_bar
