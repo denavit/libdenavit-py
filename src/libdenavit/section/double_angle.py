@@ -56,6 +56,16 @@ class DoubleAngle:
         return A
 
     @property
+    def Asx(self):
+        Asx = 2*self.d*self.t
+        return Asx
+    
+    @property
+    def Asy(self):
+        Asy = 2*self.b*self.t
+        return Asy
+
+    @property
     def y_bar(self):
         y_bar = (((self.b)*(self.t**2))-(self.t**3)+((self.d**2)*(self.t)))/(2*((self.b+self.d-self.t)*self.t))
         return y_bar
