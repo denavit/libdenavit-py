@@ -57,12 +57,12 @@ class DoubleAngle:
 
     @property
     def Asx(self):
-        Asx = 2*self.d*self.t
+        Asx = 2*self.b*self.t
         return Asx
     
     @property
     def Asy(self):
-        Asy = 2*self.b*self.t
+        Asy = 2*self.d*self.t
         return Asy
 
     @property
