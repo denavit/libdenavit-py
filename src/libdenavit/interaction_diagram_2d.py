@@ -4,6 +4,7 @@ from libdenavit import find_limit_point_in_list, interpolate_list, find_intersec
 import operator
 from shapely.geometry import LineString, Polygon
 import matplotlib.pyplot as plt
+import pandas as pd
 
 def cart2pol(x, y):
     x = np.asarray(x)
@@ -17,8 +18,9 @@ def cart2pol(x, y):
 
 class InteractionDiagram2d():
     def __init__(self, idx: list, idy: list, is_closed=False):
-        idx = idx.tolist() if isinstance(idx, np.ndarray) else idx
-        idy = idy.tolist() if isinstance(idy, np.ndarray) else idy
+        # Convert pandas Series and numpy arrays to list
+        idx = idx.tolist() if isinstance(idx, (np.ndarray, pd.Series)) else idx
+        idy = idy.tolist() if isinstance(idy, (np.ndarray, pd.Series)) else idy
 
         _, q = cart2pol(idx, idy)
         q = [i%(2*np.pi) for i in q]
@@ -46,10 +48,15 @@ class InteractionDiagram2d():
         for i in range(len(angles)):
             ind = None
 
-            for j, k in enumerate(self.q):
-                if k >= angles[i]:
-                    ind = j
-                    break
+            if not self.is_closed and np.isclose(angles[i], self.q[0]):
+                ind = 0
+            elif not self.is_closed and np.isclose(angles[i], self.q[-1]):
+                ind = len(self.q) - 1
+            else:
+                for j, k in enumerate(self.q):
+                    if k >= angles[i]:
+                        ind = j
+                        break
 
             if ind is None:
                 d[i] = None
