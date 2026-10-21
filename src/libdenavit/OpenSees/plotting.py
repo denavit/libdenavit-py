@@ -49,7 +49,6 @@ def plot_undeformed_2d(axis_equal=False):
 def plot_deformed_2d(scale_factor=1.0,show_undeformed=True,axis_equal=False):
     (node_coords,node_disp) = get_node_coords_and_disp()
     element_nodes = get_element_nodes()
-    fig = plt.figure()
     if show_undeformed:
         for i in element_nodes:
             coordi = node_coords[element_nodes[i][0]]
@@ -68,7 +67,6 @@ def plot_deformed_2d(scale_factor=1.0,show_undeformed=True,axis_equal=False):
     if axis_equal:
         plt.gca().axis('equal')
     plt.show()
-    plt.closefig()
     return
 
 def plot_element_values_2d(element_values, element_value_name='Element Value', axis_equal=False, show=True):
