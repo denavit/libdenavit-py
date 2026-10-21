@@ -70,20 +70,23 @@ def plot_deformed_2d(scale_factor=1.0,show_undeformed=True,axis_equal=False):
     return
 
 def plot_element_values_2d(element_values, element_value_name='Element Value', axis_equal=False, show=True):
-    # Plots a scalar value associated with each element in a 2D OpenSees model.
-    # element_values must be a dictionary or an iterable of (element_tag, value) pairs.
-    # Each element tag must correspond to an element tag in the OpenSees model.
-    # Each element must have a single numerical value (e.g., P-M ratio, axial force, or utilization ratio).
-    # Example 1: element_values = {1: 0.25, 2: 0.50, 3: 0.85}
-    # Example 2: element_values = [(1, 0.25), (2, 0.50), (3, 0.85)]
-    # Elements without a supplied value are plotted in gray.
-    # element_value_name specifies the plot title and colorbar label.
+
+# Plots a scalar value associated with each element in a 2D OpenSees model.
+# element_values must be a dictionary or an iterable of (element_tag, value) pairs.
+# Each element tag must correspond to an element tag in the OpenSees model.
+# Each element must have a single numerical value (e.g., P-M ratio, axial force, or utilization ratio).
+# Example 1: element_values = {1: 0.25, 2: 0.50, 3: 0.85}
+# Example 2: element_values = [(1, 0.25), (2, 0.50), (3, 0.85)]
+# Elements without a supplied value are plotted in gray.
+# element_value_name specifies the figure title and colorbar label.
+
     element_values = dict(element_values)
     node_coords = get_node_coords()
     element_nodes = get_element_nodes()
-    values = [value for value in element_values.values() if value is not None]
+    fig, ax = plt.subplots()
+    values = list(element_values.values())
     if not values:
-        raise ValueError("No valid element values were provided.")
+        raise ValueError("No element values were provided.")
     vmin, vmax = min(values), max(values)
     norm = Normalize(vmin=vmin, vmax=vmax)
     cmap = colormaps.get_cmap('coolwarm')
@@ -94,28 +97,29 @@ def plot_element_values_2d(element_values, element_value_name='Element Value', a
         yplt = [coordi[1], coordj[1]]
         value = element_values.get(i)
         color = cmap(norm(value)) if value is not None else 'gray'
-        plt.plot(xplt, yplt, 'o-', color=color)
+        ax.plot(xplt, yplt, 'o-', color=color)
         if value is not None:
             xm = (coordi[0] + coordj[0]) / 2
             ym = (coordi[1] + coordj[1]) / 2
-            plt.text(xm, ym + 0.02, f"{value:.2f}")
+            ax.text(xm, ym + 0.02, f"{value:.2f}")
     sm = cm.ScalarMappable(norm=norm, cmap=cmap)
-    plt.colorbar(sm, ax=plt.gca()).set_label(element_value_name)
+    cbar = fig.colorbar(sm, ax=ax)
+    cbar.set_label(element_value_name)
     if axis_equal:
-        plt.axis('equal')
-    plt.xlabel("X-coordinate")
-    plt.ylabel("Y-coordinate")
-    plt.title(f"{element_value_name} Colormap")
-    plt.tight_layout()
+        ax.axis('equal')
+    ax.set_xlabel("X-coordinate")
+    ax.set_ylabel("Y-coordinate")
+    ax.set_title(f"{element_value_name} Colormap")
+    fig.tight_layout()
     if show:
         plt.show()
-    return
+    return fig, ax
 
-def plot_internal_force_diagram_2d(force_type='M', scale=None, axis_equal=False, annotate=False, show=True, save_path=None, show_values=True):
+def plot_internal_force_diagram_2d(force_type='M', scale=None, axis_equal=False, annotate=True, show=True, save_path=None):
     force_options = {
         'P': {'indices': (0, 3), 'signs': (-1, 1), 'color': 'green', 'fill_color': 'lightgreen', 'scale': 0.05, 'name': 'Axial Force'},
         'V': {'indices': (1, 4), 'signs': (1, -1), 'color': 'blue', 'fill_color': 'lightblue', 'scale': 0.002, 'name': 'Shear Force'},
-        'M': {'indices': (2, 5), 'signs': (-1, 1), 'color': 'red', 'fill_color': 'lightcoral', 'scale': 0.001, 'name': 'Bending Moment'}
+        'M': {'indices': (2, 5), 'signs': (1, -1), 'color': 'red', 'fill_color': 'lightcoral', 'scale': 0.001, 'name': 'Bending Moment'}
     }
     force_type = force_type.upper()
     if force_type not in force_options:
@@ -125,6 +129,7 @@ def plot_internal_force_diagram_2d(force_type='M', scale=None, axis_equal=False,
         scale = options['scale']
     node_coords = get_node_coords()
     element_nodes = get_element_nodes()
+    fig, ax = plt.subplots()
     all_values = []
     for i in element_nodes:
         coordi = np.array(node_coords[element_nodes[i][0]])
@@ -148,40 +153,40 @@ def plot_internal_force_diagram_2d(force_type='M', scale=None, axis_equal=False,
         all_values.extend([value_i, value_j])
         diagram_i = coordi + scale * value_i * n_perp
         diagram_j = coordj + scale * value_j * n_perp
-        if force_type=='M':
-            diagram_i = coordi - scale * value_i * n_perp
-            diagram_j = coordj - scale * value_j * n_perp
-        plt.fill([coordi[0], coordj[0], diagram_j[0], diagram_i[0]], [coordi[1], coordj[1], diagram_j[1], diagram_i[1]], color=options['fill_color'], alpha=0.15)
-        plt.plot([coordi[0], coordj[0]], [coordi[1], coordj[1]], 'k-', linewidth=2.5)
-        plt.plot([coordi[0], diagram_i[0]], [coordi[1], diagram_i[1]], color=options['color'], linestyle='--')
-        plt.plot([coordj[0], diagram_j[0]], [coordj[1], diagram_j[1]], color=options['color'], linestyle='--')
-        plt.plot([diagram_i[0], diagram_j[0]], [diagram_i[1], diagram_j[1]], color=options['color'])
-        if show_values:
-            x_offset = 0.5
-            y_offset = 0.5
-            plt.text(diagram_i[0] + x_offset, diagram_i[1] + y_offset, f"{value_i:.2f}", color=options['color'])
-            plt.text(diagram_j[0] + x_offset, diagram_j[1] + y_offset, f"{value_j:.2f}", color=options['color'])
+        ax.fill([coordi[0], coordj[0], diagram_j[0], diagram_i[0]], [coordi[1], coordj[1], diagram_j[1], diagram_i[1]], color=options['fill_color'], alpha=0.35)
+        ax.plot([coordi[0], coordj[0]], [coordi[1], coordj[1]], 'k-')
+        ax.plot([coordi[0], diagram_i[0]], [coordi[1], diagram_i[1]], color=options['color'], linestyle='--')
+        ax.plot([coordj[0], diagram_j[0]], [coordj[1], diagram_j[1]], color=options['color'], linestyle='--')
+        ax.plot([diagram_i[0], diagram_j[0]], [diagram_i[1], diagram_j[1]], color=options['color'])
+    if annotate and all_values:
+        ax.text(0.02, 0.97, f"Max = {max(all_values):.2f}\nMin = {min(all_values):.2f}", transform=ax.transAxes, color=options['color'], va='top')
     if axis_equal:
-        plt.axis('equal')
-    plt.xlabel("X-coordinate")
-    plt.ylabel("Y-coordinate")
-    plt.title(f"Undeformed 2D Frame – {options['name']} Diagram")
-    plt.tight_layout()
+        ax.axis('equal')
+    ax.set_xlabel("X-coordinate")
+    ax.set_ylabel("Y-coordinate")
+    ax.set_title(f"Undeformed 2D Frame – {options['name']} Diagram")
+    fig.tight_layout()
     if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
+        fig.savefig(save_path, dpi=300, bbox_inches='tight')
     if show:
         plt.show()
-    return
+    else:
+        plt.close(fig)
+    return fig, ax
 
 def animate_element_values_2d(element_values_steps, element_value_name='Element Value', interval=10, axis_equal=False, show=True, save_path=None, fps=10):
-    # Animates scalar values associated with elements in a 2D OpenSees model.
-    # Each step can be a dictionary {element_tag: value} or a list of (element_tag, value) pairs.
-    # Example: element_values_steps = [{1: 0.25, 2: 0.50}, {1: 0.40, 2: 0.65}, {1: 0.60, 2: 0.85}]
-    # Element tags must match OpenSees element tags, and each element has one numerical value per step.
-    # Missing element values are displayed in gray.
-    # The color scale remains constant across all analysis steps.
-    # interval controls frame delay in milliseconds; fps controls saved video frame rate.
-    # save_path supports MP4, MOV, M4V, and GIF.
+# Animates the evolution of scalar values associated with elements in a 2D OpenSees model.
+# element_values_steps must be a list containing element values at successive analysis steps. For element values look 'plot_element_values_2d'
+# Each step can be a dictionary {element_tag: value} or an iterable of (element_tag, value) pairs.
+# Each element tag must match an element tag in the OpenSees model.
+# Each element must have a single numerical value per step (e.g., P-M ratio, axial force, or utilization ratio).
+# Example 1: element_values_steps = [{1: 0.25, 2: 0.50}, {1: 0.40, 2: 0.65}, {1: 0.60, 2: 0.85}]
+# Example 2: element_values_steps = [[(1, 0.25), (2, 0.50)], [(1, 0.40), (2, 0.65)], [(1, 0.60), (2, 0.85)]]
+# Elements without a supplied value at a particular step are plotted in gray.
+# element_value_name specifies the animation title and colorbar label.
+# The color scale remains constant across all analysis steps for consistent comparison.
+# interval specifies the delay between frames in milliseconds; fps specifies the saved video's frame rate.
+# save_path supports MP4, MOV, M4V, and GIF formats.
     node_coords = get_node_coords()
     element_nodes = get_element_nodes()
     if not element_values_steps:
@@ -191,6 +196,7 @@ def animate_element_values_2d(element_values_steps, element_value_name='Element 
         raise ValueError("No element values were found.")
     norm = Normalize(vmin=min(all_values), vmax=max(all_values))
     cmap = colormaps.get_cmap('coolwarm')
+    fig, ax = plt.subplots()
     lines = {}
     labels = {}
     initial_values = dict(element_values_steps[0])
@@ -201,28 +207,29 @@ def animate_element_values_2d(element_values_steps, element_value_name='Element 
         yplt = [coordi[1], coordj[1]]
         value = initial_values.get(i)
         color = cmap(norm(value)) if value is not None else 'gray'
-        line, = plt.plot(xplt, yplt, 'o-', color=color)
+        line, = ax.plot(xplt, yplt, 'o-', color=color)
         lines[i] = line
         xm = (coordi[0] + coordj[0]) / 2
         ym = (coordi[1] + coordj[1]) / 2
-        labels[i] = plt.text(xm, ym + 0.02, f"{value:.2f}" if value is not None else "")
+        labels[i] = ax.text(xm, ym + 0.02, f"{value:.2f}" if value is not None else "")
     sm = cm.ScalarMappable(norm=norm, cmap=cmap)
-    plt.colorbar(sm, ax=plt.gca()).set_label(element_value_name)
+    cbar = fig.colorbar(sm, ax=ax)
+    cbar.set_label(element_value_name)
     if axis_equal:
-        plt.axis('equal')
-    plt.xlabel("X-coordinate")
-    plt.ylabel("Y-coordinate")
+        ax.axis('equal')
+    ax.set_xlabel("X-coordinate")
+    ax.set_ylabel("Y-coordinate")
     def update(frame_index):
         values = dict(element_values_steps[frame_index])
         for i in lines:
             value = values.get(i)
             lines[i].set_color(cmap(norm(value)) if value is not None else 'gray')
             labels[i].set_text(f"{value:.2f}" if value is not None else "")
-        plt.title(f"{element_value_name} (Step {frame_index + 1})")
+        ax.set_title(f"{element_value_name} (Step {frame_index + 1})")
         return list(lines.values()) + list(labels.values())
     update(0)
-    plt.tight_layout()
-    ani = FuncAnimation(plt.gcf(), update, frames=len(element_values_steps), interval=interval, blit=False)
+    fig.tight_layout()
+    ani = FuncAnimation(fig, update, frames=len(element_values_steps), interval=interval, blit=False)
     if save_path:
         ext = os.path.splitext(save_path)[1].lower()
         if ext in ('.mp4', '.mov', '.m4v'):
@@ -235,6 +242,6 @@ def animate_element_values_2d(element_values_steps, element_value_name='Element 
     if show:
         plt.show()
     else:
-        plt.close(ani._fig)
+        plt.close(fig)
     return ani
 
