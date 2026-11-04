@@ -100,6 +100,14 @@ class RCFT:
             return self.ri + self.t
 
     @property
+    def h(self):
+        return self.H - 2 * (self.t + self.ri)
+        
+    @property
+    def b(self):
+        return self.B - 2 * (self.t + self.ri)
+
+    @property
     def Hc(self):
         return self.H - 2 * self.t
 
@@ -240,6 +248,84 @@ class RCFT:
                 fs.add_fibers(FiberSingle(self.Ab, x[i], y[i], id_reinf, id_conc))
         return fs
 
+    def Pp(self):
+        # Plastic axial compressive strength        
+        return self.Fy*self.As + self.C2*self.fc*(self.Ac + self.Asr*self.Es/self.Ec)
+
+    def Pno(self):
+        # Nominal axial compressive strength without consideration of length effects
+
+        # Width-to-thickness ratios
+        λ = max(self.b/self.t,self.h/self.t)
+        λp = 2.26*sqrt(self.Es/self.Fy)
+        λr = 3.00*sqrt(self.Es/self.Fy)
+        λmax = 5.00*sqrt(self.Es/self.Fy)
+        
+        if λ <= λp or self.neglect_local_buckling:
+            # Compact Composite
+            return self.Pp()
+            
+        elif λ <= λr:
+            # Noncompact Composite
+            Pp = self.Pp()
+            Py = self.Fy*self.As + 0.7*self.fc*(self.Ac + self.Asr*self.Es/self.Ec)           
+            return Pp - (Pp-Py)*(λ-λp)**2/(λr-λp)**2
+            
+        elif λ <= λmax:
+            # Slender Composite
+            Fn = 9*self.Es/λ**2
+            return Fn*self.As + 0.7*self.fc*(self.Ac + self.Asr*self.Es/self.Ec)
+            
+        else:
+            raise Exception('Width-to-thickness ratio greater than maximum permitted')
+
+    def Mp_commentary(self):
+        ap = (2*self.Fy*self.H*self.t + self.C2*self.fc*self.Bc*self.t)/(4*self.Fy*self.t + self.C2*self.fc*self.Bc)
+        Mp = (self.Bc*self.t*self.Fy)*(ap-self.t/2) + \
+             (ap*2*self.t*self.Fy)*(1/2*ap) + \
+             ((self.H-ap)*2*self.t*self.Fy)*(1/2*(self.H-ap)) + \
+             (self.Bc*self.t*self.Fy)*((self.H-ap)-self.t/2) + \
+             (self.C2*self.fc*(ap-self.t)*self.Bc)*((ap-self.t)/2)
+        return Mp
+
+    def Mn_commentary(self):
+        # Nominal axial compressive strength without consideration of length effects
+
+        # Width-to-thickness ratios
+        λ = max(self.b/self.t,self.h/self.t)
+        λp = 2.26*sqrt(self.Es/self.Fy)
+        λr = 3.00*sqrt(self.Es/self.Fy)
+        λmax = 5.00*sqrt(self.Es/self.Fy)
+        
+        if λ <= λp or self.neglect_local_buckling:
+            # Compact Composite
+            return self.Mp_commentary()
+            
+        elif λ <= λr:
+            # Noncompact Composite
+            Mp = self.Mp_commentary()
+            ay = (2*self.Fy*self.H*self.t + 0.35*self.fc*self.Bc*self.t)/(4*self.Fy*self.t + 0.35*self.fc*self.Bc)
+            My = (self.Bc*self.t*self.Fy)*(ay-self.t/2) + \
+                 (ay*self.t*self.Fy)*(2/3*ay) + \
+                 (ay*self.t*self.Fy)*(2/3*ay) + \
+                 ((self.H-2*ay)*2*self.t*self.Fy)*(ay+(self.H-2*ay)/2) + \
+                 (self.Bc*self.t*self.Fy)*((self.H-ay)-self.t/2) + \
+                 (0.35*self.fc*(ay-self.t)*self.Bc)*(2/3*(ay-self.t))      
+            return Mp - (Mp-My)*(λ-λp)/(λr-λp)
+            
+        elif λ <= λmax:
+            # Slender Composite
+            Fn = 9*self.Es/λ**2
+            an = (self.Fy*self.H*self.t + (0.35*self.fc+self.Fy-Fn)*self.Bc*self.t)/(self.t*(Fn+self.Fy) + 0.35*self.fc*self.Bc)
+            Mn = (self.Bc*self.t*Fn)*(an-self.t/2) + \
+                 (an*2*self.t*0.5*Fn)*(2/3*an) + \
+                 ((self.H-an)*2*self.t*0.5*self.Fy)*(2/3*(self.H-an)) + \
+                 (self.Bc*self.t*self.Fy)*((self.H-an)-self.t/2) + \
+                 (0.35*self.fc*(an-self.t)*self.Bc)*(2/3*(an-self.t))      
+            return Mn
+            
+        else:
+            raise Exception('Width-to-thickness ratio greater than maximum permitted')
 
 def run_example():
     H = 40
